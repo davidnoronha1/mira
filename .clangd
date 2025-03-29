@@ -1,0 +1,22 @@
+CompileFlags:
+  CompilationDatabase: build/
+
+Diagnostics:
+  UnusedIncludes: Strict   # Strict checking for unused includes
+  ClangTidy:
+    Add: 
+      - cppcoreguidelines-*  # Enable C++ Core Guidelines checks
+      - modernize-*          # Suggest modern C++ practices
+      - performance-*        # Optimize performance
+      - readability-*        # Improve readability
+      - bugprone-*           # Detect potential bugs
+      - cert-*               # CERT secure coding guidelines
+      - portability-*        # Portability checks
+    Remove:
+      - cppcoreguidelines-avoid-magic-numbers
+      - readability-magic-numbers
+      - cppcoreguidelines-non-private-member-variables-in-classes
+      - readability-simplify-boolean-expr
+
+Index:
+  Background: Build         # Enable background indexing

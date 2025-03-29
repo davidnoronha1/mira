@@ -1,0 +1,3 @@
+<launch>
+    <node name="pymavlink_commands" pkg="mira2_control_master" exec="alt_master" output="screen" />
+</launch>

@@ -1,0 +1,25 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>mira2_pid_control</name>
+  <version>0.0.0</version>
+  <description>The mira2_pid_control package</description>
+
+  <!-- Maintainer information -->
+  <maintainer email="f3rt@todo.todo">f3rt</maintainer>
+
+  <!-- License information -->
+  <license>TODO</license>
+
+  <!-- Dependencies -->
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <depend>rclcpp</depend>
+  <depend>rclpy</depend>
+  <depend>std_msgs</depend>
+  <depend>custom_msgs</depend>
+  <depend>control_utils</depend>
+<depend>geometry_msgs</depend>
+  <!-- Export information -->
+  <export>
+    <!-- Additional information can go here -->
+  </export>
+</package>

@@ -1,0 +1,4 @@
+<launch>
+    <node pkg="mira2_path_planning" type="gate_navigator_executable" name="gate_balls" output="screen">
+    </node>
+</launch>
