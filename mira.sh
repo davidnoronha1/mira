@@ -16,8 +16,17 @@ install_deps_ws () {
     rosdep install --from-paths src --ignore-src -r -y
 }
 
+get_submodules_ws () {
+    git submodule update --init --recursive
+}
+
+get_latest_ws () {
+    git fetch origin
+    git reset --hard origin/$(git rev-parse --abbrev-ref HEAD)
+}
+
 install_udev_rules () {
-    sudo cp udev/96-mira.rules /etc/udev/rules.d/
+    sudo cp misc/96-mira.rules /etc/udev/rules.d/
     sudo udevadm control --reload-rules
     sudo udevadm trigger
 }

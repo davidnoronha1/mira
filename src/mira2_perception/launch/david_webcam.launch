@@ -1,0 +1,10 @@
+<launch>
+    <node pkg="v4l2_camera" exec="v4l2_camera_node" name="webcam_node">
+        <param name="video_device" value="/dev/davidWebcam" />
+        <param name="image_width" value="640" />
+        <param name="image_height" value="480" />
+        <param name="pixel_format" value="YUYV" />
+        <param name="output_encoding" value="rgb8" />
+        <param name="camera_frame_id" value="camera_frame" />
+    </node>
+</launch>
