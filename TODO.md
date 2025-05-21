@@ -1,1 +1,3 @@
 - [ ] Scripts haven't been migrated
+- [ ] Setup mira2_perception for the different cameras
+- [ ] Image undistortion?
