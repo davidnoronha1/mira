@@ -20,6 +20,7 @@
 <depend>geometry_msgs</depend>
   <!-- Export information -->
   <export>
+  <build_type>ament_cmake</build_type>
     <!-- Additional information can go here -->
   </export>
 </package>
