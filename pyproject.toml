@@ -1,0 +1,12 @@
+[project]
+name = "mira"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "numpy>=2.3.2",
+    "pymavlink>=2.4.49",
+    "pyserial>=3.5",
+    "pyyaml>=6.0.2",
+]
