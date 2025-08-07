@@ -1,4 +1,6 @@
-#!/usr/bin/env sh
+#!/usr/bin/env bash
+set -x
+set -e
 
 source /opt/ros/jazzy/setup.sh
 
