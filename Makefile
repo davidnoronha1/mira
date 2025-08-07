@@ -1,4 +1,5 @@
 .PHONY: master alt_master
+SHELL := /bin/bash
 
 WS := source install/setup.bash
 
