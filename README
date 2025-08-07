@@ -1,0 +1,11 @@
+Packages to install:
+```
+ros-jazzy-ros-base
+ros-jazzy-vision-msgs
+```
+
+Normal usage:
+```
+source mira.sh
+bs_ws
+```
