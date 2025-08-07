@@ -40,9 +40,9 @@ install(TARGETS
 )
 
 # Install include directory
-install(DIRECTORY include/
-  DESTINATION include/
-)
+# install(DIRECTORY include/
+#  DESTINATION include/
+# )
 
 # Install other files (e.g., launch files)
 install(DIRECTORY launch/
