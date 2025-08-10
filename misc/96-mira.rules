@@ -1,2 +1,11 @@
-KERNEL=="ttyACM*", ATTRS{idVendor}=="2341", ATTRS{idProduct}=="0042", MODE="0666", SYMLINK+="Mega"
+# ARDUINO MEGA (NO LONGER IN USE)
+# KERNEL=="ttyACM*", ATTRS{idVendor}=="2341", ATTRS{idProduct}=="0042", MODE="0666", SYMLINK+="Mega"
+
+# PIXHAWK
 KERNEL=="ttyACM*", ATTRS{idVendor}=="1209", ATTRS{idProduct}=="5741", MODE="0666", SYMLINK+="Pixhawk"
+
+# CAMERA 1
+SUBSYSTEM=="usb", ATTRS{iSerial}=="2", ATTRS{idVendor}=="0bda", ATTRS{idProduct}=="5842", MODE="0666"
+SUBSYSTEM=="usb_device", ATTRS{iSerial}=="2", ATTRS{idVendor}=="0bda", ATTRS{idProduct}=="5842", MODE="0666"
+
+SUBSYSTEM=="video4linux", ATTRS{iSerial}=="2", ATTRS{idVendor}=="0bda", ATTRS{idProduct}=="5842", SYMLINK+="camera1"
