@@ -16,9 +16,9 @@
     <arg name="framerate"     default="30"/>
     <arg name="create_server" default="false"/>
 
-    <node pkg="camera_fix_uvc"
-          exec="camera_fix_uvc"
-          name="camera_fix_uvc"
+    <node pkg="camera_driver_uvc"
+          exec="camera_driver_uvc"
+          name="camera_frontcam"
           output="screen">
         <param name="list_devices" value="$(var list_devices)"/>
         <param name="stream"        value="$(var stream)"/>
