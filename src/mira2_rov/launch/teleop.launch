@@ -1,14 +1,15 @@
 <launch>
-  <!-- Define an argument named "autorepeat_rate_arg" with a default value of 1000.0 -->
-  <arg name="autorepeat_rate_arg" default="1000.0" />
+  <!-- Declare an argument -->
+  <arg name="autorepeat_rate_arg" default="1000.0" description="Autorepeat rate for joystick inputs"/>
 
-  <!-- Start joy_node with the specified autorepeat_rate argument -->
-  <node name="joy_node" pkg="joy" type="joy_node" output="screen">
-    <param name="autorepeat_rate" type="double" value="$(arg autorepeat_rate_arg)" />
+  <!-- joy_node -->
+  <node pkg="joy" exec="joy_node" name="joy_node" output="screen">
+    <param name="autorepeat_rate" value="$(var autorepeat_rate_arg)" />
   </node>
 
-  <!-- Start base_joy_controller_node with the same autorepeat_rate argument -->
-  <node pkg="mira2_rov" type="joystick_executable" name="joystick_control_node" output="screen">
-    <param name="autorepeat_rate" type="double" value="$(arg autorepeat_rate_arg)" />
+  <!-- base joystick controller node -->
+  <node pkg="mira2_rov" exec="joystick_exe" name="joystick_control_node" output="screen">
+    <param name="autorepeat_rate" value="$(var autorepeat_rate_arg)" />
   </node>
 </launch>
+

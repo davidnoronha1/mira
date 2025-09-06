@@ -38,5 +38,10 @@ install(DIRECTORY include/
   DESTINATION include/
 )
 
+# launch files
+install(DIRECTORY launch/
+  DESTINATION share/${PROJECT_NAME}/launch
+)
+
 # Export package
 ament_package()
