@@ -1,7 +1,4 @@
 <launch>
-  <node name="controls" pkg="mira2_pid_control" type="yaw_tuning_exe" output="screen">
-  </node>
-
-  <node pkg="mira2_pid_control" type="key_pub.py" name="key_publisher" output="screen">
-  </node>
+  <node pkg="mira2_pid_control" exec="yaw_tuning_exe" name="controls" output="screen"/>
+  <node pkg="mira2_pid_control" exec="key_pub.py" name="key_publisher" output="screen"/>
 </launch>

@@ -1,7 +1,4 @@
 <launch>
-  <node name="controls" pkg="mira2_pid_control" type="depth_tuning_executable" output="screen">
-  </node>
-
-  <node pkg="mira2_pid_control" type="key_pub.py" name="key_publisher" output="screen">
-  </node>
+  <node pkg="mira2_pid_control" exec="depth_tuning_executable" name="controls" output="screen"/>
+  <node pkg="mira2_pid_control" exec="key_pub.py" name="key_publisher" output="screen"/>
 </launch>
