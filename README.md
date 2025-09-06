@@ -37,12 +37,20 @@ fix_vscode_settings
 ```
 
 ## Editing
+
+### VSCode Extensions
 Install the following extensions in vscode for autocompletion:
 - [clangd](https://marketplace.visualstudio.com/items?itemName=llvm-vs-code-extensions.vscode-clangd)
 - [python](https://marketplace.visualstudio.com/items?itemName=ms-python.python)
 
 The settings should be picked up from `.vscode/settings.json`
 There should be a popup in Vscode to install the same extensions
+
+### Package Validator
+To validate that you haven't done any mistakes in a ROS package, you can run the following 
+```
+uv run util/validator/validate_package.py ./src/<PACKAGE NAME>
+```
 
 ## Usage
 
