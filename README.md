@@ -12,7 +12,6 @@ The firmware for the Mira AUV
 - mira2_rov - Contains our joystick controller code
 
 ## Installation
-
 Packages to install:
 ```
 ros-jazzy-ros-base
@@ -30,6 +29,9 @@ fix_vscode_settings
 Install clangd + python extensions in Vscode for the smoothest experience
 
 ## Usage
+
+Make sure you aren't in a python virtual env already (conda), if you encounter python packages missing its usually because the uv venv isnt sourced or you are using conda
+
 Sourcing:
 ```
 source .venv/bin/activate
