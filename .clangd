@@ -17,6 +17,9 @@ Diagnostics:
       - readability-magic-numbers
       - cppcoreguidelines-non-private-member-variables-in-classes
       - readability-simplify-boolean-expr
+      - modernize-use-trailing-return-type
+      - readability-function-cognitive-complexity
+      - modernize-use-using
 
 Index:
   Background: Build         # Enable background indexing
