@@ -1,11 +1,12 @@
+# TODO
 - [ ] Scripts haven't been migrated
-    - [ ] teleop script HAS TO BE MIGRATED ASAP
+    - [X] teleop script HAS TO BE MIGRATED ASAP
 - [ ] Setup mira2_perception for the different cameras
 - [ ] Image undistortion?
 
 
-SETUP FOR AUV:
+## SETUP FOR AUV:
 - [ ] Setup Cameras
       Create more launch files for mira2_perception
-- [ ] Setup udev rule for PixHawk (/dev/Pixhawk)
+- [X] Setup udev rule for PixHawk (/dev/Pixhawk)
       Sample file should be in misc/
