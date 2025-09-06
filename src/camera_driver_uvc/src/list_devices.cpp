@@ -1,7 +1,8 @@
 #include <libuvc/libuvc.h>
 #include <cstdlib>
+#include <rclcpp/rclcpp.hpp>
 
-int list_devices(uvc_context_t *ctx)
+auto list_devices(uvc_context_t *ctx, rclcpp::Node::SharedPtr nh) -> int
 {
     uvc_error_t res;
     uvc_device_t **dev_list;
@@ -14,7 +15,7 @@ int list_devices(uvc_context_t *ctx)
         return EXIT_FAILURE;
     }
 
-    printf("Found devices:\n");
+    RCLCPP_INFO(nh->get_logger(), "Found devices:");
     for (int i = 0; dev_list[i] != NULL; ++i)
     {
         uvc_device_t *dev = dev_list[i];
@@ -28,13 +29,11 @@ int list_devices(uvc_context_t *ctx)
             continue;
         }
 
-        printf(" [%d] Vendor ID: 0x%04x, Product ID: 0x%04x, Product Name: %s, Serial Number: %s",
+        RCLCPP_INFO(nh->get_logger(), " [%d] Vendor ID: 0x%04x, Product ID: 0x%04x, Product Name: %s, Serial Number: %s",
                i, desc->idVendor, desc->idProduct, desc->product, desc->serialNumber);
 
         if (desc->serialNumber)
-            printf(", Serial: %s", desc->serialNumber);
-
-        printf("\n");
+            RCLCPP_INFO(nh->get_logger(), ", Serial: %s", desc->serialNumber);
 
         uvc_free_device_descriptor(desc);
     }

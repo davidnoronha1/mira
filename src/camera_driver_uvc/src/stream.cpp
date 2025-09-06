@@ -39,25 +39,24 @@ static void cb(uvc_frame_t *frame, void *ptr) {
 }
 
 int begin_streaming(uvc_context_t *ctx, CameraInfo csel,
-                    StreamInfo streaminfo) {
+                    StreamInfo streaminfo, rclcpp::Node::SharedPtr node) {
 
-  printf(INFO "Starting streaming with the following parameters:\n" END);
-  printf(HEADING "Camera Info:\n" END);
-  printf("  Vendor ID: 0x%04x\n", csel.vendor_id);
-  printf("  Product ID: 0x%04x\n", csel.product_id);
-  if (csel.serial_no)
-    printf("  Serial No: %s\n", csel.serial_no);
-  else
-    printf("  Serial No: (none)\n");
+  RCLCPP_INFO(node->get_logger(), "Starting streaming with the following parameters:");
+  RCLCPP_INFO(node->get_logger(), "Camera Info:");
+  RCLCPP_INFO(node->get_logger(), "  Vendor ID: 0x%04x", csel.vendor_id);
+  RCLCPP_INFO(node->get_logger(), "  Product ID: 0x%04x", csel.product_id);
+  if (csel.serial_no) {
+    RCLCPP_INFO(node->get_logger(), "  Serial No: %s", csel.serial_no);
+  } else {
+    RCLCPP_INFO(node->get_logger(), "  Serial No: (none)");
+}
 
-  printf(HEADING "\nStream Info:\n" END);
-  printf("  Width: %d\n", streaminfo.width);
-  printf("  Height: %d\n", streaminfo.height);
-  printf("  FPS: %d\n", streaminfo.fps);
-  printf("  Display to Screen: %s\n",
+  RCLCPP_INFO(node->get_logger(), "Stream Info:");
+  RCLCPP_INFO(node->get_logger(), "  Width: %d", streaminfo.width);
+  RCLCPP_INFO(node->get_logger(), "  Height: %d", streaminfo.height);
+  RCLCPP_INFO(node->get_logger(), "  FPS: %d", streaminfo.fps);
+  RCLCPP_INFO(node->get_logger(), "  Display to Screen: %s",
          streaminfo.display_to_screen ? "Yes" : "No");
-
-  puts("\n");
   uvc_device_t *dev;
   uvc_device_handle_t *devh;
   uvc_stream_ctrl_t ctrl;
@@ -70,10 +69,11 @@ int begin_streaming(uvc_context_t *ctx, CameraInfo csel,
 
   if (res < 0) {
     uvc_perror(res, "uvc_find_device"); /* no devices found */
-    fprintf(stderr, CRITICAL "No device found with Vendor ID: 0x%04x, Product ID: 0x%04x\nUse the --list-devices option to see available devices.\n",
-            csel.vendor_id, csel.product_id);
+    RCLCPP_ERROR(node->get_logger(), 
+                 "No device found with Vendor ID: 0x%04x, Product ID: 0x%04x\nUse the --list-devices option to see available devices.",
+                 csel.vendor_id, csel.product_id);
   } else {
-    puts(OPERATION "Device found");
+    RCLCPP_INFO(node->get_logger(), "Device found");
 
     /* Try to open the device: requires exclusive access */
     res = uvc_open(dev, &devh);
@@ -81,9 +81,9 @@ int begin_streaming(uvc_context_t *ctx, CameraInfo csel,
     if (res < 0) {
       uvc_perror(res, "uvc_open"); /* unable to open device */
       if (res == UVC_ERROR_ACCESS) {
-        fprintf(
-            stderr,
-            CRITICAL "failed to access device:\n"
+        RCLCPP_ERROR(
+            node->get_logger(),
+            "failed to access device:\n"
             "===========================================================\n"
             "Access denied to device, try running as root or with sudo.\n"
             "Or for temporary access run the following command:\n"
@@ -92,7 +92,7 @@ int begin_streaming(uvc_context_t *ctx, CameraInfo csel,
             uvc_get_bus_number(dev), uvc_get_device_address(dev));
       }
     } else {
-      puts(OPERATION "Device opened");
+      RCLCPP_INFO(node->get_logger(), "Device opened");
 
       /* Print out a message containing all the information that libuvc
        * knows about the device */
@@ -114,8 +114,9 @@ int begin_streaming(uvc_context_t *ctx, CameraInfo csel,
         fps = 10000000 / frame_desc->dwDefaultFrameInterval;
       }
 
-      printf(OPERATION "First format: (%4s) %dx%d %dfps\n", format_desc->fourccFormat,
-             width, height, fps);
+      RCLCPP_INFO(node->get_logger(),
+          "First format: (%4s) %dx%d %dfps",
+          format_desc->fourccFormat, width, height, fps);
 
       /* Try to negotiate first stream profile */
       res = uvc_get_stream_ctrl_format_size(
@@ -129,9 +130,9 @@ int begin_streaming(uvc_context_t *ctx, CameraInfo csel,
 
       if (res < 0) {
         uvc_perror(res, "get_mode");
-        fprintf(stderr, CRITICAL "Device doesn't provide a matching stream\n"
-                        "Consult v4l2-ctl --all to find compatible formats for "
-                        "this device\n");
+        RCLCPP_ERROR(node->get_logger(),
+               "Device doesn't provide a matching stream\n"
+               "Consult v4l2-ctl --all to find compatible formats for this device");
       } else {
         /* Start the video stream. The library will call user function cb:
          *   cb(frame, (void *) 12345)
@@ -141,19 +142,19 @@ int begin_streaming(uvc_context_t *ctx, CameraInfo csel,
         if (res < 0) {
           uvc_perror(res, "start_streaming"); /* unable to start stream */
         } else {
-          puts(OPERATION "Started Streaming...");
+          RCLCPP_INFO(node->get_logger(), "Started Streaming...");
 
           /* enable auto exposure - see uvc_set_ae_mode documentation */
-          puts(OPERATION "Enabling auto exposure ...");
+          RCLCPP_INFO(node->get_logger(), "Enabling auto exposure ...");
           const uint8_t UVC_AUTO_EXPOSURE_MODE_AUTO = 2;
           res = uvc_set_ae_mode(devh, UVC_AUTO_EXPOSURE_MODE_AUTO);
           if (res == UVC_SUCCESS) {
-            puts(OPERATION " ... enabled auto exposure");
+            RCLCPP_INFO(node->get_logger(), " ... enabled auto exposure");
           } else if (res == UVC_ERROR_PIPE) {
             /* this error indicates that the camera does not support the full AE
              * mode; try again, using aperture priority mode (fixed aperture,
              * variable exposure time) */
-            puts(OPERATION " ... full AE not supported, trying aperture priority mode");
+            RCLCPP_INFO(node->get_logger(), " ... full AE not supported, trying aperture priority mode");
             const uint8_t UVC_AUTO_EXPOSURE_MODE_APERTURE_PRIORITY = 8;
             res =
                 uvc_set_ae_mode(devh, UVC_AUTO_EXPOSURE_MODE_APERTURE_PRIORITY);
@@ -161,7 +162,7 @@ int begin_streaming(uvc_context_t *ctx, CameraInfo csel,
               uvc_perror(res, " ... uvc_set_ae_mode failed to enable aperture "
                               "priority mode");
             } else {
-              puts(OPERATION " ... enabled aperture priority auto exposure mode");
+              RCLCPP_INFO(node->get_logger(), " ... enabled aperture priority auto exposure mode");
             }
           } else {
             uvc_perror(
@@ -170,17 +171,17 @@ int begin_streaming(uvc_context_t *ctx, CameraInfo csel,
           }
 
 
-          printf(INFO "Press CTRL-C to stop streaming.\n" END);
+          RCLCPP_INFO(node->get_logger(), "Press CTRL-C to stop streaming.");
           pause();
 
           uvc_stop_streaming(devh);
-          puts("Done streaming.");
+          RCLCPP_INFO(node->get_logger(), "Done streaming.");
         }
       }
 
       /* Release our handle on the device */
       uvc_close(devh);
-      puts("Device closed");
+      RCLCPP_INFO(node->get_logger(), "Device closed");
     }
 
     /* Release the device descriptor */

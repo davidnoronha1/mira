@@ -18,12 +18,12 @@ int main(int argc, char *argv[]) {
         return EXIT_FAILURE;
     }
 
-    // bool list_devices_opt = nh->declare_parameter("list_devices", false);
+    bool list_devices_opt = nh->declare_parameter("list_devices", false);
     bool stream = nh->declare_parameter("stream", false);
 
-    // if (list_devices_opt) {
-        list_devices(ctx);
-    // } 
+    if (list_devices_opt) {
+        list_devices(ctx, nh);
+    } 
     
     if (stream) {
         int vendor_id = nh->declare_parameter("vendor_id", -1);
@@ -48,7 +48,7 @@ int main(int argc, char *argv[]) {
         std::string serial_no = nh->declare_parameter("serial_no", std::string());
 
         if (vendor_id == -1 || product_id == -1) {
-            fprintf(stderr, "Vendor ID and Product ID must be specified. (%d, %d)\n", vendor_id, product_id);
+            RCLCPP_ERROR(nh->get_logger(), "Vendor ID and Product ID must be specified. (%d, %d)", vendor_id, product_id);
             uvc_exit(ctx);
             return EXIT_FAILURE;
         }
@@ -63,7 +63,7 @@ int main(int argc, char *argv[]) {
                 nh->declare_parameter("create_server", false) && frame_format == UVC_FRAME_FORMAT_MJPEG,
                 fps,
                 nh->create_publisher<sensor_msgs::msg::Image>("camera/image", 0)
-            });
+            }, nh);
     }
 
     uvc_exit(ctx);

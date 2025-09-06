@@ -44,6 +44,10 @@ target_link_libraries(camera_driver_uvc
     ${cv_bridge_LIBRARIES}
 )
 
+install(DIRECTORY launch/
+  DESTINATION share/${PROJECT_NAME}/launch
+)
+
 install(TARGETS camera_driver_uvc
     DESTINATION lib/${PROJECT_NAME}
 )
