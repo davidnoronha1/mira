@@ -18,3 +18,6 @@ master:
 
 alt_master:
 	${WS} && ros2 launch mira2_control_master alt_master.launch
+
+teleop:
+	${wS} && ros2 launch mira2_rov teleop.launch

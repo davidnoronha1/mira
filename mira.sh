@@ -8,6 +8,8 @@ fi
 
 source /opt/ros/jazzy/setup.sh
 
+export RCUTILS_CONSOLE_OUTPUT_FORMAT="[{severity}] [{name}]: {message}"
+
 source_ws () {
     # export PS1="(mira) $PS1"
     source install/setup.bash
