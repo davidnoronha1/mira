@@ -7,6 +7,9 @@ requires-python = ">=3.12"
 dependencies = [
     "numpy>=2.3.2",
     "pymavlink>=2.4.49",
+    "pyqt6>=6.9.1",
+    "pyqtgraph>=0.13.7",
     "pyserial>=3.5",
     "pyyaml>=6.0.2",
+    "tk>=0.1.0",
 ]
