@@ -1,4 +1,3 @@
 SUBSYSTEM=="usb", ATTRS{idVendor}=="322e", ATTRS{idProduct}=="202c", MODE="0666"
 SUBSYSTEM=="usb_device", ATTRS{idVendor}=="322e", ATTRS{idProduct}=="202c", MODE="0666"
-
 SUBSYSTEM=="video4linux", ATTRS{idVendor}=="322e", ATTRS{idProduct}=="202c", SYMLINK+="davidWebcam"

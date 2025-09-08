@@ -6,3 +6,11 @@ install/
 
 # Ignore log directory
 log/
+
+# Ignore .venv
+.venv/
+**/.venv/
+
+# Ignore .cache
+.cache/
+**/.cache/

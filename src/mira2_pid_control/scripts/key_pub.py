@@ -1,17 +1,30 @@
 #!/usr/bin/python3
 
-import rospy
+import rclpy
+from rclpy.node import Node
 from std_msgs.msg import Char
 
-if __name__ == "__main__":
-    rospy.init_node("key_mapper")
-    pub = rospy.Publisher("/keys", Char, queue_size=1)
-    while not rospy.is_shutdown():
+
+def main(args=None):
+    rclpy.init(args=args)
+    node = rclpy.create_node("key_mapper")
+    pub = node.create_publisher(Char, "/keys", 10)
+    while rclpy.ok():
         c = Char()
         # print("Send input:")
-        input_char = input()
-        if len(input_char) == 1:
-            c.data = ord(input_char)
-            pub.publish(c)
-        else:
-            print("Please input only one character.")
+        try:
+            input_char = input()
+            if len(input_char) == 1:
+                c.data = ord(input_char)
+                pub.publish(c)
+            else:
+                node.get_logger().info("Please input only one character.")
+        except (EOFError, KeyboardInterrupt):
+            break
+
+    node.destroy_node()
+    rclpy.shutdown()
+
+
+if __name__ == "__main__":
+    main()

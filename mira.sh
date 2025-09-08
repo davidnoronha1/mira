@@ -1,6 +1,14 @@
 #!/usr/bin/env bash
 
+if [ ! -d "/opt/ros/jazzy" ]; then
+    echo "❌ Error: ROS Jazzy not found at /opt/ros/jazzy."
+    echo "Only ROS Jazzy is supported by this workspace."
+    exit 1
+fi
+
 source /opt/ros/jazzy/setup.sh
+
+export RCUTILS_CONSOLE_OUTPUT_FORMAT="[{severity}] [{name}]: {message}"
 
 source_ws () {
     # export PS1="(mira) $PS1"

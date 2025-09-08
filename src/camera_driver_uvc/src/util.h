@@ -1,0 +1,5 @@
+#define HEADING "\033[1m"
+#define END "\033[0m"
+#define INFO "\033[1;34minfo" END " "
+#define OPERATION "\033[1;32mop" END " "
+#define CRITICAL "\033[1;31mcritical" END " "

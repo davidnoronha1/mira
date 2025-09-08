@@ -55,7 +55,7 @@ int main(int argc, char **argv) {
   depth.ki = -0.2;   // -0.2;
   depth.kd = -10.69; // -15.69;
 
-  printf("lilbitchlaky\n");
+  RCLCPP_INFO(node->get_logger(), "lilbitchlaky");
 
   // Arm Disarm Parameter
   bool arm = false;

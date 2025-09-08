@@ -1,0 +1,5 @@
+<launch>
+    <node pkg="camera_driver_uvc" exec="camera_driver_uvc" output="screen">
+        <param name="list_devices" value="true"/>
+    </node>
+</launch>

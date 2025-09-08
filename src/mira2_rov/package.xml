@@ -21,6 +21,7 @@
 
   <!-- Export information -->
   <export>
+    <build_type>ament_cmake</build_type>
     <!-- Additional information can be added here -->
   </export>
 </package>
