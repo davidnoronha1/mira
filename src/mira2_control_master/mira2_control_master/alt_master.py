@@ -23,7 +23,7 @@ class PixhawkMaster(Node):
     A class to interface with a Pixhawk via MAVLink, handle mode switching,
     arming/disarming, and send telemetry data.
     """
-    
+
     def __init__(self, port_addr, auv_mode):
         super().__init__("pymav_master")
         self.master_kill = True
@@ -40,6 +40,7 @@ class PixhawkMaster(Node):
         self.vfr_hud_msg = ardupilotmega.MAVLink_vfr_hud_message
         self.depth_msg = ardupilotmega.MAVLink_scaled_pressure2_message
         self.thruster_pwms_msg = ardupilotmega.MAVLink_servo_output_raw_message
+        self.ahrs_msg = ardupilotmega.MAVLink_ahrs2_message
 
         # ROS 2 publisher and subscriber
         self.telemetry_pub = self.create_publisher(Telemetry, "/master/telemetry", 10)
