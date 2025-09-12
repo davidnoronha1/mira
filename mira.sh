@@ -16,7 +16,8 @@ source_ws () {
 }
 
 build_ws () {
-    colcon build --parallel-workers 4 --cmake-args -DCMAKE_EXPORT_COMPILE_COMMANDS=ON 
+    make build
+    # colcon build --parallel-workers 4 --cmake-args -DCMAKE_EXPORT_COMPILE_COMMANDS=ON 
     # source_ws
 }
 
