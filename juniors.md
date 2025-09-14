@@ -1,2 +1,3 @@
-Name : Saksham Dhakad
-Email : saksham.dhakad2024@vitstudent.ac.in 
+Pranavamurthy K S - pranavamurthyks45@gmail.com
+Arnav Madaan - arnavmadaan123@gmail.com
+saksham d -saksham98@gmail.com
