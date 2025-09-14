@@ -34,6 +34,9 @@ uv sync
 # Fix for editor autocompletion
 source mira.sh
 fix_vscode_settings
+
+# Install libuvc
+sudo apt-get install libuvc-dev
 ```
 
 ## Editing
