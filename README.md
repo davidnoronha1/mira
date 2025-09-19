@@ -20,12 +20,12 @@ Packages to install:
 # Install uv
 curl -LsSf https://astral.sh/uv/install.sh | less
 
-# Install dependencies
-rosdep install --from-paths src -y --ignore-src
-
 # Clone the repository
 git clone https://github.com/davidnoronha1/mira.git
 cd mira
+
+# Install dependencies
+make install-deps
 
 # Sync virtual enviroment (python)
 uv sync
