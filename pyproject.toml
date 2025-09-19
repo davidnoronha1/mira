@@ -16,3 +16,9 @@ dependencies = [
     "pyyaml>=6.0.2",
     "tk>=0.1.0",
 ]
+
+[tools.pyright]
+stubPath = "./misc/stubs"
+
+[tool.mypy]
+mypy_path = "./misc/stubs"

@@ -21,8 +21,7 @@ Packages to install:
 curl -LsSf https://astral.sh/uv/install.sh | less
 
 # Install dependencies
-sudo apt install ros-jazzy-ros-base \
-ros-jazzy-vision-msgs
+rosdep install --from-paths src -y --ignore-src
 
 # Clone the repository
 git clone https://github.com/davidnoronha1/mira.git
@@ -34,9 +33,6 @@ uv sync
 # Fix for editor autocompletion
 source mira.sh
 fix_vscode_settings
-
-# Install libuvc
-sudo apt-get install libuvc-dev
 ```
 
 ## Editing
