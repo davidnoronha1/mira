@@ -1,5 +1,6 @@
 #pragma once
 #include <libuvc/libuvc.h>
+#include <memory>
 #include <rclcpp/node.hpp>
 #include <rclcpp/publisher.hpp>
 #include <rclcpp/rclcpp.hpp>
@@ -20,6 +21,7 @@ typedef struct {
     bool create_server;
     int fps;
     rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr publisher;
+    std::shared_ptr<rclcpp::Node> node;
 } StreamInfo;
 
 auto list_devices(uvc_context_t *ctx, rclcpp::Node::SharedPtr nh) -> int;

@@ -11,6 +11,7 @@ find_package(rclcpp REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(OpenCV REQUIRED)
 find_package(PkgConfig REQUIRED)
+find_package(camera_info_manager REQUIRED)
 pkg_check_modules(LIBUVC REQUIRED libuvc)
 
 include_directories(
@@ -34,6 +35,7 @@ add_executable(camera_driver_uvc ${CAMERA_DRIVER_UVC_SOURCES})
 
 ament_target_dependencies(camera_driver_uvc
     rclcpp
+    camera_info_manager
     sensor_msgs
     OpenCV
 )

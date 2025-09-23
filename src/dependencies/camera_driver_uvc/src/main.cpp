@@ -1,7 +1,8 @@
-#include <stdio.h>
 #include <libuvc/libuvc.h>
 #include <cstdlib>
 #include "main.h"
+#include <camera_info_manager/camera_info_manager.hpp>
+#include <rclcpp/qos.hpp>
 
 int main(int argc, char *argv[]) {
 
@@ -18,12 +19,21 @@ int main(int argc, char *argv[]) {
         return EXIT_FAILURE;
     }
 
-    bool list_devices_opt = nh->declare_parameter("list_devices", false);
+    // bool list_devices_opt = nh->declare_parameter("list_devices", false);
     bool stream = nh->declare_parameter("stream", false);
+    std::string camera_info_url = nh->declare_parameter("camera_info_url", "");
+    std::string camera_label = nh->declare_parameter("label", "camera");
+    camera_info_manager::CameraInfoManager cinfo(nh.get(), camera_label, camera_info_url);
 
-    if (list_devices_opt) {
-        list_devices(ctx, nh);
-    } 
+    if (!camera_info_url.empty()) {
+        try {
+            cinfo.getCameraInfo();
+        } catch (const std::exception &e) {
+            RCLCPP_WARN(nh->get_logger(), "Failed to load camera info from URL: %s", camera_info_url.c_str());
+        }
+    }
+
+    list_devices(ctx, nh);
     
     if (stream) {
         int vendor_id = nh->declare_parameter("vendor_id", -1);
@@ -62,7 +72,8 @@ int main(int argc, char *argv[]) {
                 display_to_screen,
                 nh->declare_parameter("create_server", false) && frame_format == UVC_FRAME_FORMAT_MJPEG,
                 fps,
-                nh->create_publisher<sensor_msgs::msg::Image>("camera/image", 0)
+                nh->create_publisher<sensor_msgs::msg::Image>(camera_label + "/image_raw", 10),
+                nh
             }, nh);
     }
 

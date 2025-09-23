@@ -18,6 +18,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/EmergencyKill.msg"
   "msg/Depth.msg"
   "msg/Heading.msg"
+  "msg/ConfidenceLevel.msg"
   DEPENDENCIES sensor_msgs std_msgs
 )
 

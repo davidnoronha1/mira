@@ -36,6 +36,9 @@ static void cb(uvc_frame_t *frame, void *ptr) {
       }
     }
   }
+
+  // test with removing this - it might not be necessary
+  // rclcpp::spin_some(sinfo.node);
 }
 
 int begin_streaming(uvc_context_t *ctx, CameraInfo csel,
@@ -172,7 +175,7 @@ int begin_streaming(uvc_context_t *ctx, CameraInfo csel,
 
 
           RCLCPP_INFO(node->get_logger(), "Press CTRL-C to stop streaming.");
-          pause();
+          rclcpp::spin(node);
 
           uvc_stop_streaming(devh);
           RCLCPP_INFO(node->get_logger(), "Done streaming.");

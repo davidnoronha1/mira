@@ -44,6 +44,11 @@ test-build-in-docker:
 		source .venv/bin/activate && \
 		colcon build --parallel-workers 4 --cmake-args -DCMAKE_EXPORT_COMPILE_COMMANDS=ON"
 
+b: check-ros
+	@source /opt/ros/jazzy/setup.bash && \
+	source .venv/bin/activate && \
+	colcon build --parallel-workers 4 --cmake-args -DCMAKE_EXPORT_COMPILE_COMMANDS=ON --packages-select ${P}
+
 # Install dependencies
 install-deps: check-ros check-uv
 	@echo "Installing Python dependencies..."
@@ -145,6 +150,7 @@ help:
 	@echo "                 Use DEVPATH=/dev/ttyACM0 to specify device path if needed"
 	@echo "  update        - Get latest changes from remote"
 	@echo "  install-udev  - Install udev rules"
+	@echo "  b 		   - Build specific package (set P=package_name)"
 	@echo "  bs            - Build and source workspace"
 	@echo "  fix-vscode    - Fix VSCode settings paths"
 	@echo "  setup         - Complete workspace setup"
