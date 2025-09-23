@@ -37,6 +37,13 @@ build: check-ros
 	source .venv/bin/activate && \
 	colcon build --parallel-workers 4 --cmake-args -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
 
+test-build-in-docker:
+	@echo "Building workspace inside Docker..."
+	@docker run --rm -v $(PWD):/workspace -w /workspace mira \
+		bash -c "make clean && source /opt/ros/jazzy/setup.bash && \
+		source .venv/bin/activate && \
+		colcon build --parallel-workers 4 --cmake-args -DCMAKE_EXPORT_COMPILE_COMMANDS=ON"
+
 # Install dependencies
 install-deps: check-ros check-uv
 	@echo "Installing Python dependencies..."
