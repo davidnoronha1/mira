@@ -10,6 +10,11 @@
  * quick processing you need, or have it put the frame into your application's
  * input queue. If this function takes too long, you'll start losing frames. */
 static void cb(uvc_frame_t *frame, void *ptr) {
+  using namespace std::chrono;
+  static auto last_time = steady_clock::now();
+  static int frame_count = 0;
+  static double fps = 0.0;
+
   StreamInfo sinfo = *((StreamInfo *)ptr);
   // We have only implemented support for mjpeg
   if (frame->frame_format == UVC_FRAME_FORMAT_MJPEG) {
@@ -31,6 +36,27 @@ static void cb(uvc_frame_t *frame, void *ptr) {
       sinfo.publisher->publish(msg);
 
       if (sinfo.display_to_screen && !img.empty()) {
+        // ---- FPS counter ----
+        frame_count++;
+        auto now = steady_clock::now();
+        auto elapsed = duration_cast<seconds>(now - last_time).count();
+        if (elapsed >= 1) {
+          fps = frame_count / (double)elapsed;
+          frame_count = 0;
+          last_time = now;
+        }
+
+        // Display FPS on image
+        if (fps > 0.0) {
+          cv::putText(img,
+                      "FPS: " + std::to_string((int)fps),
+                      cv::Point(20, 40),
+                      cv::FONT_HERSHEY_SIMPLEX,
+                      1.0,
+                      cv::Scalar(0, 255, 0),
+                      2);
+        }
+
         cv::imshow("MJPEG Stream", img);
         cv::waitKey(1); // Needed to update the window
       }
