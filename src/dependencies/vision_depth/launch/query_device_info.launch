@@ -1,0 +1,5 @@
+<launch>
+	<node pkg="vision_depth" exec="vision_depth_exe" name="query_device_info" output="screen">
+		<param name="verbose" value="true"/>
+	</node>
+</launch>
