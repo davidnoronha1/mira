@@ -3,23 +3,23 @@
 #include "main.h"
 #include <camera_info_manager/camera_info_manager.hpp>
 #include <rclcpp/qos.hpp>
+#include "camera_driver_uvc/clog.hpp"
 
-int main(int argc, char *argv[]) {
-
+auto main(int argc, char *argv[]) -> int {
+    try {
     rclcpp::init(argc, argv);
     auto nh = rclcpp::Node::make_shared("camera_driver_uvc");
 
-    uvc_context_t *ctx;
+    uvc_context_t *ctx = nullptr;
     uvc_error_t res;
 
     // Initialize context (libusb context handled internally)
     res = uvc_init(&ctx, NULL);
     if (res != UVC_SUCCESS) {
-        uvc_perror(res, "uvc_init");
+        plog::error() << "uvc_init failed: " << uvc_strerror(res);
         return EXIT_FAILURE;
     }
 
-    // bool list_devices_opt = nh->declare_parameter("list_devices", false);
     bool stream = nh->declare_parameter("stream", false);
     std::string camera_info_url = nh->declare_parameter("camera_info_url", "");
     std::string camera_label = nh->declare_parameter("label", "camera");
@@ -29,12 +29,12 @@ int main(int argc, char *argv[]) {
         try {
             cinfo.getCameraInfo();
         } catch (const std::exception &e) {
-            RCLCPP_WARN(nh->get_logger(), "Failed to load camera info from URL: %s", camera_info_url.c_str());
+            plog::warn() << "Failed to load camera info from URL: " << camera_info_url << " (" << e.what() << ")";
         }
     }
 
-    list_devices(ctx, nh);
-    
+    list_devices(ctx);
+
     if (stream) {
         int vendor_id = nh->declare_parameter("vendor_id", -1);
         int product_id = nh->declare_parameter("product_id", -1);
@@ -58,7 +58,7 @@ int main(int argc, char *argv[]) {
         std::string serial_no = nh->declare_parameter("serial_no", std::string());
 
         if (vendor_id == -1 || product_id == -1) {
-            RCLCPP_ERROR(nh->get_logger(), "Vendor ID and Product ID must be specified. (%d, %d)", vendor_id, product_id);
+            plog::error() << "Vendor ID and Product ID must be specified. (" << vendor_id << ", " << product_id << ")";
             uvc_exit(ctx);
             return EXIT_FAILURE;
         }
@@ -72,12 +72,15 @@ int main(int argc, char *argv[]) {
                 display_to_screen,
                 nh->declare_parameter("create_server", false) && frame_format == UVC_FRAME_FORMAT_MJPEG,
                 fps,
-                nh->create_publisher<sensor_msgs::msg::Image>(camera_label + "/image_raw", 10),
+                nh->create_publisher<sensor_msgs::msg::Image>(camera_label + "/image_raw", rclcpp::SensorDataQoS()),
                 nh
-            }, nh);
+            });
     }
 
     uvc_exit(ctx);
-
+    } catch (const std::exception &e) {
+        plog::exception() << "Exception: " << e.what();
+        return EXIT_FAILURE;
+    }
     return EXIT_SUCCESS;
 }

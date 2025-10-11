@@ -1,28 +1,38 @@
 #include "app.hpp"
+#include <cstdlib>
+#include <exception>
+#include <rclcpp/utilities.hpp>
+#include "vision_depth/clog.hpp"
 
 int main(int argc, char **argv) {
-	rclcpp::init(argc, argv);
+  try {
+    rclcpp::init(argc, argv, rclcpp::InitOptions(), rclcpp::SignalHandlerOptions::None);
+    auto node_h = rclcpp::Node::make_shared("vision_depth_node");
+    ov::Core core;
 
-	ov::Core core;
-	auto nh = rclcpp::Node::make_shared("vision_depth_node");
+    auto verbose = node_h->declare_parameter("verbose", false);
 
-	auto verbose = nh->declare_parameter("verbose", false);
+    if (verbose) {
+      list_devices(node_h, core);
+    }
 
-	if (verbose) {
-		list_devices(nh, core);
-	}
+    auto use_cv_camera = node_h->declare_parameter("webcam", false);
+    auto topic = node_h->declare_parameter("image_topic", "");
 
-	auto use_cv_camera = nh->declare_parameter("webcam", false);
+    if (use_cv_camera) {
+	  plog::info() << "Starting in webcam mode";
+      cv_camera_depth(node_h, core);
+    }
 
-	if (use_cv_camera) {
-		cv_camera_depth(nh, core);
-	}
+    if (!use_cv_camera && !topic.empty()) {
+	  plog::info() << "Starting in ROS2 topic mode, subscribing to " << topic;
+      topic_camera_depth(node_h, core, topic);
+    }
 
-	auto topic = nh->declare_parameter("image_topic", "");
-
-	if (!topic.empty()) {
-		topic_camera_depth(nh, core, topic);
-	}
-
-	rclcpp::shutdown();
+  } catch (std::exception &e) {
+	plog::exception() << "Fatal error: " << e.what();
+	return EXIT_FAILURE;
+  }
+  rclcpp::shutdown();
+  return EXIT_SUCCESS;
 }

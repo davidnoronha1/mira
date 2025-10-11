@@ -8,18 +8,10 @@ Diagnostics:
       - cppcoreguidelines-*  # Enable C++ Core Guidelines checks
       - modernize-*          # Suggest modern C++ practices
       - performance-*        # Optimize performance
-      - readability-*        # Improve readability
       - bugprone-*           # Detect potential bugs
       - cert-*               # CERT secure coding guidelines
       - portability-*        # Portability checks
-    Remove:
-      - cppcoreguidelines-avoid-magic-numbers
-      - readability-magic-numbers
-      - cppcoreguidelines-non-private-member-variables-in-classes
-      - readability-simplify-boolean-expr
-      - modernize-use-trailing-return-type
-      - readability-function-cognitive-complexity
-      - modernize-use-using
+      - readability-*         # Improve code readability
 
 Index:
   Background: Build         # Enable background indexing

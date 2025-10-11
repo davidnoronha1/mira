@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.10)
 project(camera_driver_uvc)
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
@@ -44,6 +44,7 @@ target_link_libraries(camera_driver_uvc
     ${LIBUVC_LIBRARIES}
     ${OpenCV_LIBS}
     ${cv_bridge_LIBRARIES}
+    stdc++_libbacktrace
 )
 
 install(DIRECTORY launch/

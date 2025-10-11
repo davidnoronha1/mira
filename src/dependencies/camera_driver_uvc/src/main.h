@@ -24,5 +24,5 @@ typedef struct {
     std::shared_ptr<rclcpp::Node> node;
 } StreamInfo;
 
-auto list_devices(uvc_context_t *ctx, rclcpp::Node::SharedPtr nh) -> int;
-auto begin_streaming(uvc_context_t *ctx, CameraInfo csel, StreamInfo streaminfo, rclcpp::Node::SharedPtr nh) -> int;
+auto list_devices(uvc_context_t *ctx) -> int;
+auto begin_streaming(uvc_context_t *ctx, CameraInfo csel, StreamInfo streaminfo) -> int;

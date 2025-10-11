@@ -1,25 +1,32 @@
 #include "app.hpp"
 #include "sensor_msgs/msg/image.hpp"
+#include "vision_depth/clog.hpp"
 #include <ament_index_cpp/get_package_share_directory.hpp>
 #include <chrono>
 #include <cv_bridge/cv_bridge.hpp>
+#include <exception>
 #include <opencv2/opencv.hpp>
 #include <openvino/openvino.hpp>
+#include <openvino/runtime/infer_request.hpp>
+#include <rclcpp/publisher.hpp>
 #include <rclcpp/qos.hpp>
 #include <rclcpp/rclcpp.hpp>
 
-class DepthAnything {
+class YOLO11 {
 public:
-  DepthAnything(ov::Core &core, const std::string &device, int height,
+  YOLO11(ov::Core &core, const std::string &device, int height,
                 int width)
       : device_(device) {
     std::string package_share_dir =
         ament_index_cpp::get_package_share_directory("vision_depth");
     std::string model_path;
 
+    plog::info() << "Initializing DepthAnything on device: " << device;
+    plog::info() << "Input image height: " << height << ", width: " << width;
+
     model_path =
         package_share_dir + "/models/depth-anything/depth-anything_int8.xml";
-    std::cout << "Loading INT8 model from " << model_path << std::endl;
+    plog::info() << "Loading INT8 model from " << model_path;
 
     try {
       // Read model
@@ -33,7 +40,7 @@ public:
 
       // Use OpenVINO preprocessing for CPU and GPU
       if (device == "CPU" || device == "GPU") {
-        std::cout << "Using OpenVINO preprocessing" << std::endl;
+        plog::info() << "Using OpenVINO preprocessing";
 
         ov::preprocess::PrePostProcessor ppp(model);
 
@@ -63,16 +70,16 @@ public:
         output_port_ = compiled_model_.output();
 
         use_ov_preprocess_ = true;
-        std::cout << "Loaded model with OpenVINO preprocessing" << std::endl;
+        plog::info() << "Loaded model with OpenVINO preprocessing";
       } else {
-        std::cout << "Using basic preprocessing" << std::endl;
+        plog::info() << "Using basic preprocessing";
         input_port_ = raw_compiled_model_.input();
         output_port_ = raw_compiled_model_.output();
         use_ov_preprocess_ = false;
       }
 
       // Print model info
-      std::cout << "Model loaded successfully on " << device << std::endl;
+      plog::info() << "Model loaded successfully on " << device;
 
     } catch (const std::exception &e) {
       throw std::runtime_error(
@@ -80,7 +87,7 @@ public:
     }
   }
 
-  cv::Mat cpuPreprocess(const cv::Mat &frame) {
+  auto cpuPreprocess(const cv::Mat &frame) -> cv::Mat {
     // Resize to 518x518
     cv::Mat resized;
     cv::resize(frame, resized, cv::Size(518, 518), 0, 0, cv::INTER_CUBIC);
@@ -118,7 +125,7 @@ public:
   }
 
 private:
-  cv::Mat getDepthMap(const float *data, int depth_h, int depth_w, int orig_w,
+  static cv::Mat getDepthMap(const float *data, int depth_h, int depth_w, int orig_w,
                       int orig_h) {
     // Create depth mat from output
     cv::Mat depth(depth_h, depth_w, CV_32F, (void *)data);
@@ -147,33 +154,33 @@ private:
     return depth_color;
   }
 
+  ov::InferRequest createInferRequest(const cv::Mat &frame) {
+    ov::InferRequest infer_request;
+    if (use_ov_preprocess_) {
+      infer_request = compiled_model_.create_infer_request();
+      ov::Tensor input_tensor(ov::element::u8,
+                              {1, static_cast<size_t>(frame.rows),
+                               static_cast<size_t>(frame.cols), 3},
+                              frame.data);
+      infer_request.set_input_tensor(input_tensor);
+    } else {
+      infer_request = raw_compiled_model_.create_infer_request();
+      cv::Mat input_blob = cpuPreprocess(frame);
+      ov::Tensor input_tensor(input_port_.get_element_type(),
+                              input_port_.get_shape(), input_blob.ptr<float>());
+      infer_request.set_input_tensor(input_tensor);
+    }
+    return infer_request;
+  }
+
   cv::Mat processFrameSync(const cv::Mat &frame) {
     int orig_w = frame.cols;
     int orig_h = frame.rows;
 
     ov::Tensor output_tensor;
-
-    if (use_ov_preprocess_) {
-      // OpenVINO preprocessing (CPU/GPU)
-      ov::Tensor input_tensor(input_port_.get_element_type(),
-                              input_port_.get_shape(), frame.data);
-
-      ov::InferRequest infer_request = compiled_model_.create_infer_request();
-      infer_request.set_input_tensor(input_tensor);
-      infer_request.infer();
-      output_tensor = infer_request.get_output_tensor();
-    } else {
-      // Basic preprocessing (NPU)
-      cv::Mat input_blob = cpuPreprocess(frame);
-      ov::Tensor input_tensor(input_port_.get_element_type(),
-                              input_port_.get_shape(), input_blob.data);
-
-      ov::InferRequest infer_request =
-          raw_compiled_model_.create_infer_request();
-      infer_request.set_input_tensor(input_tensor);
-      infer_request.infer();
-      output_tensor = infer_request.get_output_tensor();
-    }
+    auto req = createInferRequest(frame);
+    req.infer();
+    output_tensor = req.get_output_tensor();
 
     float *depth_values = output_tensor.data<float>();
     // std::cout << "Output shape: " << output_tensor.get_shape() << std::endl;
@@ -181,9 +188,27 @@ private:
   }
 
 public:
+  ov::InferRequest processFrameAsync(const cv::Mat &frame,
+                                     std::function<void(cv::Mat)> callback) {
+    auto req = createInferRequest(frame);
+    req.set_callback([&](std::exception_ptr exception_ptr) {
+      if (exception_ptr) {
+        try {
+          std::rethrow_exception(exception_ptr);
+        } catch (const std::exception &e) {
+          std::cerr << "Inference error: " << e.what() << std::endl;
+        }
+        return;
+      }
 
-  void processFrameAsync(const cv::Mat &frame) {
-
+      ov::Tensor output_tensor = req.get_output_tensor();
+      float *depth_values = output_tensor.data<float>();
+      cv::Mat depth_vis =
+          getDepthMap(depth_values, 518, 686, frame.cols, frame.rows);
+      callback(depth_vis);
+    });
+    req.start_async();
+    return req;
   }
 
   void asyncRun(cv::VideoCapture &cap) {
@@ -199,7 +224,7 @@ public:
     while (true) {
       cv::Mat frame;
       if (!cap.read(frame)) {
-        std::cout << "Failed to read frame from camera" << std::endl;
+        plog::error() << "Failed to read frame from camera";
         break;
       }
 
@@ -283,28 +308,24 @@ private:
 
 void cv_camera_depth(std::shared_ptr<rclcpp::Node> nh, ov::Core &core) {
   std::string device = nh->declare_parameter<std::string>("device", "CPU");
+  int camera_index = nh->declare_parameter<int>("camera_index", 0);
+  auto image_width = nh->declare_parameter<int>("image_width", 640);
+  auto image_height = nh->declare_parameter<int>("image_height", 480);
 
-  auto video = cv::VideoCapture("/home/nes/DNT/depth/output.mp4");
-  if (!video.isOpened()) {
-    RCLCPP_ERROR(nh->get_logger(), "Failed to open camera");
+  YOLO11 depth_anything(core, device, image_height, image_width);
+
+  cv::VideoCapture cap(camera_index);
+  if (!cap.isOpened()) {
+    plog::error() << "Failed to open camera with index " << camera_index;
     return;
   }
 
-  cv::Mat frame;
-  if (!video.read(frame)) {
-    RCLCPP_ERROR(nh->get_logger(), "Failed to read frame from camera");
-    return;
-  }
-  const int width = frame.cols;
-  const int height = frame.rows;
-  RCLCPP_INFO(nh->get_logger(), "Frame width: %d, height: %d", width, height);
-  DepthAnything depth_anything(core, device, height, width);
+  cap.set(cv::CAP_PROP_FRAME_WIDTH, image_width);
+  cap.set(cv::CAP_PROP_FRAME_HEIGHT, image_height);
 
-  // Use async inference loop for better performance
-  depth_anything.asyncRun(video);
+  plog::info() << "Starting camera capture on index " << camera_index;
 
-  video.release();
-  cv::destroyAllWindows();
+  depth_anything.asyncRun(cap);
 }
 
 void topic_camera_depth(std::shared_ptr<rclcpp::Node> nh, ov::Core &core,
@@ -312,25 +333,27 @@ void topic_camera_depth(std::shared_ptr<rclcpp::Node> nh, ov::Core &core,
   std::string device = nh->declare_parameter<std::string>("device", "CPU");
   auto image_width = nh->declare_parameter<int>("image_width", 640);
   auto image_height = nh->declare_parameter<int>("image_height", 480);
+  
+  YOLO11 depth_anything(core, device, image_height, image_width);
 
-  DepthAnything depth_anything(core, device, image_height, image_width);
-
+  auto pub = nh->create_publisher<sensor_msgs::msg::Image>(
+      "/ml_depth", rclcpp::SensorDataQoS());
   auto sub = nh->create_subscription<sensor_msgs::msg::Image>(
       topic, rclcpp::SensorDataQoS(),
-      [&](
-          const sensor_msgs::msg::Image::SharedPtr msg) {
+      [&](const sensor_msgs::msg::Image::SharedPtr msg) {
         // Convert ROS image to OpenCV Mat
         cv::Mat frame = cv_bridge::toCvShare(msg, "bgr8")->image;
 
         if (frame.empty()) {
-          RCLCPP_ERROR(nh->get_logger(), "Received empty frame");
+          plog::error() << "Empty frame received from topic " << topic;
           return;
         }
 
-        // cv::Mat depth_vis = depth_anything.processFrame(frame);
-
-        cv::imshow("Depth Anything V2", depth_vis);
-        if (cv::waitKey(1) == 27)
-          rclcpp::shutdown(); // ESC key
+        depth_anything.processFrameAsync(frame, [&](const cv::Mat& depth_vis) {
+          auto depth_msg = cv_bridge::CvImage(
+              std_msgs::msg::Header(), "32FC1", depth_vis)
+              .toImageMsg();
+          pub->publish(*depth_msg);
+        });
       });
 }
