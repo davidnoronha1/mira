@@ -25,7 +25,7 @@ public:
     plog::info() << "Initializing YOLOv11 on device: " << device;
     plog::info() << "Input image height: " << height << ", width: " << width;
 
-    model_path = package_share_dir + "/models/yolo-v11/yolo-v11_int8.xml";
+    model_path = package_share_dir + "/models/yolo11n_openvino_model_int8/yolo11n.xml";
     plog::info() << "Loading INT8 model from " << model_path;
 
     // Initialize class names for COCO dataset
@@ -118,11 +118,11 @@ private:
   void initializeClassNames() {
     std::string package_share_dir =
         ament_index_cpp::get_package_share_directory("vision_boundingbox");
-    std::string class_names_path = package_share_dir + "/models/yolo-v11/class_names.txt";
+    std::string class_names_path = package_share_dir + "/models/class_names.txt";
     
     std::ifstream file;
 	file.open(class_names_path);
-    if (!file.is_open()) {
+    if (true) {
       plog::error() << "Failed to open class names file: " << class_names_path;
       plog::info() << "Using default COCO class names";
       

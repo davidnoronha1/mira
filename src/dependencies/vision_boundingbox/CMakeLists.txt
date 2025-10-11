@@ -25,6 +25,12 @@ add_executable(vision_boundingbox_exe
   src/yolo_v11.cpp
   )
 
+install(
+  DIRECTORY models/
+  DESTINATION share/${PROJECT_NAME}/models
+)
+
+
 target_include_directories(vision_boundingbox_exe PRIVATE
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>)
