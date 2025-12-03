@@ -31,11 +31,33 @@ check-ros: check-uv
 	@echo "✅ ROS Jazzy found."
 
 # Build the workspace
+
+CMAKE_ARGS:= -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
+			 -DCMAKE_COLOR_DIAGNOSTICS=ON
+
+COLCON_ARGS:= --parallel-workers 4 \
+			  --cmake-args $(CMAKE_ARGS) \
+			  --symlink-install \
+			  --merge-install
+
+
 build: check-ros
 	@echo "Building workspace..."
 	@source /opt/ros/jazzy/setup.bash && \
 	source .venv/bin/activate && \
-	colcon build --parallel-workers 4 --cmake-args -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+	colcon build ${COLCON_ARGS}
+
+test-build-in-docker:
+	@echo "Building workspace inside Docker..."
+	@docker run --rm -v $(PWD):/workspace -w /workspace mira \
+		bash -c "make clean && source /opt/ros/jazzy/setup.bash && \
+		source .venv/bin/activate && \
+		colcon build ${COLCON_ARGS}"
+
+b: check-ros
+	@source /opt/ros/jazzy/setup.bash && \
+	source .venv/bin/activate && \
+	colcon build ${COLCON_ARGS} --packages-select ${P}
 
 # Install dependencies
 install-deps: check-ros check-uv
@@ -138,6 +160,7 @@ help:
 	@echo "                 Use DEVPATH=/dev/ttyACM0 to specify device path if needed"
 	@echo "  update        - Get latest changes from remote"
 	@echo "  install-udev  - Install udev rules"
+	@echo "  b 		   - Build specific package (set P=package_name)"
 	@echo "  bs            - Build and source workspace"
 	@echo "  fix-vscode    - Fix VSCode settings paths"
 	@echo "  setup         - Complete workspace setup"

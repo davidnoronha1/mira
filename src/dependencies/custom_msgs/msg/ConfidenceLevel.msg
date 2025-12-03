@@ -1,0 +1,4 @@
+std_msgs/Header header
+string child_frame_id
+float64 detection_confidence
+float64 temporal_confidence

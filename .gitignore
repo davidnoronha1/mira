@@ -14,3 +14,6 @@ log/
 # Ignore .cache
 .cache/
 **/.cache/
+
+# Ignore misc/bin
+misc/bin/

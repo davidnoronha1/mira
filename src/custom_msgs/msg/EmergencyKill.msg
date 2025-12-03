@@ -1,1 +1,0 @@
-bool kill_switch

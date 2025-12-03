@@ -1,3 +1,4 @@
+#include "custom_msgs/msg/commands.hpp"
 #include <custom_msgs/msg/commands.hpp>
 #include <custom_msgs/msg/telemetry.hpp>
 #include <control_utils/control_utils.hpp>
