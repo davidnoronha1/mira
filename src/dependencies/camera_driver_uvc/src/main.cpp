@@ -35,13 +35,17 @@ auto main(int argc, char *argv[]) -> int {
 
     list_devices(ctx);
 
+    if (1) {
+        list_devices(ctx, nh);
+    } 
+    
     if (stream) {
         int vendor_id = nh->declare_parameter("vendor_id", -1);
         int product_id = nh->declare_parameter("product_id", -1);
 
         bool display_to_screen = nh->declare_parameter("display", false);
-        int width = nh->declare_parameter("image_width", 1920);
-        int height = nh->declare_parameter("image_height", 1080);
+        int width = nh->declare_parameter("image_width", 640);
+        int height = nh->declare_parameter("image_height", 480);
 
         std::string wanted_frame_format = nh->declare_parameter("frame_format", std::string("MJPEG"));
         enum uvc_frame_format frame_format;
@@ -64,7 +68,7 @@ auto main(int argc, char *argv[]) -> int {
         }
 
         begin_streaming(ctx,
-            CameraInfo { vendor_id, product_id, serial_no.empty() ? nullptr : serial_no.c_str(), nh->declare_parameter("verbose", false) },
+            CameraInfo { vendor_id, product_id, serial_no.empty() ? nullptr : serial_no.c_str(), true },
             StreamInfo {
                 width,
                 height,

@@ -5,13 +5,13 @@
 
     <!-- Streaming parameters -->
     <arg name="stream"        default="true"/>
-    <arg name="vendor_id"     default="0x0bda"/>
-    <arg name="product_id"    default="0x5842"/>
+    <arg name="vendor_id"     default="0x0c45"/>
+    <arg name="product_id"    default="0x6366"/>
     <arg name="serial_no"     default=""/>
     <arg name="display"       default="true"/>
     <arg name="verbose"       default="false"/>
-    <arg name="image_width"   default="1920"/>
-    <arg name="image_height"  default="1080"/>
+    <arg name="image_width"   default="640"/>
+    <arg name="image_height"  default="480"/>
     <arg name="frame_format"  default="MJPEG"/>
     <arg name="framerate"     default="30"/>
     <arg name="create_server" default="false"/>
