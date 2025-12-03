@@ -211,8 +211,8 @@ class PixhawkMaster(Node):
         Publish telemetry data based on received MAVLink messages.
         """
         self.telem_msg.arm = self.arm_state
-        self.telem_msg.battery_voltage = self.sys_status_msg.voltage_battery / 1000
-        self.telem_msg.timestamp = timestamp_now
+        self.telem_msg.battery_voltage = float(self.sys_status_msg.voltage_battery / 1000)
+        self.telem_msg.timestamp = 0.0 # float(timestamp_now)
         
         self.telem_msg.internal_pressure = self.vfr_hud_msg.alt
         self.telem_msg.external_pressure = self.depth_msg.press_abs
