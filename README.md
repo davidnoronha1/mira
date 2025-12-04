@@ -5,9 +5,13 @@ The firmware for the Mira AUV
 > This software package is designed to run on ROS2 Jazzy which supports Ubuntu 24.04 LTS as Tier 1 and Ubuntu 22.04 as Tier 3
 
 ## Packages
-- camera_fix_uvc/ - The camera reader
-- control_utils/ - Contains the utilities for the AUV's Control System
-- custom_msgs/ - Contains custom ROS message definitions mostly for telemetry & controls
+- dependencies/
+	- aruco_detector - Node to consume a ROS image feed and publish any detected aruco markers with pose
+	- camera_driver_uvc - libUVC based camera node
+	- control_utils - Contains utilities used in mira2_pid_control
+	- custom_msgs - Contains the message definitions used throughout
+	- vision_boundingbox - Contains the optimized node for Yolo11n inference on AUV hardware
+	- vision_depth - Same but for depth anything (^)
 - mira2_control_master - Takes input from ROS and forwards to PixHawk
 - mira2_path_planning - Contains code to navigate a gate
 - mira2_perception - Contains our perception stack
