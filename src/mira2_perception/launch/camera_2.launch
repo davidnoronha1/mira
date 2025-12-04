@@ -6,7 +6,7 @@
     <!-- Streaming parameters -->
     <arg name="stream"        default="true"/>
     <arg name="vendor_id"     default="0x0c45"/>
-    <arg name="product_id"    default="0x6366"/>
+    <arg name="product_id"    default="0x0576"/>
     <arg name="serial_no"     default="SN0001"/>
     <arg name="display"       default="true"/>
     <arg name="verbose"       default="false"/>

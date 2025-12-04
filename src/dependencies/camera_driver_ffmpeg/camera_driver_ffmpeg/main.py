@@ -119,7 +119,7 @@ class CameraStreamer(Node):
                 continue
             if product and f"ID_MODEL_ID={product}" not in info:
                 continue
-            if serial and f"ID_SERIAL_SHORT={serial}" not in info:
+            if serial and f"ID_USB_SERIAL_SHORT={serial}" not in info:
                 continue
 
 

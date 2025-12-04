@@ -72,7 +72,9 @@ class PixhawkMaster(Node):
         return response
 
     def rov_callback(self, msg):
-        # Handle arming/disarming
+        print("Got command!")
+
+	# Handle arming/disarming
         if msg.arm == 1 and not self.arm_state:
             self.arm()
             self.arm_state = True
