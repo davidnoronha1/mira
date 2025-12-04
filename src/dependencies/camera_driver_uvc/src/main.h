@@ -6,23 +6,23 @@
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/image.hpp>
 
-typedef struct {
+struct CameraInfo {
     int vendor_id;
     int product_id;
     const char* serial_no;
     bool print_info; // Print device info
-} CameraInfo;
+};
 
-typedef struct {
+struct StreamInfo {
     int width;
     int height;
-    int frame_format;
+    uvc_frame_format frame_format;
     bool display_to_screen;
     bool create_server;
     int fps;
     rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr publisher;
     std::shared_ptr<rclcpp::Node> node;
-} StreamInfo;
+};
 
 auto list_devices(uvc_context_t *ctx) -> int;
 auto begin_streaming(uvc_context_t *ctx, CameraInfo csel, StreamInfo streaminfo) -> int;

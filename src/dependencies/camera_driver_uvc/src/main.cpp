@@ -35,10 +35,6 @@ auto main(int argc, char *argv[]) -> int {
 
     list_devices(ctx);
 
-    if (1) {
-        list_devices(ctx, nh);
-    } 
-    
     if (stream) {
         int vendor_id = nh->declare_parameter("vendor_id", -1);
         int product_id = nh->declare_parameter("product_id", -1);
@@ -48,7 +44,7 @@ auto main(int argc, char *argv[]) -> int {
         int height = nh->declare_parameter("image_height", 480);
 
         std::string wanted_frame_format = nh->declare_parameter("frame_format", std::string("MJPEG"));
-        enum uvc_frame_format frame_format;
+        enum uvc_frame_format frame_format = UVC_FRAME_FORMAT_MJPEG;
         if (wanted_frame_format == "YUYV") {
             frame_format = UVC_FRAME_FORMAT_YUYV;
         } else if (wanted_frame_format == "H264") {

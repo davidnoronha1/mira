@@ -122,7 +122,7 @@ auto begin_streaming(uvc_context_t *ctx, CameraInfo csel, StreamInfo streaminfo)
       int height = streaminfo.height;
       int fps = streaminfo.fps;
 
-      frame_format = UVC_FRAME_FORMAT_MJPEG;
+      frame_format = streaminfo.frame_format;
 
       if (frame_desc) {
         width = frame_desc->wWidth;
