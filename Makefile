@@ -82,7 +82,7 @@ proxy-pixhawk:
 		echo "make proxy-pixhawk DEVPATH=/dev/ttyACM0"; \
 		exit 1; \
 	else \
-		./misc/bin/mavp2p serial:$${DEVPATH:-/dev/Pixhawk}:57600 udps:0.0.0.0:14550; \
+		./misc/bin/mavp2p serial:$${DEVPATH:-/dev/Pixhawk}:57600 udps:$${LAPTOP_IP:-0.0.0.0}:14550; \
 	fi
 
 
