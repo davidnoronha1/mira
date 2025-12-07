@@ -55,6 +55,10 @@ repoversion:
 	@echo "Last commit in repository:"
 	@git log -1 --oneline
 
+build-docker-container:
+	@echo "Building Docker container..."
+	@docker build -t mira .
+
 UID := $(shell id -u)
 GID := $(shell id -g)
 build-in-docker:
@@ -70,6 +74,12 @@ build-in-docker:
 		source .venv/bin/activate && \
 		colcon build ${COLCON_ARGS} ${SKIP_PACKAGES}"
 
+docker:
+	docker run -it --rm \
+		-v $(PWD):/workspace \
+		-u $(UID):$(GID) \
+		-w /workspace mira \
+		bash
 
 b: check-ros
 	@source /opt/ros/jazzy/setup.bash && \
