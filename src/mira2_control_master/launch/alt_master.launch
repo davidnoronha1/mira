@@ -1,3 +1,8 @@
 <launch>
-    <node name="pymavlink_commands" pkg="mira2_control_master" exec="alt_master" output="screen" />
+    <!-- Declare the argument -->
+    <arg name="pixhawk_address" default="/dev/Pixhawk"/>
+    
+    <node name="pymavlink_commands" pkg="mira2_control_master" exec="alt_master" output="screen">
+        <param name="pixhawk_address" value="$(var pixhawk_address)"/>
+    </node>
 </launch>

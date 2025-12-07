@@ -17,6 +17,11 @@ from optparse import OptionParser
 # 5   Forward
 # 6   Lateral
 
+def get_name_from_value(value, module=ardupilotmega):
+    for name, val in vars(module).items():
+        if val == value and name.isupper():
+            return name
+    return None
 
 class PixhawkMaster(Node):
     """
@@ -24,13 +29,23 @@ class PixhawkMaster(Node):
     arming/disarming, and send telemetry data.
     """
 
-    def __init__(self, port_addr, auv_mode):
+    def __init__(self):
         super().__init__("pymav_master")
         self.master_kill = True
-        self.mode = auv_mode
-        self.pixhawk_port = port_addr
         self.arm_state = False
         self.autonomy_switch = False
+
+        # Allow overriding initial mode and pixhawk address via ROS2 parameters
+        self.declare_parameter("initial_mode", "STABILIZE")
+        self.declare_parameter("pixhawk_address", "/dev/Pixhawk")
+
+        # Read parameters and update attributes if provided
+
+        self.mode = self.get_parameter("initial_mode").value
+        self.pixhawk_port = self.get_parameter("pixhawk_address").value
+
+
+        self.get_logger().info(f"pixhawk_address='{self.pixhawk_port}', initial_mode='{self.mode}'")
 
         # Initialize MAVLink connection
         self.master = mavutil.mavlink_connection(self.pixhawk_port, baud=115200)
@@ -204,9 +219,9 @@ class PixhawkMaster(Node):
             and response.command == mavutil.mavlink.MAV_CMD_SET_MESSAGE_INTERVAL
             and response.result == mavutil.mavlink.MAV_RESULT_ACCEPTED
         ):
-            self.get_logger().info("Command Accepted")
+            self.get_logger().info(f"Command Accepted for {get_name_from_value(message_id)}")
         else:
-            self.get_logger().error("Command Failed")
+            self.get_logger().error(f"Command Failed for {get_name_from_value(message_id)}")
 
     def telem_publish_func(self, timestamp_now):
         """
@@ -264,27 +279,9 @@ def main(args=None):
     rclpy.init(args=args)
 
     # Command line options
-    parser = OptionParser(description="description for prog")
-    parser.add_option(
-        "-p",
-        "--port",
-        dest="port_addr",
-        default="/dev/Pixhawk",
-        help="Pass Pixhawk Port Address",
-        metavar="VAR",
-    )
-    parser.add_option(
-        "-m",
-        "--mode",
-        dest="auv_mode",
-        default="STABILIZE",
-        help="Pass Pixhawk Mode",
-        metavar="VAR",
-    )
-    (options, args) = parser.parse_args(args=remove_ros_args()[1:])
-
+    
     # Instantiate class
-    obj = PixhawkMaster(options.port_addr, options.auv_mode)
+    obj = PixhawkMaster()
 
     # Request message intervals
     obj.request_message_interval(mavutil.mavlink.MAVLINK_MSG_ID_HEARTBEAT, 100)
@@ -296,7 +293,7 @@ def main(args=None):
     obj.request_message_interval(mavutil.mavlink.MAVLINK_MSG_ID_SERVO_OUTPUT_RAW, 100)
     obj.request_message_interval(mavutil.mavlink.MAVLINK_MSG_ID_AHRS2, 100)
 
-    print("Is depth sensor connected ? Connect it to I2C")
+    print("!!! Is depth sensor connected ? Connect it to I2C port on the pixhawk !!!")
 
     try:
         # Receive MAVLink messages
