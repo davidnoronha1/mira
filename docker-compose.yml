@@ -1,0 +1,7 @@
+services:
+  ardupilot-sitl:
+    image: radarku/ardupilot-sitl
+    platform: linux/amd64
+    tty: true
+    ports:
+      - 5760:5760

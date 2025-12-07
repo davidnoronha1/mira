@@ -1,7 +1,7 @@
 .PHONY: master alt_master build source install-deps submodules update install-udev bs fix-vscode dashboard telemetry-viz
 SHELL := /bin/bash
 
-WS := source install/setup.bash
+WS := source .venv/bin/activate && source install/setup.bash
 
 all: build
 
@@ -44,17 +44,32 @@ COLCON_ARGS:= --parallel-workers 4 \
 SKIP_PACKAGES:=--packages-skip vision_boundingbox vision_depth
 
 build: check-ros
+	@echo "If you built in docker last - you'll need to clean and rebuild"
 	@echo "Building workspace..."
 	@source /opt/ros/jazzy/setup.bash && \
 	source .venv/bin/activate && \
 	colcon build ${COLCON_ARGS} ${SKIP_PACKAGES}
 
-test-build-in-docker:
+repoversion:
+	@git config --global --add safe.directory /workspace
+	@echo "Last commit in repository:"
+	@git log -1 --oneline
+
+UID := $(shell id -u)
+GID := $(shell id -g)
+build-in-docker:
 	@echo "Building workspace inside Docker..."
-	@docker run --rm -v $(PWD):/workspace -w /workspace mira \
-		bash -c "make clean && source /opt/ros/jazzy/setup.bash && \
+	@docker run \
+		--rm \
+		-v $(PWD):/workspace \
+		-u $(UID):$(GID) \
+		-w /workspace mira \
+		bash -c "make repoversion && \
+		make clean && \
+		source /opt/ros/jazzy/setup.bash && \
 		source .venv/bin/activate && \
 		colcon build ${COLCON_ARGS} ${SKIP_PACKAGES}"
+
 
 b: check-ros
 	@source /opt/ros/jazzy/setup.bash && \
@@ -119,8 +134,13 @@ fix-vscode:
 master: check-ros
 	${WS} && ros2 launch mira2_control_master master.launch
 
+PIXHAWK_PORT ?= /dev/Pixhawk
 alt_master: check-ros
-	${WS} && ros2 launch mira2_control_master alt_master.launch
+	${WS} && \
+	ros2 launch mira2_control_master alt_master.launch pixhawk_address:=${PIXHAWK_PORT}
+
+alt_master_sitl:
+	make alt_master PIXHAWK_PORT=tcp:127.0.0.1:5760
 
 teleop: check-ros
 	${WS} && ros2 launch mira2_rov teleop.launch
