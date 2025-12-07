@@ -41,7 +41,7 @@ COLCON_ARGS:= --parallel-workers 4 \
 			  # --merge-install
 
 
-SKIP_PACKAGES=--packages-skip vision_boundingbox vision_depth
+SKIP_PACKAGES:=--packages-skip vision_boundingbox vision_depth
 
 build: check-ros
 	@echo "Building workspace..."
@@ -54,7 +54,7 @@ test-build-in-docker:
 	@docker run --rm -v $(PWD):/workspace -w /workspace mira \
 		bash -c "make clean && source /opt/ros/jazzy/setup.bash && \
 		source .venv/bin/activate && \
-		colcon build ${COLCON_ARGS}"
+		colcon build ${COLCON_ARGS} ${SKIP_PACKAGES}"
 
 b: check-ros
 	@source /opt/ros/jazzy/setup.bash && \
@@ -64,28 +64,25 @@ b: check-ros
 # Install dependencies
 install-deps: check-ros check-uv
 	@echo "Installing Python dependencies..."
-	@uv sync
+	uv sync
 	@echo "Installing ROS dependencies..."
 	@source /opt/ros/jazzy/setup.bash && \
 	rosdep install --from-paths src --ignore-src -r -y
 
+PYTHON_VERSION ?= python3.12
+install-mavproxy: check-uv
+	@echo "Installing maxproxy"
+	uv tool install mavproxy
+	
+	@echo "Applying patch for mavproxy"
+	patch /home/$(USER)/.local/share/uv/tools/mavproxy/lib/$(PYTHON_VERSION)/site-packages/MAVProxy/modules/lib/rline.py < ./misc/patches/mavproxy_rline_fix.patch
+
 proxy-pixhawk:
-	@if [ ! -f ./misc/bin/mavp2p ]; then \
-		wget https://github.com/bluenviron/mavp2p/releases/download/v1.3.1/mavp2p_v1.3.1_linux_amd64.tar.gz -O /tmp/mavp2p.tar.gz && \
-		tar -xzf /tmp/mavp2p.tar.gz -C /tmp && \
-		mv /tmp/mavp2p ./misc/bin/mavp2p && \
-		echo "mavp2p installed." && \
-		chmod +x ./misc/bin/mavp2p; \
-	else \
-		echo "mavp2p already exists at ./misc/bin/mavp2p."; \
-	fi
-	@if [ ! -e /dev/Pixhawk ]; then \
-		echo "⚠️  Warning: /dev/Pixhawk not found. Please specify path to use (it is usually /dev/ttyACM0). Call the command like this:"; \
-		echo "make proxy-pixhawk DEVPATH=/dev/ttyACM0"; \
+	@if ! command -v mavproxy.py >/dev/null 2>&1 && ! command -v mavproxy >/dev/null 2>&1; then \
+		echo "❌ Error: mavproxy not found in PATH. Install with 'make install-mavproxy' or run 'uv tool install mavproxy'."; \
 		exit 1; \
-	else \
-		./misc/bin/mavp2p serial:$${DEVPATH:-/dev/Pixhawk}:57600 udps:$${LAPTOP_IP:-0.0.0.0}:14550; \
 	fi
+	uv run mavproxy.py --master=/dev/Pixhawk --baudrate 57600 --out udp:$(LAPTOP_IP):14550
 
 
 # Get submodules
@@ -119,12 +116,6 @@ fix-vscode:
 	fi
 
 # ROS Launch targets
-controller: check-ros
-	${WS} && ros2 launch mira2_pid_control controller
-
-joystick: check-ros
-	${WS} && ros2 launch mira2_rov teleop.launch
-
 master: check-ros
 	${WS} && ros2 launch mira2_control_master master.launch
 
@@ -171,9 +162,7 @@ help:
 	@echo "ROS Launch targets:"
 	@echo "  master        - Launch master control"
 	@echo "  alt_master    - Launch alternative master control"
-	@echo "  controller    - Launch PID controller"
 	@echo "  teleop        - Launch teleoperation"
-	@echo "  joystick      - Launch joystick teleoperation"
 	@echo ""
 	@echo "Dashboard applications:"
 	@echo "  dashboard     - Launch main dashboard"
