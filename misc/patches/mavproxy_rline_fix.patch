@@ -1,0 +1,13 @@
+--- /home/nes/.local/share/uv/tools/mavproxy/lib/python3.12/site-packages/MAVProxy/modules/lib/rline.py	2025-12-07 13:28:18.237365804 +0530
++++ rline_fix.py	2025-12-07 13:28:33.174926544 +0530
+@@ -4,8 +4,8 @@
+ 
+ import sys, glob, os, platform
+ import re
+-if platform.system() != 'Windows':
+-    from future.builtins import input
++#if platform.system() != 'Windows':
++#    from future.builtins import input
+ 
+ from pymavlink import mavutil
+ 
