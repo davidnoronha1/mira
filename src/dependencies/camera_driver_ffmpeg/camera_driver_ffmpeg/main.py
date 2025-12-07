@@ -13,6 +13,7 @@ class CameraStreamer(Node):
 
 
         # Declare parameters with defaults matching your launch file
+        self.declare_parameter('device_path', '')
         self.declare_parameter('vendor_id', -1)
         self.declare_parameter('product_id', -1)
         self.declare_parameter('serial_no', '')
@@ -34,12 +35,14 @@ class CameraStreamer(Node):
         framerate = self.get_parameter('framerate').value
         port = self.get_parameter('port').value
         multicast = self.get_parameter('multicast_address').value
+        dev = self.get_parameter('device_path').value
 
 
         # Find webcam device
-        dev = self.find_webcam(vendor, product, serial)
-        if not dev:
-            raise RuntimeError("Webcam not found")
+        if dev == '':
+            dev = self.find_webcam(vendor, product, serial)
+            if not dev:
+                raise RuntimeError("Webcam not found")
         self.get_logger().info(f"Found webcam: {dev}")
 
 

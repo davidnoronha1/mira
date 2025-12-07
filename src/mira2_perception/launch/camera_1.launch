@@ -15,6 +15,7 @@
     <arg name="frame_format"  default="MJPEG"/>
     <arg name="framerate"     default="30"/>
     <arg name="create_server" default="false"/>
+    <arg name="multicast_address" default="239.255.0.1" />
 
     <node pkg="camera_driver_ffmpeg"
           exec="camera_driver_ffmpeg_exe"
@@ -31,6 +32,6 @@
         <param name="image_height"  value="$(var image_height)"/>
         <param name="frame_format"  value="$(var frame_format)"/>
         <param name="framerate"     value="$(var framerate)"/>
-        <param name="create_server" value="$(var create_server)"/>
+        <param name="multicast_address" value="$(var multicast_address)"/>
     </node>
 </launch>
