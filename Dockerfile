@@ -12,9 +12,6 @@ RUN apt-get update && apt-get install -y \
     build-essential \
     cmake \
     pkg-config \
-    libusb-1.0-0-dev \
-    ros-jazzy-camera-info-manager \
-    libuvc-dev \
     python3-pip
 
 # Install uv (Python package manager)
