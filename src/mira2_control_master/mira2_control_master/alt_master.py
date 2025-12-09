@@ -33,7 +33,6 @@ class PixhawkMaster(Node):
         super().__init__("pymav_master")
         self.master_kill = True
         self.arm_state = False
-        self.autonomy_switch = False
 
         # Allow overriding initial mode and pixhawk address via ROS2 parameters
         self.declare_parameter("initial_mode", "STABILIZE")
@@ -65,9 +64,6 @@ class PixhawkMaster(Node):
         self.kill_sub = self.create_subscription(
             EmergencyKill, "/emergency_stop", self.kill_callback, 10
         )
-        self.autonomy_service = self.create_service(
-            Empty, "/mira/switch", self.service_callback
-        )
         self.channel_ary = [1500] * 8  # Initialize channel values array
         self.master.wait_heartbeat()  # Wait for the heartbeat from the Pixhawk
         self.telem_msg = Telemetry()  # Initialize telemetry message
@@ -77,14 +73,6 @@ class PixhawkMaster(Node):
             self.disarm()
             self.get_logger().warn("KILL SWITCH ENABLED, DISARMING AND KILLING")
             exit()
-
-    def service_callback(self, request, response):
-        self.autonomy_switch = not self.autonomy_switch
-        if self.autonomy_switch:
-            self.get_logger().info("AUTONOMY MODE")
-        else:
-            self.get_logger().info("ROV MODE")
-        return response
 
     def rov_callback(self, msg):
         print("Got command!")
@@ -97,23 +85,22 @@ class PixhawkMaster(Node):
             self.disarm()
             self.arm_state = False
 
-        if not self.autonomy_switch:
-            self.channel_ary[0] = msg.pitch
-            self.channel_ary[1] = msg.roll
-            self.channel_ary[2] = msg.thrust
-            self.channel_ary[3] = msg.yaw
-            self.channel_ary[4] = msg.forward
-            self.channel_ary[5] = msg.lateral
-            self.channel_ary[6] = msg.servo1
-            self.channel_ary[7] = msg.servo2
+        self.channel_ary[0] = msg.pitch
+        self.channel_ary[1] = msg.roll
+        self.channel_ary[2] = msg.thrust
+        self.channel_ary[3] = msg.yaw
+        self.channel_ary[4] = msg.forward
+        self.channel_ary[5] = msg.lateral
+        self.channel_ary[6] = msg.servo1
+        self.channel_ary[7] = msg.servo2
 
-            # Handle mode switching
-            if self.mode != msg.mode:
-                if not self.arm_state:
-                    self.mode = msg.mode
-                    self.mode_switch()
-                else:
-                    self.get_logger().warn("Disarm Pixhawk to change modes.")
+        # Handle mode switching
+        if self.mode != msg.mode:
+            if not self.arm_state:
+                self.mode = msg.mode
+                self.mode_switch()
+            else:
+                self.get_logger().warn("Disarm Pixhawk to change modes.")
 
     def arm(self):
         """
