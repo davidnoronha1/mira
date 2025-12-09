@@ -24,6 +24,7 @@ public:
 
         sensitivity_all_axes_ = 0.6;
         sensitivity_yaw_ = 0.5;
+        sensitivity_pitch_ = 0.5;
 
         prev_msg_ = 0;
         arm_disarm_ = 0;
@@ -40,7 +41,7 @@ private:
         int roll_left_button = msg->buttons[4];
         int roll_right_button = msg->buttons[5];
 
-        msg_to_pub_.pitch = 1500 + ((msg->axes[4]) * 400) * sensitivity_all_axes_;
+        msg_to_pub_.pitch = 1500 + ((msg->axes[4]) * 400) * sensitivity_pitch_;
         msg_to_pub_.thrust = 1500 + ((((msg->axes[5]) + 1) * -200) + (((msg->axes[2]) + 1) * 200)) * sensitivity_all_axes_;
         msg_to_pub_.forward = 1500 + ((msg->axes[1]) * 400) * sensitivity_all_axes_;
         msg_to_pub_.lateral = 1500 + ((msg->axes[0]) * -400) * sensitivity_all_axes_;
@@ -83,7 +84,7 @@ private:
     rclcpp::Subscription<sensor_msgs::msg::Joy>::SharedPtr joy_sub_;
     rclcpp::Publisher<custom_msgs::msg::Commands>::SharedPtr base_pwm_pub_;
     custom_msgs::msg::Commands msg_to_pub_;
-    float sensitivity_all_axes_, sensitivity_yaw_;
+    float sensitivity_all_axes_, sensitivity_yaw_, sensitivity_pitch_;
     int prev_msg_, arm_disarm_;
 };
 
