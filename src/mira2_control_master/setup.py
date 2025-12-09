@@ -25,6 +25,7 @@ setup(
         'console_scripts': [
             'alt_master = mira2_control_master.alt_master:main',
             'master = mira2_control_master.master:main',
+	    'killswitch = mira2_control_master.killswitch:main'
         ],
     },
 )

@@ -17,3 +17,7 @@ log/
 
 # Ignore misc/bin
 misc/bin/
+
+*.swp
+*.swo
+*.swn

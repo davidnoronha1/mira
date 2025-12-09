@@ -38,6 +38,7 @@ class KillSwitchPublisher(Node):
 def main(args=None):
     rclpy.init(args=args)
     node = KillSwitchPublisher()
+    node.get_logger().info("Kill Switch Script Enabled!")
     try:
         rclpy.spin(node)
     except KeyboardInterrupt:
