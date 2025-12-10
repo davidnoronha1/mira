@@ -65,7 +65,7 @@ class Dashboard(QWidget):
     def check_rpi_connection(self):
         """Check if RPI is connected via SSH."""
         # Replace with your RPI's IP address
-        rpi_ip = "192.168.1.100"  # Update this with actual RPI IP
+        rpi_ip = "192.168.2.3"  # Update this with actual RPI IP
         return can_connect_to_device_ssh(rpi_ip)
 
     def check_controller_connection(self):
