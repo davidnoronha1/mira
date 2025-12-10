@@ -35,8 +35,8 @@ check-ros: check-uv
 CMAKE_ARGS:= -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
 			 -DCMAKE_COLOR_DIAGNOSTICS=ON
 
-COLCON_ARGS:= --parallel-workers 4 \
-			  --cmake-args $(CMAKE_ARGS)
+#COLCON_ARGS:= --parallel-workers 4 \
+			  #--cmake-args $(CMAKE_ARGS)
 			  # --symlink-install \
 			  # --merge-install
 
@@ -48,7 +48,7 @@ build: check-ros
 	@echo "Building workspace..."
 	@source /opt/ros/jazzy/setup.bash && \
 	source .venv/bin/activate && \
-	colcon build ${COLCON_ARGS} ${SKIP_PACKAGES}
+	colcon build ${SKIP_PACKAGES}
 
 repoversion:
 	@git config --global --add safe.directory /workspace
