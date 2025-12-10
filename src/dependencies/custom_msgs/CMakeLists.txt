@@ -22,6 +22,17 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   DEPENDENCIES sensor_msgs std_msgs
 )
 
+rosidl_get_typesupport_target(${PROJECT_NAME}_typesupport_c
+  ${PROJECT_NAME}
+  "msg/Commands"
+  "msg/Telemetry"
+  "msg/EmergencyKill.msg"
+  "msg/Depth.msg"
+  "msg/Heading.msg"
+  "msg/ConfidenceLevel.msg"
+  DEPENDENCIES std_msgs
+)
+
 ###################################
 ## Build and Install Directives ##
 ###################################
@@ -30,6 +41,8 @@ rosidl_generate_interfaces(${PROJECT_NAME}
 include_directories(
   ${CMAKE_CURRENT_BINARY_DIR}/rosidl_generator_cpp
 )
+
+
 
 # Export package
 ament_export_dependencies(rosidl_default_runtime sensor_msgs std_msgs)
