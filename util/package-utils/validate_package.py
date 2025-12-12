@@ -225,11 +225,16 @@ if __name__ == "__main__":
         description="Check for required ROS 2 build files and provide export snippets by reading package.xml."
     )
     parser.add_argument(
-        "path_to_check",
+        "package",
         type=Path,
         help="The path to the directory containing package.xml."
     )
     
     args = parser.parse_args()
-    
-    check_build_files(args.path_to_check)
+   
+    path = Path(args.package)
+    if path.name == "package.xml":
+        path = path.parent
+   
+    print(f"Processing package: {path.name}")
+    check_build_files(path)

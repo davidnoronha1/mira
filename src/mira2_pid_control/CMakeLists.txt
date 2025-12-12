@@ -49,5 +49,11 @@ install(DIRECTORY launch/
   DESTINATION share/${PROJECT_NAME}/launch
 )
 
+install(PROGRAMS
+	scripts/key_pub.py
+	DESTINATION
+	lib/${PROJECT_NAME}
+)
+
 # Export package
 ament_package()

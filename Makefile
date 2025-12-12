@@ -1,68 +1,68 @@
 .PHONY: master alt_master build source install-deps submodules update install-udev bs fix-vscode dashboard telemetry-viz
+
+export FORCE_COLOR=1
 SHELL := /bin/bash
 
 WS := source .venv/bin/activate && source install/setup.bash
 
+# Check if commands/directories exist at parse time
+UV_EXISTS := $(shell command -v uv 2>/dev/null)
+VENV_EXISTS := $(wildcard .venv)
+ROS_JAZZY_EXISTS := $(wildcard /opt/ros/jazzy)
+MAVPROXY_EXISTS := $(shell command -v mavproxy.py 2>/dev/null)$(shell command -v mavproxy 2>/dev/null)
+
 all: build
 
-# Check if ROS Jazzy is available
-
+# Check if uv is available
 check-uv:
-	@if ! command -v uv >/dev/null 2>&1; then \
-		echo "❌ Error: uv is not installed. Install it with:"; \
-		echo "curl -LsSf https://astral.sh/uv/install.sh | sh"; \
-		exit 1; \
-	fi
-	@if [ ! -d ".venv" ]; then \
-		echo "⚠️  Python virtual environment not found at .venv. Creating one..."; \
-		uv sync; \
-		echo "✅ Virtual environment created and dependencies synced."; \
-	else \
-		echo "✅ Virtual environment found at .venv."; \
-	fi
-
+ifndef UV_EXISTS
+	$(error ❌ uv is not installed. Install it with: curl -LsSf https://astral.sh/uv/install.sh | sh)
+endif
+ifndef VENV_EXISTS
+	$(warning ⚠️  Python virtual environment not found at .venv. Creating one...)
+	@uv sync
+	$(info ✅ Virtual environment created and dependencies synced.)
+else
+	$(info ✅ Virtual environment found at .venv.)
+endif
 
 check-ros: check-uv
-	@if [ ! -d "/opt/ros/jazzy" ]; then \
-		echo "❌ Error: ROS Jazzy not found at /opt/ros/jazzy."; \
-		echo "Only ROS Jazzy is supported by this workspace."; \
-		exit 1; \
-	fi
-	@echo "✅ ROS Jazzy found."
+ifndef ROS_JAZZY_EXISTS
+	$(error ❌ ROS Jazzy not found at /opt/ros/jazzy. Only ROS Jazzy is supported by this workspace.)
+endif
+	$(info ✅ ROS Jazzy found.)
 
 # Build the workspace
-
 CMAKE_ARGS:= -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
 			 -DCMAKE_COLOR_DIAGNOSTICS=ON
 
-COLCON_ARGS:= --parallel-workers 4 \
-			  --cmake-args $(CMAKE_ARGS)
+SKIP_PACKAGES ?= vision_boundingbox vision_depth
+COLCON_ARGS:= --cmake-args $(CMAKE_ARGS) \
+                          --parallel-workers $(shell nproc) \
+			  --packages-skip $(SKIP_PACKAGES) # \
 			  # --symlink-install \
 			  # --merge-install
 
-
-SKIP_PACKAGES:=--packages-skip vision_boundingbox vision_depth
-
 build: check-ros
-	@echo "If you built in docker last - you'll need to clean and rebuild"
-	@echo "Building workspace..."
+	$(warning If you built in docker last - you'll need to clean and rebuild)
+	$(warning If build fails b/c of CMakeCacheList or issues with mismatch for build,log,install, run \`make clean\`)
+	$(info Building workspace...)
 	@source /opt/ros/jazzy/setup.bash && \
 	source .venv/bin/activate && \
-	colcon build ${COLCON_ARGS} ${SKIP_PACKAGES}
+	colcon build ${COLCON_ARGS}
 
 repoversion:
-	@git config --global --add safe.directory /workspace
-	@echo "Last commit in repository:"
+	$(info Last commit in repository:)
 	@git log -1 --oneline
 
 build-docker-container:
-	@echo "Building Docker container..."
+	$(info Building Docker container...)
 	@docker build -t mira .
 
 UID := $(shell id -u)
 GID := $(shell id -g)
 build-in-docker:
-	@echo "Building workspace inside Docker..."
+	$(info Building workspace inside Docker...)
 	@docker run \
 		--rm \
 		-v $(PWD):/workspace \
@@ -72,7 +72,7 @@ build-in-docker:
 		make clean && \
 		source /opt/ros/jazzy/setup.bash && \
 		source .venv/bin/activate && \
-		colcon build ${COLCON_ARGS} ${SKIP_PACKAGES}"
+		colcon build ${COLCON_ARGS}"
 
 docker:
 	docker run -it --rm \
@@ -88,57 +88,62 @@ b: check-ros
 
 # Install dependencies
 install-deps: check-ros check-uv
-	@echo "Installing Python dependencies..."
-	uv sync
-	@echo "Installing ROS dependencies..."
+	$(info Installing Python dependencies...)
+	@uv sync
+	$(info Installing ROS dependencies...)
 	@source /opt/ros/jazzy/setup.bash && \
 	rosdep install --from-paths src --ignore-src -r -y
 
 PYTHON_VERSION ?= python3.12
 install-mavproxy: check-uv
-	@echo "Installing maxproxy"
-	uv tool install mavproxy
+	$(info Installing mavproxy)
+	@uv tool install mavproxy
 	
-	@echo "Applying patch for mavproxy"
-	patch /home/$(USER)/.local/share/uv/tools/mavproxy/lib/$(PYTHON_VERSION)/site-packages/MAVProxy/modules/lib/rline.py < ./misc/patches/mavproxy_rline_fix.patch
+	$(info Applying patch for mavproxy)
+	@patch /home/$(USER)/.local/share/uv/tools/mavproxy/lib/$(PYTHON_VERSION)/site-packages/MAVProxy/modules/lib/rline.py < ./misc/patches/mavproxy_rline_fix.patch
 
 proxy-pixhawk:
-	@if ! command -v mavproxy.py >/dev/null 2>&1 && ! command -v mavproxy >/dev/null 2>&1; then \
-		echo "❌ Error: mavproxy not found in PATH. Install with 'make install-mavproxy' or run 'uv tool install mavproxy'."; \
-		exit 1; \
-	fi
-	uv run mavproxy.py --master=/dev/Pixhawk --baudrate 57600 --out udp:$(LAPTOP_IP):14550
+ifndef LAPTOP_IP
+	$(error No LAPTOP_IP set, please set it to your laptop's IP and call the command like this: make proxy-pixhawk LAPTOP_IP=192.168.2.XX)
+endif
+ifndef MAVPROXY_EXISTS
+	$(error ❌ mavproxy not found in PATH. Install with 'make install-mavproxy' or run 'uv tool install mavproxy'.)
+endif
+	@uv run mavproxy.py --master=/dev/Pixhawk --baudrate 57600 --out udp:$(LAPTOP_IP):14550
 
 
 # Get submodules
 get-submodules:
-	@echo "Updating git submodules..."
+	$(info Updating git submodules...)
 	@git submodule update --init --recursive
 
 # Get latest from remote
 force-update:
-	@echo "Fetching latest changes from remote..."
+	$(info Fetching latest changes from remote...)
 	@git fetch origin
 	@git reset --hard origin/$$(git rev-parse --abbrev-ref HEAD)
 
 # Install udev rules
 install-udev:
-	@echo "Installing udev rules..."
+	$(info Installing udev rules...)
 	@sudo cp misc/udev/96-mira.rules /etc/udev/rules.d/
 	@sudo udevadm control --reload-rules
 	@sudo udevadm trigger
 
 # Fix VSCode settings paths
 fix-vscode:
-	@echo "Fixing VSCode settings paths..."
+	$(info Fixing VSCode settings paths...)
 	@current_dir=$$(realpath .); \
 	settings_file=".vscode/settings.json"; \
 	if [ -f "$$settings_file" ]; then \
 		sed -i "s|/home/david/mira|$$current_dir|g" "$$settings_file"; \
-		echo "Updated paths in $$settings_file"; \
+		echo "✅ Updated paths in $$settings_file"; \
 	else \
-		echo "settings.json not found in .vscode directory."; \
+		echo "⚠️  settings.json not found in .vscode directory."; \
 	fi
+
+validate-all:
+	find ./src -type f -name "package.xml" -exec uv run ./util/package-utils/validate_package.py {} \;
 
 # ROS Launch targets
 master: check-ros
@@ -150,6 +155,7 @@ alt_master: check-ros
 	ros2 launch mira2_control_master alt_master.launch pixhawk_address:=${PIXHAWK_PORT}
 
 alt_master_sitl:
+	$(info "Assuming Ardupilot SITL to running on same IP as THIS device with port 5760")
 	make alt_master PIXHAWK_PORT=tcp:127.0.0.1:5760
 
 teleop: check-ros
@@ -164,38 +170,39 @@ telemetry-viz: check-ros
 
 # Development setup
 setup: check-ros install-deps submodules build install-udev fix-vscode
-	@echo "🚀 Complete workspace setup finished!"
+	$(info 🚀 Complete workspace setup finished!)
 
 # Clean build artifacts
 clean:
-	@echo "Cleaning build artifacts..."
+	$(info Cleaning build artifacts...)
 	@rm -rf build/ install/ log/
-	@echo "Clean completed."
+	$(info Clean completed.)
 
 # Help target
 help:
-	@echo "Available targets:"
-	@echo "  build         - Build the ROS workspace"
-	@echo "  source        - Source the workspace environment"
-	@echo "  install-deps  - Install ROS dependencies with rosdep"
-	@echo "  submodules    - Update git submodules"
-	@echo "  proxy-pixhawk - Download and run mavp2p for Pixhawk telemetry proxying"
-	@echo "                 Use DEVPATH=/dev/ttyACM0 to specify device path if needed"
-	@echo "  update        - Get latest changes from remote"
-	@echo "  install-udev  - Install udev rules"
-	@echo "  b 		   - Build specific package (set P=package_name)"
-	@echo "  bs            - Build and source workspace"
-	@echo "  fix-vscode    - Fix VSCode settings paths"
-	@echo "  setup         - Complete workspace setup"
-	@echo "  clean         - Clean build artifacts"
-	@echo ""
-	@echo "ROS Launch targets:"
-	@echo "  master        - Launch master control"
-	@echo "  alt_master    - Launch alternative master control"
-	@echo "  teleop        - Launch teleoperation"
-	@echo ""
-	@echo "Dashboard applications:"
-	@echo "  dashboard     - Launch main dashboard"
-	@echo "  telemetry-viz - Launch telemetry visualization"
-	@echo ""
-	@echo "  help          - Show this help message"
+	$(info Available targets:)
+	$(info   build         - Build the ROS workspace)
+	$(info   source        - Source the workspace environment)
+	$(info   install-deps  - Install ROS dependencies with rosdep)
+	$(info   submodules    - Update git submodules)
+	$(info   proxy-pixhawk - Download and run mavp2p for Pixhawk telemetry proxying)
+	$(info                  Use DEVPATH=/dev/ttyACM0 to specify device path if needed)
+	$(info   update        - Get latest changes from remote)
+	$(info   install-udev  - Install udev rules)
+	$(info   b 		   - Build specific package (set P=package_name))
+	$(info   bs            - Build and source workspace)
+	$(info   fix-vscode    - Fix VSCode settings paths)
+	$(info   setup         - Complete workspace setup)
+	$(info   clean         - Clean build artifacts)
+	$(info )
+	$(info ROS Launch targets:)
+	$(info   master        - Launch master control)
+	$(info   alt_master    - Launch alternative master control)
+	$(info   teleop        - Launch teleoperation)
+	$(info )
+	$(info Dashboard applications:)
+	$(info   dashboard     - Launch main dashboard)
+	$(info   telemetry-viz - Launch telemetry visualization)
+	$(info )
+	$(info   help          - Show this help message)
+

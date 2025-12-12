@@ -10,6 +10,7 @@ dependencies = [
     "ffmpeg-python>=0.2.0",
     "lark-parser>=0.12.0",
     "numpy>=2.3.2",
+    "opencv-python>=4.11.0.86",
     "pymavlink>=2.4.49",
     "pyqt6>=6.9.1",
     "pyqtgraph>=0.13.7",
