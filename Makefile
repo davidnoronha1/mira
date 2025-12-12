@@ -1,6 +1,8 @@
 .PHONY: master alt_master build source install-deps submodules update install-udev bs fix-vscode dashboard telemetry-viz
 
 export FORCE_COLOR=1
+export RCUTILS_COLORIZED_OUTPUT=1
+export RCUTILS_CONSOLE_OUTPUT_FORMAT="{severity} {message}"
 SHELL := /bin/bash
 
 WS := source .venv/bin/activate && source install/setup.bash
@@ -145,9 +147,12 @@ fix-vscode:
 validate-all:
 	find ./src -type f -name "package.xml" -exec uv run ./util/package-utils/validate_package.py {} \;
 
-# ROS Launch targets
-master: check-ros
-	${WS} && ros2 launch mira2_control_master master.launch
+GSTREAMER_FIX=export LD_PRELOAD=$(shell gcc -print-file-name=libunwind.so.8)
+
+camera_1:
+	${WS} && \
+	${GSTREAMER_FIX} && \
+	ros2 launch mira2_perception camera_1.launch
 
 PIXHAWK_PORT ?= /dev/Pixhawk
 alt_master: check-ros

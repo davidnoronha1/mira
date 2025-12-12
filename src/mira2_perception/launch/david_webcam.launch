@@ -1,10 +1,27 @@
 <launch>
-    <node pkg="v4l2_camera" exec="v4l2_camera_node" name="webcam_node">
-        <param name="video_device" value="/dev/davidWebcam" />
-        <param name="image_width" value="640" />
-        <param name="image_height" value="480" />
-        <param name="pixel_format" value="YUYV" />
-        <param name="output_encoding" value="rgb8" />
-        <param name="camera_frame_id" value="camera_frame" />
+    <!-- List devices only -->
+    <arg name="list_devices" default="false"/>
+
+    <!-- Streaming parameters -->
+    <arg name="stream"        default="true"/>
+    <arg name="vendor_id"     default="0x0c45"/>
+    <arg name="product_id"    default="0x6366"/>
+    <arg name="serial_no"     default="SN0001"/>
+    <arg name="image_width"   default="1280"/>
+    <arg name="image_height"  default="720"/>
+    <arg name="frame_format"  default="MJPEG"/>
+    <arg name="framerate"     default="30"/>
+    <arg name="topic" default="/camera_side/image_compressed" />
+
+    <node pkg="camera_driver_ffmpeg"
+          exec="camera_driver_ffmpeg_exe"
+          name="camera_david"
+          output="screen">
+        <param name="image_width"   value="$(var image_width)"/>
+        <param name="image_height"  value="$(var image_height)"/>
+        <param name="frame_format"  value="$(var frame_format)"/>
+        <param name="framerate"     value="$(var framerate)"/>
+        <param name="topic" value="$(var topic)"/>
+        <param name="device_path" value="/dev/video0" />
     </node>
 </launch>

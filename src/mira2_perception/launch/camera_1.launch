@@ -8,14 +8,11 @@
     <arg name="vendor_id"     default="0x0c45"/>
     <arg name="product_id"    default="0x6366"/>
     <arg name="serial_no"     default="SN0001"/>
-    <arg name="display"       default="true"/>
-    <arg name="verbose"       default="false"/>
     <arg name="image_width"   default="1280"/>
     <arg name="image_height"  default="720"/>
     <arg name="frame_format"  default="MJPEG"/>
     <arg name="framerate"     default="30"/>
-    <arg name="create_server" default="false"/>
-    <arg name="multicast_address" default="239.255.0.1" />
+    <arg name="topic" default="/camera_side/image_compressed" />
 
     <node pkg="camera_driver_ffmpeg"
           exec="camera_driver_ffmpeg_exe"
@@ -26,12 +23,10 @@
         <param name="vendor_id"     value="$(var vendor_id)"/>
         <param name="product_id"    value="$(var product_id)"/>
         <param name="serial_no"     value="$(var serial_no)"/>
-        <param name="display"       value="$(var display)"/>
-        <param name="verbose"       value="$(var verbose)"/>
         <param name="image_width"   value="$(var image_width)"/>
         <param name="image_height"  value="$(var image_height)"/>
         <param name="frame_format"  value="$(var frame_format)"/>
         <param name="framerate"     value="$(var framerate)"/>
-        <param name="multicast_address" value="$(var multicast_address)"/>
+        <param name="topic" value="$(var topic)"/>
     </node>
 </launch>
