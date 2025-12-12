@@ -42,13 +42,7 @@ public:
             std::bind(&YawTuner::telemetry_callback, this,
                       std::placeholders::_1));
 
-    // Initialize control parameters
-    depth.kp = 5.5000;
-    depth.ki = 0.013;
-    depth.kd = 31.5000;
-    depth.base_offset = 1580;
-    depth_setpoint = 1069;
-
+   
     yaw.kp = 3.18;
     yaw.ki = 0.01;
     yaw.kd = 7.2;
@@ -109,38 +103,37 @@ private:
     double depth_external = msg->external_pressure;
     int yaw_heading = msg->heading;
 
-    depth_error = depth_setpoint - depth_external;
-    yaw_error = std::fmod((yaw_setpoint - yaw_heading + 180), 360) - 180;
+    // shortest-angle difference in [-180, 180]
+    yaw_error = static_cast<int>(std::fmod((yaw_setpoint - yaw_heading + 180.0), 360.0) - 180.0);
   }
 
   void control_loop() {
     if (software_arm_flag) {
-      cmd_pwm.mode = "STABILIZE";
+      // Use ALT_HOLD for depth-hold behavior
+      cmd_pwm.mode = "ALT_HOLD";
       rclcpp::Time time_now = this->now();
       cmd_pwm.arm = true;
 
-      if ((time_now - start_routine).seconds() < 5) {
-        float pid_depth = depth.pid_control(
-            depth_error, (time_now - start_routine).seconds(), false);
-        float pid_yaw = yaw.pid_control(
-            yaw_error, (time_now - start_routine).seconds(), false);
+      double elapsed = (time_now - start_routine).seconds();
 
+      // FIRST PHASE: fixed downward thrust for 2.8 seconds
+      if (elapsed < 2.8) {
+        // fixed sink command (1450) for 2.8 seconds
         cmd_pwm.forward = 1500;
         cmd_pwm.lateral = 1500;
-        cmd_pwm.thrust = pid_depth;
+        cmd_pwm.thrust = 1450; // fixed descent thrust
         cmd_pwm.yaw = 1500;
-        RCLCPP_INFO(this->get_logger(), "sinking");
+        RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 1000, "Sinking for initial 2.8s (thrust=1450), elapsed: %.2f", elapsed);
       } else {
-        float pid_depth = depth.pid_control(
-            depth_error, (time_now - start_routine).seconds(), false);
-        float pid_yaw = yaw.pid_control(
-            yaw_error, (time_now - start_routine).seconds(), false);
+        // SECOND PHASE: start yaw tuning — keep ALT_HOLD and run yaw PID
+        // depth PID can still run to provide thrust corrections while yaw PID controls yaw
+        float pid_yaw = yaw.pid_control(yaw_error, (time_now - start_routine).seconds(), false);
 
         cmd_pwm.forward = 1500;
         cmd_pwm.lateral = 1500;
-        cmd_pwm.thrust = pid_depth;
-        cmd_pwm.yaw = pid_yaw;
-        RCLCPP_INFO(this->get_logger(), "yawing");
+        cmd_pwm.thrust = 1500; // allow depth PID to maintain depth
+        cmd_pwm.yaw = pid_yaw;      // yaw PID output controls yaw PWM
+        RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 1000, "Now tuning yaw (elapsed: %.2f). pid_yaw: %.2f, pid_depth: %.2f", elapsed, (double)pid_yaw, (double)pid_depth);
       }
     } else {
       depth.emptyError();
