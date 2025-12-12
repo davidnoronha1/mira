@@ -20,3 +20,5 @@ misc/bin/
 
 **/*.avi
 **/*.swp
+**/*.swo
+**/*.swn
