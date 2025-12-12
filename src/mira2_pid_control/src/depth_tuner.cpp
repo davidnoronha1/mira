@@ -70,7 +70,7 @@ void telemetryCallback(const custom_msgs::msg::Telemetry::SharedPtr msg) {
   double depth_external = msg->external_pressure;
   int yaw_heading = msg->heading;
 
-  depth_error = depth_setpoint - depth_external;
+  depth_error =  depth_external- depth_setpoint ;
   yaw_error = yaw_setpoint - yaw_heading;
 }
 
@@ -97,7 +97,7 @@ int main(int argc, char **argv) {
   depth.ki = 0;
   depth.kd = 20;
   depth.base_offset = 1580;
-  depth_setpoint = 1069;
+  depth_setpoint = 1100;
 
   yaw.kp = 0;
   yaw.ki = 0;
