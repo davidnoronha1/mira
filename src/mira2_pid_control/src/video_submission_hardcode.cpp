@@ -82,35 +82,35 @@ int main(int argc, char **argv) {
           cmd_pwm.thrust = 1500;
           cmd_pwm.yaw = 1500;
           depth.emptyError();
-        } else if ((time_now - start_routine).seconds() < (delay + 2.50)) {
+        } else if ((time_now - start_routine).seconds() < (delay + 2.80)) {
           cmd_pwm.arm = true;
           cmd_pwm.forward = 1500;
           cmd_pwm.lateral = 1500;
           cmd_pwm.thrust = 1400;
           cmd_pwm.yaw = 1500;
           std::cout << "sinking ";
-        } else if ((time_now - start_routine).seconds() < (delay + 6.50)) {
+        } else if ((time_now - start_routine).seconds() < (delay + 6.80)) {
           cmd_pwm.arm = true;
           cmd_pwm.forward = 1650;
           cmd_pwm.lateral = 1500;
           cmd_pwm.thrust = 1450;
           cmd_pwm.yaw = 1475;
           std::cout << "stabilize surge ";
-        } else if ((time_now - start_routine).seconds() < (delay + 9.40)) {
+        } else if ((time_now - start_routine).seconds() < (delay + 9.00)) {
           cmd_pwm.arm = true;
           cmd_pwm.forward = 1500;
           cmd_pwm.lateral = 1500;
           cmd_pwm.thrust = 1500;
           cmd_pwm.yaw = 1675;
           std::cout << "stabilize yaw ";
-        } else if ((time_now - start_routine).seconds() < (delay + 12.30)) {
+        } else if ((time_now - start_routine).seconds() < (delay + 12.60)) {
           cmd_pwm.arm = true;
           cmd_pwm.forward = 1700;
           cmd_pwm.lateral = 1500;
           cmd_pwm.thrust = 1500;
           cmd_pwm.yaw = 1475;
           std::cout << "stabilize surge ";
-        } else if ((time_now - start_routine).seconds() < (delay + 12.35)) {
+        } else if ((time_now - start_routine).seconds() < (delay + 12.65)) {
           cmd_pwm.arm = false;
           cmd_pwm.mode = "ALT_HOLD";
           cmd_pwm.forward = 1500;
@@ -118,7 +118,7 @@ int main(int argc, char **argv) {
           cmd_pwm.thrust = 1500;
           cmd_pwm.yaw = 1500;
           std::cout << "disarm";
-        } else if ((time_now - start_routine).seconds() < (delay + 14.40)) {
+        } else if ((time_now - start_routine).seconds() < (delay + 14.70)) {
           cmd_pwm.arm = false;
           cmd_pwm.mode = "MANUAL";
           cmd_pwm.forward = 1500;
@@ -126,7 +126,7 @@ int main(int argc, char **argv) {
           cmd_pwm.thrust = 1500;
           cmd_pwm.yaw = 1500;
           std::cout << "change to manual";
-        } else if ((time_now - start_routine).seconds() < (delay + 17.50)) {
+        } else if ((time_now - start_routine).seconds() < (delay + 17.80)) {
           cmd_pwm.arm = true;
           cmd_pwm.mode = "MANUAL";
           cmd_pwm.forward = 1800;
@@ -135,7 +135,7 @@ int main(int argc, char **argv) {
           cmd_pwm.yaw = 1500;
           cmd_pwm.roll = 1850;
           std::cout << " surge with roll  and manual";
-        } else if ((time_now - start_routine).seconds() < (delay + 17.55)) {
+        } else if ((time_now - start_routine).seconds() < (delay + 17.85)) {
           cmd_pwm.arm = false;
           cmd_pwm.mode = "MANUAL";
           cmd_pwm.forward = 1500;
@@ -143,7 +143,7 @@ int main(int argc, char **argv) {
           cmd_pwm.thrust = 1500;
           cmd_pwm.yaw = 1500;
           std::cout << "disarm";
-        } else if ((time_now - start_routine).seconds() < (delay + 17.60)) {
+        } else if ((time_now - start_routine).seconds() < (delay + 17.90)) {
           cmd_pwm.arm = false;
           cmd_pwm.mode = "ALT_HOLD";
           cmd_pwm.forward = 1500;
@@ -151,7 +151,7 @@ int main(int argc, char **argv) {
           cmd_pwm.thrust = 1500;
           cmd_pwm.yaw = 1500;
           std::cout << "change to stabilize";
-        } else if ((time_now - start_routine).seconds() < (delay + 19.60)) {
+        } else if ((time_now - start_routine).seconds() < (delay + 19.90)) {
           cmd_pwm.arm = true;
           cmd_pwm.mode = "ALT_HOLD";
           cmd_pwm.forward = 1500;
@@ -160,7 +160,7 @@ int main(int argc, char **argv) {
           cmd_pwm.yaw = 1500;
           cmd_pwm.roll = 1500;
           std::cout << "forward";
-        } else if ((time_now - start_routine).seconds() < (delay + 23)) {
+        } else if ((time_now - start_routine).seconds() < (delay + 23.30)) {
           cmd_pwm.arm = false;
           cmd_pwm.forward = 1500;
           cmd_pwm.lateral = 1500;
