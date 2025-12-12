@@ -17,3 +17,6 @@ log/
 
 # Ignore misc/bin
 misc/bin/
+
+**/*.avi
+**/*.swp
