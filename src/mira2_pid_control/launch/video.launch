@@ -1,15 +1,15 @@
 <launch>
-  <executable
+  <node
     name="video"
     pkg="mira2_pid_control"
-    exec="video_hardcode_exec"
+    exec="video_hardcode_exe"
     output="screen">
-  </executable>
+  </node>
 
-  <executable
+  <node
     name="key_publisher"
     pkg="mira2_pid_control"
     exec="key_pub.py"
     output="screen">
-  </executable>
+  </node>
 </launch>
