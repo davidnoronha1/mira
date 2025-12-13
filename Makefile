@@ -149,6 +149,11 @@ validate-all:
 
 GSTREAMER_FIX=export LD_PRELOAD=$(shell gcc -print-file-name=libunwind.so.8)
 
+camera_2:
+	${WS} && \
+	${GSTREAMER_FIX} && \
+	ros2 launch mira2_perception camera_2.launch
+
 camera_1:
 	${WS} && \
 	${GSTREAMER_FIX} && \

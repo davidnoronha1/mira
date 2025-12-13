@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import os
+os.environ['GST_DEBUG'] = '2'
 import subprocess
 import glob
 import rclpy

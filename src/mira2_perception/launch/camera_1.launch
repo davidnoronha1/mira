@@ -1,7 +1,5 @@
 <!-- camera_reader_uvc.launch.xml -->
 <launch>
-    <!-- List devices only -->
-    <arg name="list_devices" default="false"/>
 
     <!-- Streaming parameters -->
     <arg name="stream"        default="true"/>
@@ -12,14 +10,12 @@
     <arg name="image_height"  default="720"/>
     <arg name="frame_format"  default="MJPEG"/>
     <arg name="framerate"     default="30"/>
-    <arg name="topic" default="/camera_side/image_compressed" />
+    <arg name="topic" default="/camera_side/compressed" />
 
-    <node pkg="camera_driver_ffmpeg"
-          exec="camera_driver_ffmpeg_exe"
+    <node pkg="camera_driver"
+          exec="camera_driver_exe"
           name="camera_bottomcam"
           output="screen">
-        <param name="list_devices" value="$(var list_devices)"/>
-        <param name="stream"        value="$(var stream)"/>
         <param name="vendor_id"     value="$(var vendor_id)"/>
         <param name="product_id"    value="$(var product_id)"/>
         <param name="serial_no"     value="$(var serial_no)"/>
