@@ -70,15 +70,16 @@ int main(int argc, char **argv) {
   std::vector<float> stage_durations = {
       3.0f,   // initial wait (was delay)
       2.80f,  // sinking
-      4.00f,  // stabilize surge (was 4.00 from 2.80->6.80)
-      2.20f,  // stabilize yaw (was 2.20)
-      3.60f,  // stabilize surge 2
+      6.00f,  // stabilize surge (was 4.00 from 2.80->6.80)
+      2.80f,  // stabilize yaw (was 2.20)
+      2.60f,
+      1.00f,  // stabilize surge 2
       0.05f,  // disarm (brief)
-      2.05f,  // change to MANUAL
-      3.10f,  // manual surge with roll
+      0.05f,  // change to MANUAL
+      2.00f,  // manual surge with roll
       0.05f,  // disarm
       0.05f,  // change to ALT_HOLD (very brief)
-      2.00f,  // forward
+      4.00f,  // forward
       3.40f   // wait
       // any trailing time falls into 'else' that keeps neutral as before
   };
@@ -134,12 +135,13 @@ int main(int argc, char **argv) {
           cmd_pwm.thrust = 1400;
           cmd_pwm.yaw = 1500;
           std::cout << "sinking ";
+
         } else if (stage == 2) {
           // stabilize surge
           cmd_pwm.arm = true;
           cmd_pwm.forward = 1650;
           cmd_pwm.lateral = 1500;
-          cmd_pwm.thrust = 1450;
+          cmd_pwm.thrust = 1480;
           cmd_pwm.yaw = 1475;
           std::cout << "stabilize surge ";
         } else if (stage == 3) {
@@ -153,12 +155,20 @@ int main(int argc, char **argv) {
         } else if (stage == 4) {
           // stabilize surge 2
           cmd_pwm.arm = true;
-          cmd_pwm.forward = 1700;
+          cmd_pwm.forward = 1650;
           cmd_pwm.lateral = 1500;
-          cmd_pwm.thrust = 1500;
+          cmd_pwm.thrust = 1550;
           cmd_pwm.yaw = 1475;
           std::cout << "stabilize surge ";
-        } else if (stage == 5) {
+        }else if (stage == 5) {
+          // stabilize surge 2
+          cmd_pwm.arm = true;
+          cmd_pwm.forward = 1500;
+          cmd_pwm.lateral = 1500;
+          cmd_pwm.thrust = 1550;
+          cmd_pwm.yaw = 1500;
+          std::cout << "stablize the pitch with alt hold ";
+        } else if (stage == 6) {
           // brief disarm (keeps ALT_HOLD mode, cmd shows disarm)
           cmd_pwm.arm = false;
           cmd_pwm.mode = "ALT_HOLD";
@@ -167,7 +177,7 @@ int main(int argc, char **argv) {
           cmd_pwm.thrust = 1500;
           cmd_pwm.yaw = 1500;
           std::cout << "disarm";
-        } else if (stage == 6) {
+        } else if (stage == 7) {
           // change to MANUAL (disarmed)
           cmd_pwm.arm = false;
           cmd_pwm.mode = "MANUAL";
@@ -176,17 +186,17 @@ int main(int argc, char **argv) {
           cmd_pwm.thrust = 1500;
           cmd_pwm.yaw = 1500;
           std::cout << "change to manual";
-        } else if (stage == 7) {
+        } else if (stage == 8) {
           // manual surge with roll (armed)
           cmd_pwm.arm = true;
           cmd_pwm.mode = "MANUAL";
-          cmd_pwm.forward = 1800;
+          cmd_pwm.forward = 1650;
           cmd_pwm.lateral = 1500;
-          cmd_pwm.thrust = 1500;
+          cmd_pwm.thrust = 1570;
           cmd_pwm.yaw = 1500;
-          cmd_pwm.roll = 1850;
+          cmd_pwm.roll = 1700;
           std::cout << " surge with roll  and manual";
-        } else if (stage == 8) {
+        } else if (stage == 9) {
           // disarm
           cmd_pwm.arm = false;
           cmd_pwm.mode = "MANUAL";
@@ -195,26 +205,26 @@ int main(int argc, char **argv) {
           cmd_pwm.thrust = 1500;
           cmd_pwm.yaw = 1500;
           std::cout << "disarm";
-        } else if (stage == 9) {
+        } else if (stage == 10) {
           // change to ALT_HOLD (brief)
           cmd_pwm.arm = false;
           cmd_pwm.mode = "ALT_HOLD";
           cmd_pwm.forward = 1500;
           cmd_pwm.lateral = 1500;
-          cmd_pwm.thrust = 1500;
+          cmd_pwm.thrust = 1450;
           cmd_pwm.yaw = 1500;
           std::cout << "change to stabilize";
-        } else if (stage == 10) {
+        } else if (stage == 11) {
           // ALT_HOLD forward (armed)
           cmd_pwm.arm = true;
           cmd_pwm.mode = "ALT_HOLD";
           cmd_pwm.forward = 1500;
           cmd_pwm.lateral = 1500;
-          cmd_pwm.thrust = 1500;
+          cmd_pwm.thrust = 1600;
           cmd_pwm.yaw = 1500;
           cmd_pwm.roll = 1500;
           std::cout << "forward";
-        } else if (stage == 11) {
+        } else if (stage == 12) {
           // wait
           cmd_pwm.arm = false;
           cmd_pwm.forward = 1500;

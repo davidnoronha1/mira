@@ -133,7 +133,7 @@ private:
         cmd_pwm.lateral = 1500;
         cmd_pwm.thrust = 1500; // allow depth PID to maintain depth
         cmd_pwm.yaw = pid_yaw;      // yaw PID output controls yaw PWM
-        RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 1000, "Now tuning yaw (elapsed: %.2f). pid_yaw: %.2f, pid_depth: %.2f", elapsed, (double)pid_yaw, (double)pid_depth);
+        RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 1000, "Now tuning yaw (elapsed: %.2f). pid_yaw: %.2f, ", elapsed, (double)pid_yaw);
       }
     } else {
       depth.emptyError();
