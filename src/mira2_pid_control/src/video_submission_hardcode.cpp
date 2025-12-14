@@ -70,7 +70,7 @@ int main(int argc, char **argv) {
   std::vector<float> stage_durations = {
       5.0f,   // initial wait (was delay)
 
-      2.50f,  // sinking
+      2.35f,  // sinking
       6.00f,  // stabilize surge (was 4.00 from 2.80->6.80)
       3.00f,  // stabilize yaw (was 2.20)
 
@@ -154,7 +154,7 @@ int main(int argc, char **argv) {
           cmd_pwm.arm = true;
           cmd_pwm.forward = 1500;
           cmd_pwm.lateral = 1500;
-          cmd_pwm.thrust = 1500;
+          cmd_pwm.thrust = 1550;
           cmd_pwm.yaw = 1675;
           std::cout << "stabilize yaw ";
         } else if (stage == 4) {
@@ -163,7 +163,7 @@ int main(int argc, char **argv) {
           cmd_pwm.forward = 1650;
           cmd_pwm.lateral = 1500;
           cmd_pwm.thrust = 1550;
-          cmd_pwm.yaw = 1475;
+          cmd_pwm.yaw = 1500;
           std::cout << "stabilize surge ";
         }else if (stage == 5) {
           // delay
@@ -197,10 +197,10 @@ int main(int argc, char **argv) {
           cmd_pwm.mode = "MANUAL";
           cmd_pwm.forward = 1650;
           cmd_pwm.lateral = 1500;
-          cmd_pwm.thrust = 1500;
+          cmd_pwm.thrust = 1450;
           cmd_pwm.yaw = 1500;
           cmd_pwm.roll = 1700;
-          std::cout << " surge with roll  and manual";
+          std::cout << " surge with roll and manual";
         } else if (stage == 9) {
           // disarm
           cmd_pwm.arm = false;
