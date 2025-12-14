@@ -139,9 +139,9 @@ int main(int argc, char **argv) {
         } else if (stage == 2) {
           // stabilize surge
           cmd_pwm.arm = true;
-          cmd_pwm.forward = 1650;
+          cmd_pwm.forward = 1705;
           cmd_pwm.lateral = 1500;
-          cmd_pwm.thrust = 1480;
+          cmd_pwm.thrust = 1425;
           cmd_pwm.yaw = 1475;
           std::cout << "stabilize surge ";
         } else if (stage == 3) {
