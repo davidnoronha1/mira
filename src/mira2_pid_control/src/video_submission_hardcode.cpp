@@ -5,6 +5,7 @@
 #include <rclcpp/rclcpp.hpp>
 #include <std_msgs/msg/char.hpp>
 #include <std_msgs/msg/float32_multi_array.hpp>
+#include <vector> // <<< added for durations
 
 // Control parameters and PWM Commands
 bool software_arm_flag = false;
@@ -63,6 +64,36 @@ int main(int argc, char **argv) {
   rclcpp::Time init_time = rclcpp::Clock().now();
   cmd_pwm.arm = false;
 
+  // ----- EDIT ONLY THESE DURATIONS (seconds) TO CHANGE TIMINGS -----
+  // First element is the initial delay that was previously in your code.
+  // The rest correspond, in order, to the original else-if blocks.
+  std::vector<float> stage_durations = {
+      3.0f,   // initial wait (was delay)
+      2.80f,  // sinking
+      6.00f,  // stabilize surge (was 4.00 from 2.80->6.80)
+      2.80f,  // stabilize yaw (was 2.20)
+      2.60f,
+      1.00f,  // stabilize surge 2
+      0.05f,  // disarm (brief)
+      0.05f,  // change to MANUAL
+      2.00f,  // manual surge with roll
+      0.05f,  // disarm
+      0.05f,  // change to ALT_HOLD (very brief)
+      4.00f,  // forward
+      3.40f   // wait
+      // any trailing time falls into 'else' that keeps neutral as before
+  };
+  // -----------------------------------------------------------------
+
+  // Pre-compute cumulative sums so we can compare elapsed time against thresholds
+  std::vector<float> cumulative;
+  cumulative.reserve(stage_durations.size());
+  float sum = 0.0f;
+  for (float d : stage_durations) {
+    sum += d;
+    cumulative.push_back(sum);
+  }
+
   rclcpp::Rate rate(10); // 10 Hz loop rate
   while (rclcpp::ok()) {
     if (software_arm_flag == true) {
@@ -73,8 +104,22 @@ int main(int argc, char **argv) {
         float pid_depth = depth.pid_control(
             depth_error, (time_now - init_time).seconds(), false);
         std::cout << ((time_now - start_routine).seconds()) << "\n";
-        float delay = 3.0;
-        if ((time_now - start_routine).seconds() < delay) {
+
+        // compute elapsed since start of routine
+        float elapsed = (time_now - start_routine).seconds();
+
+        // find which stage we're in by comparing elapsed with cumulative thresholds
+        int stage = -1;
+        for (size_t i = 0; i < cumulative.size(); ++i) {
+          if (elapsed < cumulative[i]) {
+            stage = static_cast<int>(i);
+            break;
+          }
+        }
+
+        // If stage == -1, we've passed all defined stages and fall into final else
+        if (stage == 0) {
+          // initial waiting stage (was delay)
           cmd_pwm.arm = false;
           cmd_pwm.forward = 1500;
           cmd_pwm.mode = "ALT_HOLD";
@@ -82,35 +127,49 @@ int main(int argc, char **argv) {
           cmd_pwm.thrust = 1500;
           cmd_pwm.yaw = 1500;
           depth.emptyError();
-        } else if ((time_now - start_routine).seconds() < (delay + 2.80)) {
+        } else if (stage == 1) {
+          // sinking (previously thrust 1400 in your later variant)
           cmd_pwm.arm = true;
           cmd_pwm.forward = 1500;
           cmd_pwm.lateral = 1500;
           cmd_pwm.thrust = 1400;
           cmd_pwm.yaw = 1500;
           std::cout << "sinking ";
-        } else if ((time_now - start_routine).seconds() < (delay + 6.80)) {
+
+        } else if (stage == 2) {
+          // stabilize surge
           cmd_pwm.arm = true;
-          cmd_pwm.forward = 1650;
+          cmd_pwm.forward = 1705;
           cmd_pwm.lateral = 1500;
-          cmd_pwm.thrust = 1450;
+          cmd_pwm.thrust = 1425;
           cmd_pwm.yaw = 1475;
           std::cout << "stabilize surge ";
-        } else if ((time_now - start_routine).seconds() < (delay + 9.00)) {
+        } else if (stage == 3) {
+          // stabilize yaw
           cmd_pwm.arm = true;
           cmd_pwm.forward = 1500;
           cmd_pwm.lateral = 1500;
           cmd_pwm.thrust = 1500;
           cmd_pwm.yaw = 1675;
           std::cout << "stabilize yaw ";
-        } else if ((time_now - start_routine).seconds() < (delay + 12.60)) {
+        } else if (stage == 4) {
+          // stabilize surge 2
           cmd_pwm.arm = true;
-          cmd_pwm.forward = 1700;
+          cmd_pwm.forward = 1650;
           cmd_pwm.lateral = 1500;
-          cmd_pwm.thrust = 1500;
+          cmd_pwm.thrust = 1550;
           cmd_pwm.yaw = 1475;
           std::cout << "stabilize surge ";
-        } else if ((time_now - start_routine).seconds() < (delay + 12.65)) {
+        }else if (stage == 5) {
+          // stabilize surge 2
+          cmd_pwm.arm = true;
+          cmd_pwm.forward = 1500;
+          cmd_pwm.lateral = 1500;
+          cmd_pwm.thrust = 1550;
+          cmd_pwm.yaw = 1500;
+          std::cout << "stablize the pitch with alt hold ";
+        } else if (stage == 6) {
+          // brief disarm (keeps ALT_HOLD mode, cmd shows disarm)
           cmd_pwm.arm = false;
           cmd_pwm.mode = "ALT_HOLD";
           cmd_pwm.forward = 1500;
@@ -118,7 +177,8 @@ int main(int argc, char **argv) {
           cmd_pwm.thrust = 1500;
           cmd_pwm.yaw = 1500;
           std::cout << "disarm";
-        } else if ((time_now - start_routine).seconds() < (delay + 14.70)) {
+        } else if (stage == 7) {
+          // change to MANUAL (disarmed)
           cmd_pwm.arm = false;
           cmd_pwm.mode = "MANUAL";
           cmd_pwm.forward = 1500;
@@ -126,16 +186,18 @@ int main(int argc, char **argv) {
           cmd_pwm.thrust = 1500;
           cmd_pwm.yaw = 1500;
           std::cout << "change to manual";
-        } else if ((time_now - start_routine).seconds() < (delay + 17.80)) {
+        } else if (stage == 8) {
+          // manual surge with roll (armed)
           cmd_pwm.arm = true;
           cmd_pwm.mode = "MANUAL";
-          cmd_pwm.forward = 1800;
+          cmd_pwm.forward = 1650;
           cmd_pwm.lateral = 1500;
-          cmd_pwm.thrust = 1500;
+          cmd_pwm.thrust = 1570;
           cmd_pwm.yaw = 1500;
-          cmd_pwm.roll = 1850;
+          cmd_pwm.roll = 1700;
           std::cout << " surge with roll  and manual";
-        } else if ((time_now - start_routine).seconds() < (delay + 17.85)) {
+        } else if (stage == 9) {
+          // disarm
           cmd_pwm.arm = false;
           cmd_pwm.mode = "MANUAL";
           cmd_pwm.forward = 1500;
@@ -143,24 +205,27 @@ int main(int argc, char **argv) {
           cmd_pwm.thrust = 1500;
           cmd_pwm.yaw = 1500;
           std::cout << "disarm";
-        } else if ((time_now - start_routine).seconds() < (delay + 17.90)) {
+        } else if (stage == 10) {
+          // change to ALT_HOLD (brief)
           cmd_pwm.arm = false;
           cmd_pwm.mode = "ALT_HOLD";
           cmd_pwm.forward = 1500;
           cmd_pwm.lateral = 1500;
-          cmd_pwm.thrust = 1500;
+          cmd_pwm.thrust = 1450;
           cmd_pwm.yaw = 1500;
           std::cout << "change to stabilize";
-        } else if ((time_now - start_routine).seconds() < (delay + 19.90)) {
+        } else if (stage == 11) {
+          // ALT_HOLD forward (armed)
           cmd_pwm.arm = true;
           cmd_pwm.mode = "ALT_HOLD";
           cmd_pwm.forward = 1500;
           cmd_pwm.lateral = 1500;
-          cmd_pwm.thrust = 1500;
+          cmd_pwm.thrust = 1600;
           cmd_pwm.yaw = 1500;
           cmd_pwm.roll = 1500;
           std::cout << "forward";
-        } else if ((time_now - start_routine).seconds() < (delay + 23.30)) {
+        } else if (stage == 12) {
+          // wait
           cmd_pwm.arm = false;
           cmd_pwm.forward = 1500;
           cmd_pwm.lateral = 1500;
@@ -168,6 +233,7 @@ int main(int argc, char **argv) {
           cmd_pwm.yaw = 1500;
           std::cout << "wait";
         } else {
+          // fallback: final else from your original code
           cmd_pwm.arm = false;
           cmd_pwm.forward = 1500;
           cmd_pwm.lateral = 1500;

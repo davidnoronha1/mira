@@ -64,8 +64,8 @@ CMAKE_ARGS:= -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
 SKIP_PACKAGES ?= vision_boundingbox vision_depth
 COLCON_ARGS:= --cmake-args $(CMAKE_ARGS) \
                           --parallel-workers $(shell nproc) \
-			  --packages-skip $(SKIP_PACKAGES) # \
-			  # --symlink-install \
+			  --packages-skip $(SKIP_PACKAGES) \
+			  --symlink-install # \
 			  # --merge-install
 
 build: check-ros

@@ -9,7 +9,7 @@
     <arg name="image_height"  default="720"/>
     <arg name="frame_format"  default="MJPEG"/>
     <arg name="framerate"     default="30"/>
-    <arg name="topic" default="/camera_front/compressed"/>
+    <arg name="port" default="2001"/>
 
     <node pkg="camera_driver"
           exec="camera_driver_exe"
@@ -22,6 +22,6 @@
         <param name="image_height"  value="$(var image_height)"/>
         <param name="frame_format"  value="$(var frame_format)"/>
         <param name="framerate"     value="$(var framerate)"/>
-        <param name="topic" value="$(var topic)"/>
+        <param name="port" value="$(var port)"/>
     </node>
 </launch>
