@@ -69,8 +69,8 @@ int main(int argc, char **argv) {
   // The rest correspond, in order, to the original else-if blocks.
   std::vector<float> stage_durations = {
       3.0f,   // initial wait (was delay)
-      2.80f,  // sinking
-      6.00f,  // stabilize surge (was 4.00 from 2.80->6.80)
+      2.00f,  // sinking
+      5.00f,  // stabilize surge (was 4.00 from 2.80->6.80)
       2.80f,  // stabilize yaw (was 2.20)
       2.60f,
       1.00f,  // stabilize surge 2
@@ -132,7 +132,7 @@ int main(int argc, char **argv) {
           cmd_pwm.arm = true;
           cmd_pwm.forward = 1500;
           cmd_pwm.lateral = 1500;
-          cmd_pwm.thrust = 1400;
+          cmd_pwm.thrust = 1425;
           cmd_pwm.yaw = 1500;
           std::cout << "sinking ";
 
