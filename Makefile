@@ -15,18 +15,41 @@ MAVPROXY_EXISTS := $(shell command -v mavproxy.py 2>/dev/null)$(shell command -v
 
 all: build
 
-# Check if uv is available
+# Resolve python paths
+PYTHON3_PATH   := $(shell command -v python3 2>/dev/null)
+PYTHON312_PATH := $(shell command -v python3.12 2>/dev/null)
+
 check-uv:
 ifndef UV_EXISTS
 	$(error ❌ uv is not installed. Install it with: curl -LsSf https://astral.sh/uv/install.sh | sh)
 endif
+
 ifndef VENV_EXISTS
-	$(warning ⚠️  Python virtual environment not found at .venv. Creating one...)
-	@uv sync
-	$(info ✅ Virtual environment created and dependencies synced.)
+	$(warning ⚠️  Python virtual environment not found at .venv. Run make setup or uv sync to make it)
 else
 	$(info ✅ Virtual environment found at .venv.)
 endif
+
+# ---- Python checks ----
+ifeq ($(PYTHON3_PATH),)
+	$(error ❌ python3 not found in PATH)
+endif
+
+ifeq ($(PYTHON312_PATH),)
+	$(error ❌ python3.12 not found in PATH)
+endif
+
+ifneq ($(PYTHON3_PATH),/usr/bin/python3)
+	$(error ❌ python3 resolves to $(PYTHON3_PATH). Expected /usr/bin/python3 (not ~/.local/bin))
+endif
+
+ifneq ($(PYTHON312_PATH),/usr/bin/python3.12)
+	$(error ❌ python3.12 resolves to $(PYTHON312_PATH). Expected /usr/bin/python3.12 (not ~/.local/bin))
+endif
+
+$(info ✅ python3     → $(PYTHON3_PATH))
+$(info ✅ python3.12  → $(PYTHON312_PATH))
+
 
 check-ros: check-uv
 ifndef ROS_JAZZY_EXISTS
