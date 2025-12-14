@@ -71,6 +71,7 @@ int main(int argc, char **argv) {
       3.0f,   // initial wait (was delay)
       2.00f,  // sinking
       6.00f,  // stabilize surge (was 4.00 from 2.80->6.80)
+
       2.80f,  // stabilize yaw (was 2.20)
       2.60f,  // stabilize surge 2
       1.00f,  // delay
@@ -133,6 +134,7 @@ int main(int argc, char **argv) {
           cmd_pwm.forward = 1500;
           cmd_pwm.lateral = 1500;
           cmd_pwm.thrust = 1350;
+
           cmd_pwm.yaw = 1500;
           std::cout << "sinking ";
 
