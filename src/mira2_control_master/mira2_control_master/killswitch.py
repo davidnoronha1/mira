@@ -16,7 +16,7 @@ class KillSwitchPublisher(Node):
 
         self.publisher_ = self.create_publisher(
             EmergencyKill,
-            "/esp/telemetry",
+            "/emergency_stop",
             10
         )
 
@@ -34,23 +34,32 @@ class KillSwitchPublisher(Node):
 
         self.get_logger().info("Kill switch armed (lgpio)")
 
+        # Publish initial state so masters know the current kill status immediately
+        self.publish_state(self.last_level)
+
         # Poll GPIO (simple + reliable)
         self.timer = self.create_timer(0.02, self.poll_gpio)  # 50 Hz
 
     def poll_gpio(self):
         level = lgpio.gpio_read(self.h, GPIO_PIN)
-
-        # Detect RELEASE: 0 -> 1
-        if self.last_level == 0 and level == 1:
-            self.send_kill()
+        # If state changed, publish the new kill state
+        if level != self.last_level:
+            self.publish_state(level)
 
         self.last_level = level
 
-    def send_kill(self):
+    def publish_state(self, level):
+        """Publish EmergencyKill with True when pin is pulled-up (no switch attached)
+        and False when pulled to ground (switch attached)."""
         msg = EmergencyKill()
-        msg.kill_switch = True
+        # With pull-up enabled: level == 1 means NOT attached (open) -> kill
+        msg.kill_switch = True if level == 1 else False
         self.publisher_.publish(msg)
-        self.get_logger().warn("Sending EmergencyKill signal.")
+        if msg.kill_switch:
+            self.get_logger().warn("EmergencyKill: switch NOT attached (killed)")
+        else:
+            self.get_logger().info("EmergencyClear: switch attached (normal operation)")
+        
 
     def destroy_node(self):
         try:
