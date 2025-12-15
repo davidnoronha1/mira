@@ -12,6 +12,8 @@ RUN apt-get update && apt-get install -y \
     build-essential \
     cmake \
     pkg-config \
+    lld \
+    ninja-build \
     python3-pip
 
 # Install uv (Python package manager)

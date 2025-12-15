@@ -75,7 +75,7 @@ class PixhawkMaster(Node):
             exit()
 
     def rov_callback(self, msg):
-        print("Got command!")
+        # obj.get_logger().info("Got command!")
 
         # Handle arming/disarming
         if msg.arm == 1 and not self.arm_state:
@@ -280,23 +280,23 @@ def main(args=None):
     obj.request_message_interval(mavutil.mavlink.MAVLINK_MSG_ID_SERVO_OUTPUT_RAW, 100)
     obj.request_message_interval(mavutil.mavlink.MAVLINK_MSG_ID_AHRS2, 100)
 
-    print("!!! Is depth sensor connected ? Connect it to I2C port on the pixhawk !!!")
+    obj.get_logger().info("!!! Is depth sensor connected ? Connect it to I2C port on the pixhawk !!!")
 
     try:
         # Receive MAVLink messages
-        print("Waiting for SYS_STATUS")
+        obj.get_logger().info("Waiting for SYS_STATUS")
         obj.sys_status_msg = obj.master.recv_match(type="SYS_STATUS", blocking=True)
-        print("Waiting for SCALED_IMU2")
+        obj.get_logger().info("Waiting for SCALED_IMU2")
         obj.imu_msg = obj.master.recv_match(type="SCALED_IMU2", blocking=True)
-        print("Waiting for ATTITUDE_QUATERNION")
+        obj.get_logger().info("Waiting for ATTITUDE_QUATERNION")
         obj.attitude_msg = obj.master.recv_match(type="ATTITUDE_QUATERNION", blocking=True)
-        print("Waiting for VFR_HUD")
+        obj.get_logger().info("Waiting for VFR_HUD")
         obj.vfr_hud_msg = obj.master.recv_match(type="VFR_HUD", blocking=True)
-        print("Waiting for SCALED_PRESSURE2")
+        obj.get_logger().info("Waiting for SCALED_PRESSURE2")
         obj.depth_msg = obj.master.recv_match(type="SCALED_PRESSURE2", blocking=True)
-        print("Waiting for SERVO_OUTPUT_RAW")
+        obj.get_logger().info("Waiting for SERVO_OUTPUT_RAW")
         obj.thruster_pwms_msg = obj.master.recv_match(type="SERVO_OUTPUT_RAW", blocking=True)
-        print("Waiting for AHRS2")
+        obj.get_logger().info("Waiting for AHRS2")
         obj.ahrs_msg = obj.master.recv_match(type="AHRS2", blocking=True)
         obj.get_logger().info("All messages received once")
     except Exception as e:
