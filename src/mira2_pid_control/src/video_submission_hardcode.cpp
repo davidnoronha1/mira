@@ -68,18 +68,21 @@ int main(int argc, char **argv) {
   // First element is the initial delay that was previously in your code.
   // The rest correspond, in order, to the original else-if blocks.
   std::vector<float> stage_durations = {
-      3.0f,   // initial wait (was delay)
-      2.00f,  // sinking
-      6.00f,  // stabilize surge (was 4.00 from 2.80->6.80)
+      5.0f,   // initial wait (was delay)
 
-      2.80f,  // stabilize yaw (was 2.20)
+      2.35f,  // sinking
+      6.00f,  // stabilize surge (was 4.00 from 2.80->6.80)
+      3.00f,  // stabilize yaw (was 2.20)
+
       2.60f,  // stabilize surge 2
       1.00f,  // delay
       0.05f,  // disarm (brief)
+
       0.05f,  // change to MANUAL
       1.80f,  // manual surge with roll
       0.05f,  // disarm
-      1.00f,  // change to ALT_HOLD (very brief)
+
+      0.05f,  // change to ALT_HOLD (very brief)
       3.50f,  // forward
       3.40f   // wait
       // any trailing time falls into 'else' that keeps neutral as before
@@ -141,9 +144,9 @@ int main(int argc, char **argv) {
         } else if (stage == 2) {
           // stabilize surge
           cmd_pwm.arm = true;
-          cmd_pwm.forward = 1705;
+          cmd_pwm.forward = 1700;
           cmd_pwm.lateral = 1500;
-          cmd_pwm.thrust = 1475;
+          cmd_pwm.thrust = 1450;
           cmd_pwm.yaw = 1475;
           std::cout << "stabilize surge ";
         } else if (stage == 3) {
@@ -151,7 +154,7 @@ int main(int argc, char **argv) {
           cmd_pwm.arm = true;
           cmd_pwm.forward = 1500;
           cmd_pwm.lateral = 1500;
-          cmd_pwm.thrust = 1500;
+          cmd_pwm.thrust = 1550;
           cmd_pwm.yaw = 1675;
           std::cout << "stabilize yaw ";
         } else if (stage == 4) {
@@ -160,7 +163,7 @@ int main(int argc, char **argv) {
           cmd_pwm.forward = 1650;
           cmd_pwm.lateral = 1500;
           cmd_pwm.thrust = 1550;
-          cmd_pwm.yaw = 1475;
+          cmd_pwm.yaw = 1500;
           std::cout << "stabilize surge ";
         }else if (stage == 5) {
           // delay
@@ -194,10 +197,10 @@ int main(int argc, char **argv) {
           cmd_pwm.mode = "MANUAL";
           cmd_pwm.forward = 1650;
           cmd_pwm.lateral = 1500;
-          cmd_pwm.thrust = 1470;
+          cmd_pwm.thrust = 1450;
           cmd_pwm.yaw = 1500;
           cmd_pwm.roll = 1700;
-          std::cout << " surge with roll  and manual";
+          std::cout << " surge with roll and manual";
         } else if (stage == 9) {
           // disarm
           cmd_pwm.arm = false;
@@ -213,16 +216,16 @@ int main(int argc, char **argv) {
           cmd_pwm.mode = "ALT_HOLD";
           cmd_pwm.forward = 1500;
           cmd_pwm.lateral = 1500;
-          cmd_pwm.thrust = 1420;
+          cmd_pwm.thrust = 1500;
           cmd_pwm.yaw = 1500;
           std::cout << "change to stabilize";
         } else if (stage == 11) {
           // ALT_HOLD forward (armed)
           cmd_pwm.arm = true;
           cmd_pwm.mode = "ALT_HOLD";
-          cmd_pwm.forward = 1520;
+          cmd_pwm.forward = 1550;
           cmd_pwm.lateral = 1500;
-          cmd_pwm.thrust = 1600;
+          cmd_pwm.thrust = 1400;
           cmd_pwm.yaw = 1500;
           cmd_pwm.roll = 1500;
           std::cout << "forward";
