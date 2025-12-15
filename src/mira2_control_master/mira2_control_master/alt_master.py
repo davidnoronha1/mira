@@ -31,7 +31,9 @@ class PixhawkMaster(Node):
 
     def __init__(self):
         super().__init__("pymav_master")
-        self.master_kill = True
+        # When True, arming is inhibited until manually cleared
+        self.master_kill = False
+        self.emergency_locked = False
         self.arm_state = False
 
         # Allow overriding initial mode and pixhawk address via ROS2 parameters
@@ -64,23 +66,37 @@ class PixhawkMaster(Node):
         self.kill_sub = self.create_subscription(
             EmergencyKill, "/emergency_stop", self.kill_callback, 10
         )
+        # Service to clear emergency lock (manual reset)
+        self.clear_kill_srv = self.create_service(Empty, "/clear_emergency", self.clear_emergency)
         self.channel_ary = [1500] * 8  # Initialize channel values array
         self.master.wait_heartbeat()  # Wait for the heartbeat from the Pixhawk
         self.telem_msg = Telemetry()  # Initialize telemetry message
 
     def kill_callback(self, msg):
         if msg.kill_switch:
-            self.disarm()
-            self.get_logger().warn("KILL SWITCH ENABLED, DISARMING AND KILLING")
-            exit()
+            # Engage emergency lock and disarm immediately. Keep node alive
+            # so it can continue to block further arming attempts.
+            self.emergency_locked = True
+            if self.arm_state:
+                self.disarm()
+                self.arm_state = False
+            self.get_logger().warn("KILL SWITCH ENABLED: emergency lock engaged, disarming")
+        else:
+            # Clear emergency lock when switch is attached again (level pulled to GND)
+            if self.emergency_locked:
+                self.emergency_locked = False
+                self.get_logger().info("Kill switch cleared: emergency lock released")
 
     def rov_callback(self, msg):
         # obj.get_logger().info("Got command!")
 
         # Handle arming/disarming
         if msg.arm == 1 and not self.arm_state:
-            self.arm()
-            self.arm_state = True
+            if self.emergency_locked:
+                self.get_logger().warn("Arm blocked: emergency lock is engaged")
+            else:
+                self.arm()
+                self.arm_state = True
         elif msg.arm == 0 and self.arm_state:
             self.disarm()
             self.arm_state = False
@@ -158,6 +174,15 @@ class PixhawkMaster(Node):
             mode_id,
         )
         self.get_logger().info(f"Mode changed to: {self.mode}")
+
+    def clear_emergency(self, request, response):
+        """Service handler to clear an emergency lock."""
+        if self.emergency_locked:
+            self.emergency_locked = False
+            self.get_logger().info("Emergency lock cleared via /clear_emergency service")
+        else:
+            self.get_logger().info("/clear_emergency called but no emergency was active")
+        return response
 
     def set_rc_channel_pwm(self, id, pwm):
         """
@@ -258,6 +283,11 @@ class PixhawkMaster(Node):
 
         if self.telem_msg.battery_voltage < 15:
             # self.get_logger().warn(f"Battery Critically Low: {self.telem_msg.battery_voltage}V")
+            pass
+        # Optionally include emergency state in telemetry if supported
+        try:
+            self.telem_msg.killed = self.emergency_locked
+        except Exception:
             pass
         self.telemetry_pub.publish(self.telem_msg)
 
