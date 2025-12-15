@@ -58,14 +58,23 @@ endif
 	$(info ✅ ROS Jazzy found.)
 
 # Build the workspace
+
+# Alternativley you can use mold which is a bit faster
+LINKER=lld
 CMAKE_ARGS:= -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
-			 -DCMAKE_COLOR_DIAGNOSTICS=ON
+			 -DCMAKE_COLOR_DIAGNOSTICS=ON \
+			 -GNinja \
+			 -DCMAKE_EXE_LINKER_FLAGS=-fuse-ld=$(LINKER) \
+			 -DCMAKE_MODULE_LINKER_FLAGS=-fuse-ld=$(LINKER) \
+			 -DCMAKE_SHARED_LINKER_FLAGS=-fuse-ld=$(LINKER) \
+			 --no-warn-unused-cli
 
 SKIP_PACKAGES ?= vision_boundingbox vision_depth
 COLCON_ARGS:= --cmake-args $(CMAKE_ARGS) \
                           --parallel-workers $(shell nproc) \
 			  --packages-skip $(SKIP_PACKAGES) \
-			  --symlink-install # \
+			  --symlink-install \
+			  --event-handlers console_cohesion+
 			  # --merge-install
 
 build: check-ros
@@ -79,6 +88,26 @@ build: check-ros
 repoversion:
 	$(info Last commit in repository:)
 	@git log -1 --oneline
+
+changed:
+	@packages=$$( \
+		git diff --name-only | \
+		while read f; do \
+			dir=$$(dirname "$$f"); \
+			for i in 0 1 2 3; do \
+				cand="$$dir"; \
+				for j in $$(seq 1 $$i); do \
+					cand=$$(dirname "$$cand"); \
+				done; \
+				if [ -f "$$cand/package.xml" ]; then \
+					cd "$$cand" && pwd; \
+					break; \
+				fi; \
+			done; \
+		done | sort -u \
+	); \
+	echo "Packages to build:"; \
+	echo "$$packages"
 
 build-docker-container:
 	$(info Building Docker container...)
