@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import rclpy
 from rclpy.node import Node
 from custom_msgs.msg import EmergencyKill
@@ -39,6 +41,11 @@ class KillSwitchPublisher(Node):
                     self.publisher_.publish(msg)
                     self.is_killed = True
                 elif self.is_killed and line.strip() == "1":
+                    self.get_logger().warn("Magent Attached -> Publishing all clear")
+                    msg = EmergencyKill()
+                    msg.reason = "Kill switch reattached"
+                    msg.all_clear = True
+                    self.publisher_.publish(msg)
                     self.is_killed = False
 
                     # We use warn so it shows up yellow in the logs
