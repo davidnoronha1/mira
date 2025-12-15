@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<stages>
+  <!-- Stage 0: Initial Wait -->
+  <stage name="initial_wait" duration="5.0" 
+         arm="false" mode="ALT_HOLD"
+         forward="1500" lateral="1500" thrust="1500" yaw="1500" roll="1500" />
+  
+  <!-- Stage 1: Sinking -->
+  <stage name="sinking" duration="2.2" 
+         arm="true" mode="ALT_HOLD"
+         forward="1500" lateral="1500" thrust="1350" yaw="1500" roll="1500" />
+  
+  <!-- Stage 2: Stabilize Surge -->
+  <stage name="stabilize_surge" duration="6.2" 
+         arm="true" mode="ALT_HOLD"
+         forward="1675" lateral="1500" thrust="1460" yaw="1475" roll="1500" />
+  
+  <!-- Stage 3: Stabilize Yaw -->
+  <stage name="stabilize_yaw" duration="3.0" 
+         arm="true" mode="ALT_HOLD"
+         forward="1500" lateral="1500" thrust="1550" yaw="1675" roll="1500" />
+  
+  <!-- Stage 4: Stabilize Surge 2 -->
+  <stage name="stabilize_surge_2" duration="3.0" 
+         arm="true" mode="ALT_HOLD"
+         forward="1650" lateral="1500" thrust="1550" yaw="1500" roll="1500" />
+  
+  <!-- Stage 5: Delay -->
+  <stage name="delay" duration="1.0" 
+         arm="true" mode="ALT_HOLD"
+         forward="1500" lateral="1500" thrust="1550" yaw="1500" roll="1500" />
+  
+  <!-- Stage 6: Disarm -->
+  <stage name="disarm" duration="0.05" 
+         arm="false" mode="ALT_HOLD"
+         forward="1500" lateral="1500" thrust="1500" yaw="1500" roll="1500" />
+  
+  <!-- Stage 7: Change to Manual -->
+  <stage name="change_to_manual" duration="0.05" 
+         arm="false" mode="MANUAL"
+         forward="1500" lateral="1500" thrust="1500" yaw="1500" roll="1500" />
+  
+  <!-- Stage 8: Manual Surge with Roll -->
+  <stage name="manual_surge_with_roll" duration="0.5" 
+         arm="true" mode="MANUAL"
+         forward="1500" lateral="1500" thrust="1500" yaw="1500" roll="1100" />
+  
+  <!-- Stage 9: Disarm 2 -->
+  <stage name="disarm_2" duration="0.05" 
+         arm="false" mode="MANUAL"
+         forward="1500" lateral="1500" thrust="1500" yaw="1500" roll="1500" />
+  
+  <!-- Stage 10: Change to ALT_HOLD -->
+  <stage name="change_to_alt_hold" duration="0.05" 
+         arm="false" mode="ALT_HOLD"
+         forward="1500" lateral="1500" thrust="1500" yaw="1500" roll="1500" />
+  
+  <!-- Stage 11: Forward -->
+  <stage name="forward" duration="3.5" 
+         arm="true" mode="ALT_HOLD"
+         forward="1550" lateral="1500" thrust="1400" yaw="1500" roll="1500" />
+  
+  <!-- Stage 12: Wait -->
+  <stage name="wait" duration="3.4" 
+         arm="false" mode="ALT_HOLD"
+         forward="1500" lateral="1500" thrust="1500" yaw="1500" roll="1500" />
+</stages>
