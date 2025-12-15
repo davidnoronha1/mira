@@ -73,19 +73,19 @@ class PixhawkMaster(Node):
         self.telem_msg = Telemetry()  # Initialize telemetry message
 
     def kill_callback(self, msg):
-        if msg.kill_switch:
+        if msg.kill_master:
             # Engage emergency lock and disarm immediately. Keep node alive
             # so it can continue to block further arming attempts.
             self.emergency_locked = True
             if self.arm_state:
                 self.disarm()
                 self.arm_state = False
-            self.get_logger().warn("KILL SWITCH ENABLED: emergency lock engaged, disarming")
-        else:
-            # Clear emergency lock when switch is attached again (level pulled to GND)
-            if self.emergency_locked:
-                self.emergency_locked = False
-                self.get_logger().info("Kill switch cleared: emergency lock released")
+            self.get_logger().warn(f"KILL SWITCH ({msg.reason}) ENABLED: emergency lock engaged, disarming")
+        #else:
+        # Clear emergency lock when switch is attached again (level pulled to GND)
+        #    if self.emergency_locked:
+        #        self.emergency_locked = False
+        #        self.get_logger().info("Kill switch cleared: emergency lock released")
 
     def rov_callback(self, msg):
         # obj.get_logger().info("Got command!")
