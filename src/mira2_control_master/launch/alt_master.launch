@@ -5,4 +5,7 @@
     <node name="pymavlink_commands" pkg="mira2_control_master" exec="alt_master" output="screen">
         <param name="pixhawk_address" value="$(var pixhawk_address)"/>
     </node>
+
+    <node name="killswitch" pkg="mira2_control_master" exec="killswitch" output="screen">
+    </node>
 </launch>

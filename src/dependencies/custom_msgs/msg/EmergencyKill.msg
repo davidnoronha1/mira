@@ -1,1 +1,3 @@
-bool kill_switch
+bool kill_master
+bool all_clear
+string reason

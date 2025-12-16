@@ -1,64 +1,57 @@
+#!/usr/bin/env python3
+
 import rclpy
 from rclpy.node import Node
-import lgpio
-import time
-
 from custom_msgs.msg import EmergencyKill
-
-
-GPIO_CHIP = 0     # gpiochip0
-GPIO_PIN = 17    # BCM 17 (physical pin 11)
-
+from std_msgs.msg import String
+import serial
 
 class KillSwitchPublisher(Node):
+    is_killed = False
     def __init__(self):
-        super().__init__('kill_switch_publisher')
+        super().__init__('kill_switch_pub_node')
+        self.publisher_ = self.create_publisher(EmergencyKill, '/emergency_stop', 10)
+        
 
-        self.publisher_ = self.create_publisher(
-            EmergencyKill,
-            "/esp/telemetry",
-            10
-        )
-
-        # Open GPIO chip
-        self.h = lgpio.gpiochip_open(GPIO_CHIP)
-
-        # Input with pull-up (same as gpiozero Button(pull_up=True))
-        lgpio.gpio_claim_input(
-            self.h,
-            GPIO_PIN,
-            lgpio.SET_PULL_UP
-        )
-
-        self.last_level = lgpio.gpio_read(self.h, GPIO_PIN)
-
-        self.get_logger().info("Kill switch armed (lgpio)")
-
-        # Poll GPIO (simple + reliable)
-        self.timer = self.create_timer(0.02, self.poll_gpio)  # 50 Hz
-
-    def poll_gpio(self):
-        level = lgpio.gpio_read(self.h, GPIO_PIN)
-
-        # Detect RELEASE: 0 -> 1
-        if self.last_level == 0 and level == 1:
-            self.send_kill()
-
-        self.last_level = level
-
-    def send_kill(self):
-        msg = EmergencyKill()
-        msg.kill_switch = True
-        self.publisher_.publish(msg)
-        self.get_logger().warn("Sending EmergencyKill signal.")
-
-    def destroy_node(self):
+        # Connect to Arduino
         try:
-            lgpio.gpiochip_close(self.h)
-        except Exception:
-            pass
-        super().destroy_node()
+            self.ser = serial.Serial('/dev/Arduino', 9600, timeout=1)
+            self.ser.flush()
+            self.get_logger().info("Connected to Arduino on /dev/Arduino")
 
+        except serial.SerialException as e:
+            self.get_logger().error(f"Serial Error: {e}")
+            exit(1)
+
+        # Check often (0.01s) to catch the signal immediately
+        print("Starting loop")
+        self.timer = self.create_timer(0.01, self.check_serial)
+
+    def check_serial(self):
+        if self.ser.in_waiting > 0:
+            try:
+                # Read the line and remove whitespace/newlines
+                line = self.ser.readline().decode('utf-8').strip()
+
+                if not self.is_killed and line.strip() == "0":
+                    self.get_logger().warn("Magnet Removed  -> Publishing KILL")
+                    msg = EmergencyKill()
+                    msg.reason = "Kill switch pulled"
+                    msg.kill_master = True
+                    self.publisher_.publish(msg)
+                    self.is_killed = True
+                elif self.is_killed and line.strip() == "1":
+                    self.get_logger().warn("Magent Attached -> Publishing all clear")
+                    msg = EmergencyKill()
+                    msg.reason = "Kill switch reattached"
+                    msg.all_clear = True
+                    self.publisher_.publish(msg)
+                    self.is_killed = False
+
+                    # We use warn so it shows up yellow in the logs
+
+            except Exception as e:
+                pass
 
 def main(args=None):
     rclpy.init(args=args)
@@ -66,12 +59,14 @@ def main(args=None):
 
     try:
         rclpy.spin(node)
+
     except KeyboardInterrupt:
         pass
+
     finally:
+        node.ser.close()
         node.destroy_node()
         rclpy.shutdown()
-
 
 if __name__ == '__main__':
     main()
