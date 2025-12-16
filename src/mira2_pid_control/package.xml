@@ -17,6 +17,7 @@
   <depend>std_msgs</depend>
   <depend>custom_msgs</depend>
   <depend>control_utils</depend>
+  <depend>ament_index_cpp</depend>
 <depend>geometry_msgs</depend>
   <!-- Export information -->
   <export>
