@@ -107,7 +107,7 @@ std::vector<Stage> loadStagesFromXML(const std::string &filepath) {
     stageElem->QueryIntAttribute("thrust", &stage.thrust);
     stageElem->QueryIntAttribute("yaw", &stage.yaw);
     stageElem->QueryIntAttribute("roll", &stage.roll);
-    stageElem->QueryIntAttribute("pitch", &stage.pitch)
+    stageElem->QueryIntAttribute("pitch", &stage.pitch);
 
     stages.push_back(stage);
   }
