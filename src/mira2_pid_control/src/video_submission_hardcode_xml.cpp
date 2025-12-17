@@ -29,6 +29,7 @@ struct Stage {
   int thrust;
   int yaw;
   int roll;
+  int pitch;
 };
 
 /* Keys callback
@@ -99,12 +100,14 @@ std::vector<Stage> loadStagesFromXML(const std::string &filepath) {
     stage.thrust = 1500;
     stage.yaw = 1500;
     stage.roll = 1500;
+    stage.pitch = 1500;
 
     stageElem->QueryIntAttribute("forward", &stage.forward);
     stageElem->QueryIntAttribute("lateral", &stage.lateral);
     stageElem->QueryIntAttribute("thrust", &stage.thrust);
     stageElem->QueryIntAttribute("yaw", &stage.yaw);
     stageElem->QueryIntAttribute("roll", &stage.roll);
+    stageElem->QueryIntAttribute("pitch", &stage.pitch)
 
     stages.push_back(stage);
   }
@@ -156,25 +159,19 @@ int main(int argc, char **argv) {
                  "No stages loaded from XML! Using defaults.");
     // Fallback to hardcoded stages
     stages = {
-        {5.0f, "initial_wait", false, "ALT_HOLD", 1500, 1500, 1500, 1500, 1500},
-        {2.35f, "sinking", true, "ALT_HOLD", 1500, 1500, 1350, 1500, 1500},
-        {6.00f, "stabilize_surge", true, "ALT_HOLD", 1700, 1500, 1450, 1475,
-         1500},
-        {3.00f, "stabilize_yaw", true, "ALT_HOLD", 1500, 1500, 1550, 1675,
-         1500},
-        {2.60f, "stabilize_surge_2", true, "ALT_HOLD", 1650, 1500, 1550, 1500,
-         1500},
-        {1.00f, "delay", true, "ALT_HOLD", 1500, 1500, 1550, 1500, 1500},
-        {0.05f, "disarm", false, "ALT_HOLD", 1500, 1500, 1500, 1500, 1500},
-        {0.05f, "change_to_manual", false, "MANUAL", 1500, 1500, 1500, 1500,
-         1500},
-        {1.80f, "manual_surge_with_roll", true, "MANUAL", 1650, 1500, 1450,
-         1500, 1700},
-        {0.05f, "disarm_2", false, "MANUAL", 1500, 1500, 1500, 1500, 1500},
-        {0.05f, "change_to_alt_hold", false, "ALT_HOLD", 1500, 1500, 1500, 1500,
-         1500},
-        {3.50f, "forward", true, "ALT_HOLD", 1550, 1500, 1400, 1500, 1500},
-        {3.40f, "wait", false, "ALT_HOLD", 1500, 1500, 1500, 1500, 1500}};
+        {5.0f, "initial_wait", false, "ALT_HOLD", 1500, 1500, 1500, 1500, 1500, 1500},
+        {2.35f, "sinking", true, "ALT_HOLD", 1500, 1500, 1350, 1500, 1500, 1500},
+        {6.00f, "stabilize_surge", true, "ALT_HOLD", 1700, 1500, 1450, 1475, 1500, 1500},
+        {3.00f, "stabilize_yaw", true, "ALT_HOLD", 1500, 1500, 1550, 1675, 1500, 1500},
+        {2.60f, "stabilize_surge_2", true, "ALT_HOLD", 1650, 1500, 1550, 1500, 1500, 1500},
+        {1.00f, "delay", true, "ALT_HOLD", 1500, 1500, 1550, 1500, 1500, 1500},
+        {0.05f, "disarm", false, "ALT_HOLD", 1500, 1500, 1500, 1500, 1500, 1500},
+        {0.05f, "change_to_manual", false, "MANUAL", 1500, 1500, 1500, 1500, 1500, 1500},
+        {1.80f, "manual_surge_with_roll", true, "MANUAL", 1650, 1500, 1450, 1500, 1700, 1500},
+        {0.05f, "disarm_2", false, "MANUAL", 1500, 1500, 1500, 1500, 1500, 1500},
+        {0.05f, "change_to_alt_hold", false, "ALT_HOLD", 1500, 1500, 1500, 1500, 1500, 1500},
+        {3.50f, "forward", true, "ALT_HOLD", 1550, 1500, 1400, 1500, 1500, 1500},
+        {3.40f, "wait", false, "ALT_HOLD", 1500, 1500, 1500, 1500, 1500, 1500}};
   } else {
     RCLCPP_INFO(node->get_logger(), "Loaded %zu stages from XML",
                 stages.size());
@@ -227,6 +224,7 @@ int main(int argc, char **argv) {
         cmd_pwm.thrust = current_stage.thrust;
         cmd_pwm.yaw = current_stage.yaw;
         cmd_pwm.roll = current_stage.roll;
+        cmd_pwm.pitch = current_stage.pitch;
 
         // Clear depth error for initial stage
         if (stage_idx == 0) {
@@ -242,6 +240,7 @@ int main(int argc, char **argv) {
         cmd_pwm.thrust = 1500;
         cmd_pwm.yaw = 1500;
         cmd_pwm.roll = 1500;
+        cmd_pwm.pitch = 1500;
       }
       std::cout << std::endl;
     } else {
@@ -253,6 +252,7 @@ int main(int argc, char **argv) {
       cmd_pwm.thrust = 1500;
       cmd_pwm.yaw = 1500;
       cmd_pwm.roll = 1500;
+      cmd_pwm.pitch = 1500;
     }
 
     pwm_publisher->publish(cmd_pwm);
