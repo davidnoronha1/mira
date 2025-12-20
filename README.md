@@ -35,7 +35,7 @@ make install-deps
 uv sync
 
 # Fix for editor autocompletion
-make fix_vscode_settings
+make fix-vscode
 ```
 
 ## Editing
