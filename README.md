@@ -35,8 +35,7 @@ make install-deps
 uv sync
 
 # Fix for editor autocompletion
-source mira.sh
-fix_vscode_settings
+make fix_vscode_settings
 ```
 
 ## Editing
