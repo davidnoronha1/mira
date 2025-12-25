@@ -50,6 +50,11 @@ class PixhawkMaster(Node):
 
         # Initialize MAVLink connection
         self.master = mavutil.mavlink_connection(self.pixhawk_port, baud=115200)
+        self.get_logger().info("MAVLink connection established")
+
+        self.get_logger().info("Requesting HEARTBEAT")
+        self.request_message_interval(mavutil.mavlink.MAVLINK_MSG_ID_HEARTBEAT, 100)
+
         self.sys_status_msg = ardupilotmega.MAVLink_sys_status_message
         self.imu_msg = ardupilotmega.MAVLink_scaled_imu2_message
         self.attitude_msg = ardupilotmega.MAVLink_attitude_quaternion_message
@@ -69,8 +74,10 @@ class PixhawkMaster(Node):
         # Service to clear emergency lock (manual reset)
         self.clear_kill_srv = self.create_service(Empty, "/clear_emergency", self.clear_emergency)
         self.channel_ary = [1500] * 8  # Initialize channel values array
+        self.get_logger().info("Waiting for heartbeat from Pixhawk...")
         self.master.wait_heartbeat()  # Wait for the heartbeat from the Pixhawk
         self.telem_msg = Telemetry()  # Initialize telemetry message
+        self.get_logger().info("PixhawkMaster node initialized")
 
     def kill_callback(self, msg):
         print("GOT EMERGENCY KILL MESSAGE")
@@ -302,13 +309,22 @@ def main(args=None):
     obj = PixhawkMaster()
 
     # Request message intervals
+
+    obj.get_logger().info("Requesting HEARTBEAT")
     obj.request_message_interval(mavutil.mavlink.MAVLINK_MSG_ID_HEARTBEAT, 100)
+    obj.get_logger().info("Requesting SYS_STATUS")
     obj.request_message_interval(mavutil.mavlink.MAVLINK_MSG_ID_SYS_STATUS, 100)
+    obj.get_logger().info("Requesting ATTITUDE_QUATERNION")
     obj.request_message_interval(mavutil.mavlink.MAVLINK_MSG_ID_ATTITUDE_QUATERNION, 100)
+    obj.get_logger().info("Requesting SCALED_PRESSURE2")
     obj.request_message_interval(mavutil.mavlink.MAVLINK_MSG_ID_SCALED_PRESSURE2, 100)
+    obj.get_logger().info("Requesting VFR_HUD")
     obj.request_message_interval(mavutil.mavlink.MAVLINK_MSG_ID_VFR_HUD, 100)
+    obj.get_logger().info("Requesting SCALED_IMU2")
     obj.request_message_interval(mavutil.mavlink.MAVLINK_MSG_ID_SCALED_IMU2, 100)
+    obj.get_logger().info("Requesting SERVO_OUTPUT_RAW")
     obj.request_message_interval(mavutil.mavlink.MAVLINK_MSG_ID_SERVO_OUTPUT_RAW, 100)
+    obj.get_logger().info("Requesting AHRS2")
     obj.request_message_interval(mavutil.mavlink.MAVLINK_MSG_ID_AHRS2, 100)
 
     obj.get_logger().info("!!! Is depth sensor connected ? Connect it to I2C port on the pixhawk !!!")

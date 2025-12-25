@@ -73,9 +73,9 @@ SKIP_PACKAGES ?= vision_boundingbox vision_depth
 COLCON_ARGS:= --cmake-args $(CMAKE_ARGS) \
                           --parallel-workers $(shell nproc) \
 			  --packages-skip $(SKIP_PACKAGES) \
-			  --symlink-install \
 			  --event-handlers console_cohesion+
 			  # --merge-install
+			  # --symlink-install
 
 build: check-ros
 	$(warning If you built in docker last - you'll need to clean and rebuild)
@@ -89,26 +89,6 @@ repoversion:
 	$(info Last commit in repository:)
 	@git log -1 --oneline
 
-changed:
-	@packages=$$( \
-		git diff --name-only | \
-		while read f; do \
-			dir=$$(dirname "$$f"); \
-			for i in 0 1 2 3; do \
-				cand="$$dir"; \
-				for j in $$(seq 1 $$i); do \
-					cand=$$(dirname "$$cand"); \
-				done; \
-				if [ -f "$$cand/package.xml" ]; then \
-					cd "$$cand" && pwd; \
-					break; \
-				fi; \
-			done; \
-		done | sort -u \
-	); \
-	echo "Packages to build:"; \
-	echo "$$packages"
-
 build-docker-container:
 	$(info Building Docker container...)
 	@docker build -t mira .
@@ -121,6 +101,7 @@ build-in-docker:
 		--rm \
 		-v $(PWD):/workspace \
 		-u $(UID):$(GID) \
+		--net=host \
 		-w /workspace mira \
 		bash -c "make repoversion && \
 		make clean && \
@@ -129,6 +110,7 @@ build-in-docker:
 		colcon build ${COLCON_ARGS}"
 
 docker:
+	$(warning "Make sure to build the docker container first with 'make build-docker-container'")
 	docker run -it --rm \
 		-v $(PWD):/workspace \
 		-u $(UID):$(GID) \
@@ -143,6 +125,7 @@ b: check-ros
 # Install dependencies
 install-deps: check-ros check-uv
 	$(info Installing Python dependencies...)
+	@[ -d .venv ] || uv venv --system-site-packages
 	@uv sync
 	$(info Installing ROS dependencies...)
 	@source /opt/ros/jazzy/setup.bash && \
@@ -218,7 +201,8 @@ alt_master: check-ros
 
 alt_master_sitl:
 	$(info "Assuming Ardupilot SITL to running on same IP as THIS device with port 5760")
-	make alt_master PIXHAWK_PORT=tcp:127.0.0.1:5760
+	${WS} && \
+	ros2 run mira2_control_master alt_master --ros-args -p pixhawk_address:=tcp:127.0.0.1:5760
 
 teleop: check-ros
 	${WS} && ros2 launch mira2_rov teleop.launch

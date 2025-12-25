@@ -29,7 +29,7 @@ WORKDIR /workspace
 COPY . .
 
 # Install Python dependencies using uv
-RUN uv sync
+# RUN uv sync
 
 # Install ROS dependencies
 RUN /bin/bash -c "source /opt/ros/jazzy/setup.bash && \
@@ -37,7 +37,7 @@ RUN /bin/bash -c "source /opt/ros/jazzy/setup.bash && \
 
 # RUN rm -rf /var/lib/apt/lists/*
 
-RUN rm -rf ./build ./log ./install ./.venv
+RUN rm -rf ./build ./log ./install
 
 # RUN apt install libusb-1.0-0-dev -y
 

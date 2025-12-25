@@ -1,7 +1,11 @@
 services:
-  ardupilot-sitl:
-    image: radarku/ardupilot-sitl
-    platform: linux/amd64
+  mira:
+    image: mira
+    stdin_open: true
     tty: true
-    ports:
-      - 5760:5760
+    volumes:
+      - .:/workspace
+    user: "${UID}:${GID}"
+    network_mode: host
+    working_dir: /workspace
+    entrypoint: /bin/bash
