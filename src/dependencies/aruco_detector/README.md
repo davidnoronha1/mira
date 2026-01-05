@@ -1,26 +1,54 @@
-The Dnt package to run Motion Capture for multiple bots using aruco markers  
+# ArUco Detector
 
-To run package:
+This package provides a ROS 2 node to detect ArUco markers from a camera feed and publish their poses.
 
-1) In your ros_ws/src
-```bash
-git clone https://github.com/DNT-Dev/auv_mocap.git 
-cd ..
-catkin_make
+## How it Works
+
+The `detector_node` subscribes to an image topic, performs ArUco marker detection using OpenCV, and then publishes the pose of each detected marker. It can also publish the TF2 transform for the markers.
+
+-   **Input**: A raw or compressed image stream (e.g., `/camera/image_raw`).
+-   **Processing**: Uses OpenCV's `cv::aruco` module to find markers in the image. Camera calibration parameters are required for accurate pose estimation.
+-   **Output**:
+    -   Publishes marker poses to a topic (e.g., `/aruco/poses`).
+    -   Can publish detections as `vision_msgs/Detection3DArray`.
+    -   Broadcasts a TF2 transform from the camera frame to each marker's frame.
+
+## Example Usage
+
+```mermaid
+graph TD
+    subgraph Camera
+        A[Camera Node]
+    end
+
+    subgraph Aruco Detector
+        B(detector_node)
+    end
+
+    subgraph ROS System
+        C["/aruco/poses (geometry_msgs/PoseArray)"]
+        D["/tf (tf2_msgs/TFMessage)"]
+    end
+
+    A -- "/camera/image_raw" --> B;
+    B --> C;
+    B --> D;
 ```
 
-3) Have camera feeds outputing to rostopics:  
-  /camera_1/image_raw  
-  /camera_2/image_raw  
-  /camera_3/image_raw  
-  ... etc  
+## How to Use
 
-  Put the calibration files for the same in ${ROS_WORKSPACE}/src/auv_mocap/calibration_files and name them camera_%d.txt like camera_1.txt, camera_2.txt and so on
+You will typically run this node as part of a launch file that also starts a camera driver.
 
-4) Run Aruco marker detection node
-   
-  ```rosrun auv_mocap detector_node _num_cameras:=${NUMBER OF CAMERAS}```   
+A minimal way to run the node:
 
-4) Run the transform calculator node   
+```bash
+# Remap the image topic to your camera's output topic
+ros2 run aruco_detector detector_node --ros-args -r image_topic:=/camera/image_raw
+```
 
-  ```rosrun auv_mocap tf_node```
+For pose estimation, you must provide a camera calibration file.
+
+## External Resources
+
+-   [OpenCV ArUco Detection](https://docs.opencv.org/4.x/d5/dae/tutorial_aruco_detection.html)
+-   [ROS 2 TF2 Transformations](https://docs.ros.org/en/humble/Tutorials/Intermediate/Tf2/Introduction-To-Tf2.html)
