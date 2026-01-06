@@ -70,7 +70,7 @@ CMAKE_ARGS:= -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
 			 --no-warn-unused-cli
 
 SKIP_PACKAGES ?= vision_boundingbox vision_depth
-COLCON_ARGS:= --cmake-args $(CMAKE_ARGS) \
+export COLCON_ARGS= --cmake-args $(CMAKE_ARGS) \
                           --parallel-workers $(shell nproc) \
 			  --packages-skip $(SKIP_PACKAGES) \
 			  --event-handlers console_cohesion+
@@ -93,29 +93,29 @@ build-docker-container:
 	$(info Building Docker container...)
 	@docker build -t mira .
 
-UID := $(shell id -u)
-GID := $(shell id -g)
+export _UID=$(shell id -u)
+export _GID=$(shell id -g)
 build-in-docker:
-	$(info Building workspace inside Docker...)
-	@docker run \
-		--rm \
-		-v $(PWD):/workspace \
-		-u $(UID):$(GID) \
-		--net=host \
-		-w /workspace mira \
-		bash -c "make repoversion && \
-		make clean && \
-		source /opt/ros/jazzy/setup.bash && \
-		source .venv/bin/activate && \
-		colcon build ${COLCON_ARGS}"
+	docker-compose up mira-builder
+	# @docker run \
+	# 	--rm \
+	# 	-v $(PWD):/workspace \
+	# 	-u $(UID):$(GID) \
+	# 	--net=host \
+	# 	-w /workspace mira \
+	# 	bash -c "make repoversion && \
+	# 	make clean && \
+	# 	source /opt/ros/jazzy/setup.bash && \
+	# 	source .venv/bin/activate && \
+	# 	colcon build ${COLCON_ARGS}"
 
 docker:
-	$(warning "Make sure to build the docker container first with 'make build-docker-container'")
-	docker run -it --rm \
-		-v $(PWD):/workspace \
-		-u $(UID):$(GID) \
-		-w /workspace mira \
-		bash
+	docker-compose run mira
+	# docker run -it --rm \
+	# 	-v $(PWD):/workspace \
+	# 	-u $(UID):$(GID) \
+	# 	-w /workspace mira \
+	# 	bash
 
 b: check-ros
 	@source /opt/ros/jazzy/setup.bash && \

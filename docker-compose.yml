@@ -1,11 +1,37 @@
 services:
   mira:
     image: mira
-    stdin_open: true
+    build:
+      context: .
+      dockerfile: Dockerfile
     tty: true
     volumes:
       - .:/workspace
-    user: "${UID}:${GID}"
+    user: "${_UID}:${_GID}"
     network_mode: host
     working_dir: /workspace
     entrypoint: /bin/bash
+
+  mira-builder:
+    image: mira
+    build:
+      context: .
+      dockerfile: Dockerfile
+    working_dir: /workspace
+    # Maps current directory to /workspace
+    volumes:
+      - .:/workspace
+    # Sets the user/group ID to match the host (requires variables to be set)
+    user: "${_UID}:${_GID}"
+    # Uses host networking
+    network_mode: "host"
+    # Pass environment variable from host to container
+    environment:
+      - COLCON_ARGS
+    # The build command sequence
+    command: >
+      bash -c "make repoversion &&
+      make clean &&
+      source /opt/ros/jazzy/setup.bash &&
+      source .venv/bin/activate &&
+      colcon build $${COLCON_ARGS}"
