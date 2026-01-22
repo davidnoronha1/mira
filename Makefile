@@ -124,6 +124,9 @@ b: check-ros
 
 # Install dependencies
 install-deps: check-ros check-uv
+	$(info ROS2 Jazzy, UV and Rosdep should be installed)
+	$(info Installing basic build dependencies)
+	@sudo apt install lld ninja-build build-essential cmake
 	$(info Installing Python dependencies...)
 	@[ -d .venv ] || uv venv --system-site-packages
 	@uv sync
