@@ -12,6 +12,8 @@ Diagnostics:
       - cert-*               # CERT secure coding guidelines
       - portability-*        # Portability checks
       - readability-*         # Improve code readability
+    Remove:
+      - modernize-use-trailing-return-type
 
 Index:
   Background: Build         # Enable background indexing
