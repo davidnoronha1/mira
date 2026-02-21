@@ -1,17 +1,20 @@
 #include "std_msgs/msg/float32.hpp"
 #include <cmath>
-#include <geometry_msgs/msg/vector3.hpp>
 #include <rclcpp/logging.hpp>
 #include <rclcpp/node.hpp>
+#include <rclcpp/node_interfaces/node_parameters_interface.hpp>
 #include <rclcpp/publisher.hpp>
 #include <rclcpp/rclcpp.hpp>
-#include "std_srvs/srv/trigger.hpp"
+#include <rclcpp/service.hpp>
+#include <std_srvs/srv/trigger.hpp>
 #include <vector>
 
 class PID_Controller {
   rclcpp::Node::SharedPtr node;
   rclcpp::Publisher<std_msgs::msg::Float32>::SharedPtr pid_pub;
   rclcpp::Publisher<std_msgs::msg::Float32>::SharedPtr error_pub;
+  rclcpp::node_interfaces::OnSetParametersCallbackHandle::SharedPtr param_callback_handle;
+  rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr reset_service;
 
 public:
   PID_Controller(const std::string &name, rclcpp::Node::SharedPtr _node)
@@ -26,16 +29,18 @@ public:
     pid_pub = node->create_publisher<std_msgs::msg::Float32>(
         name + "_pid_output", rclcpp::QoS(10));
 
-    node->create_service<std_srvs::srv::Trigger>(
+    reset_service = node->create_service<std_srvs::srv::Trigger>(
         name + "_pid_reset",
         [&](const std_srvs::srv::Trigger::Request::SharedPtr,
                std_srvs::srv::Trigger::Response::SharedPtr response) {
           emptyError();
           response->success = true;
           response->message = name + " PID integral reset";
+          RCLCPP_INFO(node->get_logger(), "%s PID integral reset via service call",
+                      name.c_str());
         });
 
-    node->add_on_set_parameters_callback([&](const std::vector<
+    param_callback_handle = node->add_on_set_parameters_callback([&](const std::vector<
                                              rclcpp::Parameter> &parameters) {
       rcl_interfaces::msg::SetParametersResult result;
       result.successful = true;
@@ -68,6 +73,13 @@ public:
   auto pid_control(float error, float dtime, bool _invert = false) -> float {
     time.push_back(dtime);
     error_vector.push_back(error);
+
+    // Prevent unbounded memory growth - keep only recent history
+    if (time.size() > max_history_size) {
+      time.erase(time.begin());
+      error_vector.erase(error_vector.begin());
+    }
+
     pid_p = (kp * error);
     pid_i = (integrate(error_vector, time));
     pid_d = 0;
@@ -116,6 +128,7 @@ public:
 private:
   static constexpr float zero_offset = 1500;
   static constexpr float safe_pwm = 400;
+  static constexpr size_t max_history_size = 100; // Limit history to 100 samples
 
   float output_pwm = 0;
   float pwm_prev = 0;

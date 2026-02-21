@@ -207,6 +207,14 @@ camera_frontcam:
 	${GSTREAMER_FIX} && \
 	ros2 launch mira2_perception camera_imx335.launch camera_name:=camera_frontcam
 
+r:
+	${WS} && \
+	ros2 run ${A}
+
+rgdb:
+	${WS} && \
+	ros2 run --prefix 'gdbserver localhost:3000' ${A}
+
 PIXHAWK_PORT ?= /dev/Pixhawk
 alt_master: check-ros
 	${WS} && \

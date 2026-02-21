@@ -1,23 +1,27 @@
 #!/usr/bin/env python3
 """
-Generic ROS2 PID Tuner TUI
-Subscribes to any PID controller's output + error topics and lets you tune
-Kp, Ki, Kd via keyboard. Works with any PID_Controller node.
+Generic ROS2 PID Tuner TUI.
 
-Usage:
-    python3 pid_tuner.py --name yaw
-    python3 pid_tuner.py --name depth --history 200
+Launch via ros2 run:
+    ros2 run control_utils pid_tuner --ros-args -p prefix:=yaw
+    ros2 run control_utils pid_tuner --ros-args -p prefix:=depth
 
-The node must expose:
-    ROS2 params : <n>_pid_kp, <n>_pid_ki, <n>_pid_kd, <n>_pid_base_offset
-    Publishers  : <n>_pid_output (std_msgs/Float32)
-                  <n>_pid_error  (std_msgs/Float32)
-    Service     : <n>_pid_reset  (std_srvs/Trigger)
+Or standalone demo (no ROS):
+    python3 pid_tuner.py
+
+The controller node is discovered automatically by inspecting who is
+publishing on <prefix>_pid_output -- no need to pass a node name.
+
+Expects the PID_Controller node to expose:
+    Publishers : <prefix>_pid_output  (std_msgs/Float32)
+                 <prefix>_pid_error   (std_msgs/Float32)
+    Service    : <prefix>_pid_reset   (std_srvs/Trigger)
+    Params     : <prefix>_pid_kp/ki/kd/base_offset
 """
 
-import argparse
 import math
 import random
+import sys
 import threading
 import time
 from collections import deque
@@ -25,122 +29,246 @@ from typing import Callable, Optional
 
 from textual.app import App, ComposeResult
 from textual.binding import Binding
-from textual.containers import Container, Horizontal
+from textual.containers import Horizontal, Vertical
 from textual.reactive import reactive
 from textual.widgets import Footer, Header, Label, Static
+from textual_plotext import PlotextPlot
 
 try:
     import rclpy
     import rclpy.parameter
+    from rclpy.node import Node
     from std_msgs.msg import Float32
     from std_srvs.srv import Trigger
+    from rcl_interfaces.srv import GetParameters, SetParameters
+    from rcl_interfaces.msg import Parameter, ParameterValue, ParameterType
     ROS_AVAILABLE = True
 except ImportError:
     ROS_AVAILABLE = False
 
 
-# ─── Dual Plot Widget ─────────────────────────────────────────────────────────
+STEP_LARGE = {"kp": 0.20, "ki": 0.005, "kd": 0.10}
+STEP_SMALL = {"kp": 0.05, "ki": 0.001, "kd": 0.10}
 
-BLOCKS = " ▁▂▃▄▅▆▇█"
+KEY_TABLE = [
+    ("w / s", "Kp  large / small"),
+    ("e / d", "Ki  large / small"),
+    ("r / f", "Kd  large / small"),
+    ("x",     "Reset integral"),
+    ("q",     "Quit"),
+]
 
 
-class DualPlotWidget(Static):
-    """
-    Side-by-side scrolling block-character plots.
-    Left = PID output,  Right = PID error.
-    """
+# ---------------------------------------------------------------------------
+# ROS2 Bridge
+# ---------------------------------------------------------------------------
 
-    DEFAULT_CSS = """
-    DualPlotWidget {
-        height: 100%;
-        width: 100%;
-        border: tall $primary;
-        background: $surface;
-        padding: 0 1;
-    }
-    """
+class ROSBridge:
+    def __init__(
+        self,
+        prefix: str,
+        on_output: Optional[Callable[[float], None]] = None,
+        on_error:  Optional[Callable[[float], None]] = None,
+        on_params_ready: Optional[Callable[[], None]] = None,
+    ) -> None:
+        self.prefix          = prefix
+        self.on_output       = on_output
+        self.on_error        = on_error
+        self.on_params_ready = on_params_ready
 
-    def __init__(self, history: int = 300, **kwargs):
-        super().__init__(**kwargs)
-        self.history = history
-        self._output: deque[float] = deque(maxlen=history)
-        self._error:  deque[float] = deque(maxlen=history)
-        self._lock = threading.Lock()
-        self._controller_name = ""
+        self.kp:          float = 0.0
+        self.ki:          float = 0.0
+        self.kd:          float = 0.0
+        self.base_offset: float = 1500.0
 
-    def set_controller_name(self, name: str) -> None:
-        self._controller_name = name
+        self._node: Optional["Node"] = None
+        self._running = False
+        self._thread: Optional[threading.Thread] = None
+        self._controller_node_name: Optional[str] = None
 
-    def push_output(self, v: float) -> None:
-        with self._lock:
-            self._output.append(v)
-        self.refresh()
+    # -- lifecycle ------------------------------------------------------------
 
-    def push_error(self, v: float) -> None:
-        with self._lock:
-            self._error.append(v)
-        self.refresh()
+    def start(self) -> None:
+        if not ROS_AVAILABLE:
+            return
+        if not rclpy.ok():
+            rclpy.init(args=sys.argv)
 
-    @staticmethod
-    def _render_series(
-        data: list[float], width: int, height: int, label: str
-    ) -> list[str]:
-        if not data:
-            rows = ["─" * width] * height
-            mid = height // 2
-            placeholder = f" {label} — no data "
-            pad = max(0, (width - len(placeholder)) // 2)
-            rows[mid] = (" " * pad + placeholder)[:width]
-            return rows
+        self._node = rclpy.create_node("pid_tuner_tui")
 
-        if len(data) > width:
-            step = len(data) / width
-            display = [data[int(i * step)] for i in range(width)]
-        else:
-            display = [0.0] * (width - len(data)) + data
-
-        vmin = min(display)
-        vmax = max(display)
-        vrange = vmax - vmin or 1.0
-
-        rows = []
-        for row in range(height):
-            line = ""
-            for v in display:
-                norm = (v - vmin) / vrange
-                row_threshold = 1.0 - (row / height)
-                block_idx = min(int(norm * 8), 8)
-                line += BLOCKS[block_idx] if norm >= row_threshold else " "
-            rows.append(line)
-
-        header = f" {label}  [{vmin:.1f} … {vmax:.1f}] "
-        rows[0] = header[:width].ljust(width)
-        return rows
-
-    def render(self) -> str:  # type: ignore[override]
-        with self._lock:
-            out_data = list(self._output)
-            err_data = list(self._error)
-
-        total_w = self.size.width - 2
-        height  = self.size.height - 2
-
-        if total_w <= 4 or height <= 2:
-            return ""
-
-        half = (total_w - 1) // 2
-
-        out_rows = self._render_series(out_data, half,              height,
-                                       f"{self._controller_name} output")
-        err_rows = self._render_series(err_data, total_w - half - 1, height,
-                                       f"{self._controller_name} error")
-
-        return "\n".join(
-            out_rows[r] + "│" + err_rows[r] for r in range(height)
+        self._node.declare_parameter("prefix", self.prefix)
+        self.prefix = str(
+            self._node.get_parameter("prefix").get_parameter_value().string_value
         )
 
+        self._node.create_subscription(
+            Float32,
+            f"{self.prefix}_pid_output",
+            lambda m: self.on_output and self.on_output(m.data),
+            10,
+        )
+        self._node.create_subscription(
+            Float32,
+            f"{self.prefix}_pid_error",
+            lambda m: self.on_error and self.on_error(m.data),
+            10,
+        )
 
-# ─── PID Param Panel ──────────────────────────────────────────────────────────
+        self._running = True
+        self._thread = threading.Thread(target=self._spin, daemon=True)
+        self._thread.start()
+
+        # Discover controller node and fetch current param values in background.
+        threading.Thread(target=self._discover_and_fetch, daemon=True).start()
+
+    def stop(self) -> None:
+        self._running = False
+        if self._node:
+            try:
+                self._node.destroy_node()
+            except Exception:
+                pass
+        if ROS_AVAILABLE and rclpy.ok():
+            try:
+                rclpy.shutdown()
+            except Exception:
+                pass
+
+    def _spin(self) -> None:
+        while self._running and rclpy.ok():
+            rclpy.spin_once(self._node, timeout_sec=0.02)
+
+    # -- discovery + initial param fetch -------------------------------------
+
+    def _discover_and_fetch(self) -> None:
+        """
+        Poll get_publishers_info_by_topic() until we find the node publishing
+        on <prefix>_pid_output, then call its GetParameters service to read
+        the current kp/ki/kd values into the bridge.
+        """
+        topic    = f"/{self.prefix}_pid_output"
+        deadline = time.time() + 10.0
+
+        node_name: Optional[str] = None
+        while time.time() < deadline and rclpy.ok():
+            infos = self._node.get_publishers_info_by_topic(topic)
+            if infos:
+                ns   = infos[0].node_namespace.rstrip("/")
+                name = infos[0].node_name
+                node_name = f"{ns}/{name}" if ns else f"/{name}"
+                break
+            time.sleep(0.2)
+
+        if node_name is None:
+            self._node.get_logger().warn(
+                f"No publisher found on '{topic}' after 10 s. "
+                "Is the controller running?"
+            )
+            return
+
+        self._controller_node_name = node_name
+        self._node.get_logger().info(f"Controller node: {node_name}")
+
+        # Fetch current param values via GetParameters service.
+        client = self._node.create_client(
+            GetParameters,
+            f"{node_name}/get_parameters",
+        )
+        if not client.wait_for_service(timeout_sec=3.0):
+            self._node.get_logger().warn("get_parameters service not available")
+            return
+
+        names = [
+            f"{self.prefix}_pid_kp",
+            f"{self.prefix}_pid_ki",
+            f"{self.prefix}_pid_kd",
+            f"{self.prefix}_pid_base_offset",
+        ]
+        future = client.call_async(GetParameters.Request(names=names))
+        while rclpy.ok() and not future.done():
+            time.sleep(0.01)
+        if not future.done():
+            return
+
+        attrs = ["kp", "ki", "kd", "base_offset"]
+        for attr, pv in zip(attrs, future.result().values):
+            if pv.type == ParameterType.PARAMETER_DOUBLE:
+                setattr(self, attr, pv.double_value)
+
+        if self.on_params_ready:
+            self.on_params_ready()
+
+    # -- param setter --------------------------------------------------------
+
+    def set_param(self, attr: str, value: float) -> None:
+        """Send a parameter update to the controller node's set_parameters service."""
+        setattr(self, attr, value)
+        if not ROS_AVAILABLE or not self._node:
+            return
+
+        if self._controller_node_name is None:
+            self._node.get_logger().warn(
+                "Controller node not yet discovered -- skipping param set"
+            )
+            return
+
+        client = self._node.create_client(
+            SetParameters,
+            f"{self._controller_node_name}/set_parameters",
+        )
+
+        pv = ParameterValue(
+            type=ParameterType.PARAMETER_DOUBLE,
+            double_value=value,
+        )
+        p = Parameter(name=f"{self.prefix}_pid_{attr}", value=pv)
+
+        def _worker() -> None:
+            if not client.wait_for_service(timeout_sec=1.0):
+                self._node.get_logger().warn("set_parameters service not available")
+                return
+            future = client.call_async(SetParameters.Request(parameters=[p]))
+            while rclpy.ok() and not future.done():
+                time.sleep(0.01)
+            if future.done():
+                result = future.result().results[0]
+                if not result.successful:
+                    self._node.get_logger().warn(
+                        f"set_parameters failed: {result.reason}"
+                    )
+
+        threading.Thread(target=_worker, daemon=True).start()
+
+    # -- reset service -------------------------------------------------------
+
+    def call_reset(
+        self, on_done: Optional[Callable[[bool, str], None]] = None
+    ) -> None:
+        if not ROS_AVAILABLE or not self._node:
+            if on_done:
+                on_done(True, "demo mode")
+            return
+
+        client = self._node.create_client(Trigger, f"{self.prefix}_pid_reset")
+
+        def _worker() -> None:
+            if not client.wait_for_service(timeout_sec=1.0):
+                if on_done:
+                    on_done(False, "service not available")
+                return
+            future = client.call_async(Trigger.Request())
+            while rclpy.ok() and not future.done():
+                time.sleep(0.01)
+            if future.done() and on_done:
+                res = future.result()
+                on_done(res.success, res.message)
+
+        threading.Thread(target=_worker, daemon=True).start()
+
+
+# ---------------------------------------------------------------------------
+# Param Panel
+# ---------------------------------------------------------------------------
 
 class ParamPanel(Static):
 
@@ -150,8 +278,8 @@ class ParamPanel(Static):
         height: 100%;
         border: tall $primary;
         padding: 1 2;
-        content-align: center middle;
         layout: vertical;
+        content-align: center middle;
     }
     ParamPanel.active {
         border: tall $accent;
@@ -159,189 +287,126 @@ class ParamPanel(Static):
     }
     ParamPanel Label {
         width: 100%;
-        content-align: center middle;
         text-align: center;
+        content-align: center middle;
     }
-    #param-title {
-        text-style: bold;
-        color: $text;
-    }
-    #param-value {
-        text-style: bold;
-        color: $accent;
-    }
-    #param-hint {
-        color: $text-muted;
-    }
+    #title { text-style: bold; }
+    #value { text-style: bold; color: $accent; }
+    #hint  { color: $text-muted; }
     """
 
     value: reactive[float] = reactive(0.0)
 
-    def __init__(self, param_name: str, **kwargs):
+    def __init__(self, title: str, **kwargs) -> None:
         super().__init__(**kwargs)
-        self.param_name = param_name
+        self._title = title
 
     def compose(self) -> ComposeResult:
-        yield Label(self.param_name, id="param-title")
-        yield Label("0.0000",        id="param-value")
-        yield Label("",              id="param-hint")
+        yield Label(self._title, id="title")
+        yield Label("0.0000",   id="value")
+        yield Label("",         id="hint")
 
     def watch_value(self, v: float) -> None:
         try:
-            self.query_one("#param-value", Label).update(f"{v:.4f}")
+            self.query_one("#value", Label).update(f"{v:.4f}")
         except Exception:
             pass
 
     def set_hint(self, inc: str, dec: str) -> None:
         try:
-            self.query_one("#param-hint", Label).update(
-                f"[bold]{inc}[/] ▲   [bold]{dec}[/] ▼"
+            self.query_one("#hint", Label).update(
+                f"[bold]{inc}[/] up   [bold]{dec}[/] dn"
             )
         except Exception:
             pass
 
-    def set_active(self, on: bool) -> None:
-        (self.add_class if on else self.remove_class)("active")
+    def flash(self) -> None:
+        self.add_class("active")
+        self.app.set_timer(0.3, lambda: self.remove_class("active"))
 
 
-# ─── ROS2 Bridge ──────────────────────────────────────────────────────────────
+# ---------------------------------------------------------------------------
+# Live Plot
+# ---------------------------------------------------------------------------
 
-class ROSBridge:
-    def __init__(
-        self,
-        name: str,
-        on_output: Optional[Callable[[float], None]] = None,
-        on_error:  Optional[Callable[[float], None]] = None,
-    ):
-        self.name      = name
-        self.on_output = on_output
-        self.on_error  = on_error
-        self._node     = None
-        self._running  = False
-        self._thread: Optional[threading.Thread] = None
+class LivePlot(PlotextPlot):
 
-        self.kp          = 0.0
-        self.ki          = 0.0
-        self.kd          = 0.0
-        self.base_offset = 1500.0
+    DEFAULT_CSS = """
+    LivePlot {
+        height: 100%;
+        width: 100%;
+        border: tall $primary;
+    }
+    """
 
-    def start(self) -> None:
-        if not ROS_AVAILABLE:
-            return
-        rclpy.init(args=None)
-        self._node = rclpy.create_node("pid_tuner_node")  # type: ignore
+    def __init__(self, history: int = 200, prefix: str = "", **kwargs) -> None:
+        super().__init__(**kwargs)
+        self._history = history
+        self._prefix  = prefix
+        self._output: deque[float] = deque(maxlen=history)
+        self._error:  deque[float] = deque(maxlen=history)
+        self._lock = threading.Lock()
 
-        for suffix, attr in [("kp", "kp"), ("ki", "ki"), ("kd", "kd"),
-                              ("base_offset", "base_offset")]:
-            try:
-                v = self._node.get_parameter(f"{self.name}_pid_{suffix}").value
-                setattr(self, attr, float(v))
-            except Exception:
-                pass
+    def push_output(self, v: float) -> None:
+        with self._lock:
+            self._output.append(v)
 
-        self._node.create_subscription(
-            Float32, f"{self.name}_pid_output", self._output_cb, 10)
-        self._node.create_subscription(
-            Float32, f"{self.name}_pid_error",  self._error_cb,  10)
+    def push_error(self, v: float) -> None:
+        with self._lock:
+            self._error.append(v)
 
-        self._running = True
-        self._thread = threading.Thread(target=self._spin, daemon=True)
-        self._thread.start()
+    def on_mount(self) -> None:
+        self.set_interval(1 / 20, self._redraw)
 
-    def stop(self) -> None:
-        self._running = False
-        if self._node:
-            self._node.destroy_node()
-        if ROS_AVAILABLE:
-            try:
-                rclpy.shutdown()
-            except Exception:
-                pass
+    def _redraw(self) -> None:
+        with self._lock:
+            out = list(self._output)
+            err = list(self._error)
 
-    def _spin(self) -> None:
-        while self._running and rclpy.ok():
-            rclpy.spin_once(self._node, timeout_sec=0.05)
+        plt = self.plt
+        plt.clear_figure()
+        plt.theme("dark")
+        plt.title(f"{self._prefix} PID  |  output (green)  error (red)")
+        plt.xlabel("samples")
 
-    def _output_cb(self, msg: "Float32") -> None:
-        if self.on_output:
-            self.on_output(msg.data)
+        n = max(len(out), len(err), 1)
 
-    def _error_cb(self, msg: "Float32") -> None:
-        if self.on_error:
-            self.on_error(msg.data)
+        if out:
+            plt.plot(list(range(n - len(out), n)), out,
+                     color="green", label="output")
+        if err:
+            plt.plot(list(range(n - len(err), n)), err,
+                     color="red", label="error")
 
-    def set_param(self, attr: str, value: float) -> None:
-        setattr(self, attr, value)
-        if not ROS_AVAILABLE or not self._node:
-            return
-        self._node.set_parameters([
-            rclpy.parameter.Parameter(
-                f"{self.name}_pid_{attr}",
-                rclpy.parameter.Parameter.Type.DOUBLE,
-                value,
-            )
-        ])
+        if not out and not err:
+            plt.text("waiting for data...", x=0, y=0)
 
-    def call_reset(
-        self, on_done: Optional[Callable[[bool, str], None]] = None
-    ) -> None:
-        """Call <name>_pid_reset (std_srvs/Trigger) asynchronously."""
-        if not ROS_AVAILABLE or not self._node:
-            if on_done:
-                on_done(True, "demo mode — no-op")
-            return
-
-        client = self._node.create_client(Trigger, f"{self.name}_pid_reset")
-
-        def _call() -> None:
-            if not client.wait_for_service(timeout_sec=1.0):
-                if on_done:
-                    on_done(False, "service unavailable")
-                return
-            future = client.call_async(Trigger.Request())
-            future.add_done_callback(
-                lambda f: on_done and on_done(
-                    f.result().success, f.result().message
-                )
-            )
-
-        threading.Thread(target=_call, daemon=True).start()
+        self.refresh()
 
 
-# ─── Main TUI App ─────────────────────────────────────────────────────────────
-
-STEP_LARGE = {"kp": 0.20, "ki": 0.005, "kd": 0.10}
-STEP_SMALL = {"kp": 0.05, "ki": 0.001, "kd": 0.10}
-
-KEY_BINDINGS_TABLE = [
-    ("w / s", "Kp ▲ / ▼"),
-    ("e / d", "Ki ▲ / ▼"),
-    ("r / f", "Kd ▲ / ▼"),
-    ("x",     "Reset integral"),
-    ("q",     "Quit"),
-]
-
+# ---------------------------------------------------------------------------
+# App
+# ---------------------------------------------------------------------------
 
 class PIDTunerApp(App):
-    """Generic ROS2 PID Tuner TUI."""
 
     CSS = """
     Screen {
-        background: $background;
         layout: vertical;
+        background: $background;
     }
-    #plot-container {
-        height: 52%;
+    #plot-box {
+        height: 55%;
         width: 100%;
         padding: 0 1;
     }
     #param-row {
-        height: 33%;
+        height: 30%;
         width: 100%;
         padding: 0 1;
         layout: horizontal;
     }
-    #keybind-bar {
+    #kb-bar {
         height: auto;
         width: 100%;
         padding: 0 1;
@@ -373,60 +438,98 @@ class PIDTunerApp(App):
         Binding("q", "quit",                       show=False),
     ]
 
-    def __init__(self, controller_name: str, history: int = 300):
+    def __init__(self, prefix: str = "yaw", history: int = 200) -> None:
         super().__init__()
-        self.controller_name = controller_name
-        self.history         = history
-        self.bridge          = ROSBridge(
-            controller_name,
-            on_output=self._on_output,
-            on_error =self._on_error,
+        self._prefix  = prefix
+        self._history = history
+        self.bridge   = ROSBridge(
+            prefix          = prefix,
+            on_output       = self._on_output,
+            on_error        = self._on_error,
+            on_params_ready = self._on_params_ready,
         )
         self._sim_thread: Optional[threading.Thread] = None
 
-    # ── lifecycle ─────────────────────────────────────────────────────────────
+    # -- lifecycle ------------------------------------------------------------
 
     def on_mount(self) -> None:
         self.bridge.start()
+        self._prefix = self.bridge.prefix
+        self.title   = f"PID Tuner  [{self._prefix}]"
         self._sync_panels()
-        self.query_one("#plot", DualPlotWidget).set_controller_name(
-            self.controller_name
-        )
 
         if not ROS_AVAILABLE:
             self._sim_thread = threading.Thread(
                 target=self._simulate, daemon=True)
             self._sim_thread.start()
-            self.notify("ROS2 not found — demo mode", severity="warning")
+            self.notify("rclpy not found -- demo mode", severity="warning")
         else:
             self.notify(
-                f"Attached to '{self.controller_name}' PID controller",
+                f"Attached to '{self._prefix}' -- discovering controller node...",
                 severity="information",
             )
 
     def on_unmount(self) -> None:
         self.bridge.stop()
 
-    # ── composition ───────────────────────────────────────────────────────────
+    # -- composition ----------------------------------------------------------
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=True)
 
-        with Container(id="plot-container"):
-            yield DualPlotWidget(history=self.history, id="plot")
+        with Vertical(id="plot-box"):
+            yield LivePlot(history=self._history, prefix=self._prefix, id="plot")
 
         with Horizontal(id="param-row"):
             yield ParamPanel("Kp", id="panel-kp")
             yield ParamPanel("Ki", id="panel-ki")
             yield ParamPanel("Kd", id="panel-kd")
 
-        with Horizontal(id="keybind-bar"):
-            for keys, desc in KEY_BINDINGS_TABLE:
+        with Horizontal(id="kb-bar"):
+            for keys, desc in KEY_TABLE:
                 yield Static(f"[bold cyan]{keys}[/]  {desc}", classes="kb-item")
 
         yield Footer()
 
-    # ── helpers ───────────────────────────────────────────────────────────────
+    # -- data callbacks (called from ROS/sim thread) --------------------------
+
+    def _on_output(self, v: float) -> None:
+        try:
+            self.query_one("#plot", LivePlot).push_output(v)
+        except Exception:
+            pass
+
+    def _on_error(self, v: float) -> None:
+        try:
+            self.query_one("#plot", LivePlot).push_error(v)
+        except Exception:
+            pass
+
+    def _on_params_ready(self) -> None:
+        """Called from bg thread after initial param values are fetched."""
+        self.call_from_thread(self._sync_panels)
+        self.call_from_thread(
+            lambda: self.notify(
+                f"Controller: {self.bridge._controller_node_name}  "
+                f"Kp={self.bridge.kp:.3f}  Ki={self.bridge.ki:.4f}  Kd={self.bridge.kd:.3f}",
+                severity="information",
+                timeout=4.0,
+            )
+        )
+
+    # -- demo simulation ------------------------------------------------------
+
+    def _simulate(self) -> None:
+        t = 0.0
+        while True:
+            t += 0.05
+            err = 45.0 * math.exp(-0.08 * t) * math.cos(1.5 * t)
+            out = 1500.0 + self.bridge.kp * err + random.gauss(0, 1.5)
+            self._on_output(out)
+            self._on_error(err)
+            time.sleep(0.05)
+
+    # -- helpers --------------------------------------------------------------
 
     def _sync_panels(self) -> None:
         for pid, attr, inc, dec in [
@@ -434,31 +537,14 @@ class PIDTunerApp(App):
             ("panel-ki", "ki", "e", "d"),
             ("panel-kd", "kd", "r", "f"),
         ]:
-            p: ParamPanel = self.query_one(f"#{pid}", ParamPanel)
-            p.value = getattr(self.bridge, attr)
-            p.set_hint(inc, dec)
+            try:
+                panel: ParamPanel = self.query_one(f"#{pid}", ParamPanel)
+                panel.value = getattr(self.bridge, attr)
+                panel.set_hint(inc, dec)
+            except Exception:
+                pass
 
-    def _on_output(self, v: float) -> None:
-        self.call_from_thread(
-            lambda: self.query_one("#plot", DualPlotWidget).push_output(v)
-        )
-
-    def _on_error(self, v: float) -> None:
-        self.call_from_thread(
-            lambda: self.query_one("#plot", DualPlotWidget).push_error(v)
-        )
-
-    def _simulate(self) -> None:
-        t = 0.0
-        while True:
-            t += 0.05
-            err = 45.0 * math.exp(-0.08 * t) * math.cos(1.5 * t)
-            out = 1500 + self.bridge.kp * err + random.gauss(0, 1.5)
-            self._on_output(out)
-            self._on_error(err)
-            time.sleep(0.05)
-
-    # ── actions ───────────────────────────────────────────────────────────────
+    # -- actions --------------------------------------------------------------
 
     def action_adjust(self, param: str, direction: str, size: str) -> None:
         step = (STEP_LARGE if size == "large" else STEP_SMALL)[param]
@@ -468,22 +554,21 @@ class PIDTunerApp(App):
         new_val = round(getattr(self.bridge, param) + step, 6)
         self.bridge.set_param(param, new_val)
 
-        pid = {"kp": "panel-kp", "ki": "panel-ki", "kd": "panel-kd"}[param]
-        panel: ParamPanel = self.query_one(f"#{pid}", ParamPanel)
+        pid_map = {"kp": "panel-kp", "ki": "panel-ki", "kd": "panel-kd"}
+        panel: ParamPanel = self.query_one(f"#{pid_map[param]}", ParamPanel)
         panel.value = new_val
-        panel.set_active(True)
-        self.set_timer(0.3, lambda: panel.set_active(False))
+        panel.flash()
         self.notify(f"{param.upper()} = {new_val:.4f}", timeout=1.5)
 
     def action_reset_integral(self) -> None:
-        self.notify("Resetting integral…", severity="warning", timeout=1.0)
+        self.notify("Resetting integral...", severity="warning", timeout=1.0)
 
         def _done(ok: bool, msg: str) -> None:
             self.call_from_thread(
                 lambda: self.notify(
                     f"Reset {'OK' if ok else 'FAILED'}: {msg}",
                     severity="information" if ok else "error",
-                    timeout=2.0,
+                    timeout=2.5,
                 )
             )
 
@@ -493,16 +578,17 @@ class PIDTunerApp(App):
         self.exit()
 
 
-# ─── Entry Point ──────────────────────────────────────────────────────────────
+# ---------------------------------------------------------------------------
+# Entry point
+# ---------------------------------------------------------------------------
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Generic ROS2 PID Tuner TUI")
-    parser.add_argument("--name", "-n", default="yaw",
-                        help="Controller name prefix (e.g. 'yaw', 'depth')")
-    parser.add_argument("--history", "-H", type=int, default=300,
-                        help="Plot history in samples (default: 300)")
-    args = parser.parse_args()
-    PIDTunerApp(controller_name=args.name, history=args.history).run()
+    import argparse
+    parser = argparse.ArgumentParser(add_help=False)
+    parser.add_argument("--prefix", "-p", default="yaw")
+    parser.add_argument("--history", "-H", type=int, default=200)
+    known, _ = parser.parse_known_args()
+    PIDTunerApp(prefix=known.prefix, history=known.history).run()
 
 
 if __name__ == "__main__":
