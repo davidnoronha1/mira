@@ -1,0 +1,167 @@
+video_submission_controller:
+  ros__parameters:
+    # Depth PID Parameters
+    depth_target: 1075.0
+    depth_pid_kp: -2.0
+    depth_pid_ki: -0.2
+    depth_pid_kd: -10.69
+    depth_pid_base_offset: 1500
+    
+    # Number of stages
+    num_stages: 13
+    
+    # Stage 0: Initial Wait
+    stage_0_name: "initial_wait"
+    stage_0_duration: 5.0
+    stage_0_arm: false
+    stage_0_mode: "ALT_HOLD"
+    stage_0_forward: 1500
+    stage_0_lateral: 1500
+    stage_0_thrust: 1500
+    stage_0_yaw: 1500
+    stage_0_roll: 1500
+    stage_0_pitch: 1500
+    
+    # Stage 1: Sinking
+    stage_1_name: "sinking"
+    stage_1_duration: 2.3
+    stage_1_arm: true
+    stage_1_mode: "ALT_HOLD"
+    stage_1_forward: 1500
+    stage_1_lateral: 1500
+    stage_1_thrust: 1350
+    stage_1_yaw: 1500
+    stage_1_roll: 1500
+    stage_1_pitch: 1500
+    
+    # Stage 2: Stabilize Surge
+    stage_2_name: "stabilize_surge"
+    stage_2_duration: 6.0
+    stage_2_arm: true
+    stage_2_mode: "ALT_HOLD"
+    stage_2_forward: 1650
+    stage_2_lateral: 1515
+    stage_2_thrust: 1450
+    stage_2_yaw: 1475
+    stage_2_roll: 1500
+    stage_2_pitch: 1500
+    
+    # Stage 3: Buoyancy Delay
+    stage_3_name: "buoyancy_delay"
+    stage_3_duration: 0.5
+    stage_3_arm: true
+    stage_3_mode: "ALT_HOLD"
+    stage_3_forward: 1500
+    stage_3_lateral: 1500
+    stage_3_thrust: 1550
+    stage_3_yaw: 1500
+    stage_3_roll: 1500
+    stage_3_pitch: 1500
+    
+    # Stage 4: Stabilize Yaw
+    stage_4_name: "stabilize_yaw"
+    stage_4_duration: 3.0
+    stage_4_arm: true
+    stage_4_mode: "ALT_HOLD"
+    stage_4_forward: 1500
+    stage_4_lateral: 1500
+    stage_4_thrust: 1520
+    stage_4_yaw: 1675
+    stage_4_roll: 1500
+    stage_4_pitch: 1500
+    
+    # Stage 5: Stabilize Surge 2
+    stage_5_name: "stabilize_surge_2"
+    stage_5_duration: 3.0
+    stage_5_arm: true
+    stage_5_mode: "ALT_HOLD"
+    stage_5_forward: 1650
+    stage_5_lateral: 1500
+    stage_5_thrust: 1550
+    stage_5_yaw: 1500
+    stage_5_roll: 1500
+    stage_5_pitch: 1500
+    
+    # Stage 6: Delay
+    stage_6_name: "delay"
+    stage_6_duration: 0.75
+    stage_6_arm: true
+    stage_6_mode: "ALT_HOLD"
+    stage_6_forward: 1500
+    stage_6_lateral: 1500
+    stage_6_thrust: 1450
+    stage_6_yaw: 1500
+    stage_6_roll: 1500
+    stage_6_pitch: 1500
+    
+    # Stage 7: Disarm
+    stage_7_name: "disarm"
+    stage_7_duration: 0.1
+    stage_7_arm: false
+    stage_7_mode: "ALT_HOLD"
+    stage_7_forward: 1500
+    stage_7_lateral: 1500
+    stage_7_thrust: 1500
+    stage_7_yaw: 1500
+    stage_7_roll: 1500
+    stage_7_pitch: 1500
+    
+    # Stage 8: Change to Manual
+    stage_8_name: "change_to_manual"
+    stage_8_duration: 0.1
+    stage_8_arm: false
+    stage_8_mode: "MANUAL"
+    stage_8_forward: 1500
+    stage_8_lateral: 1500
+    stage_8_thrust: 1500
+    stage_8_yaw: 1500
+    stage_8_roll: 1500
+    stage_8_pitch: 1500
+    
+    # Stage 9: Manual Surge with Roll
+    stage_9_name: "manual_surge_with_roll"
+    stage_9_duration: 1.8
+    stage_9_arm: true
+    stage_9_mode: "MANUAL"
+    stage_9_forward: 1500
+    stage_9_lateral: 1500
+    stage_9_thrust: 1500
+    stage_9_yaw: 1500
+    stage_9_roll: 1700
+    stage_9_pitch: 1500
+    
+    # Stage 10: Disarm 2
+    stage_10_name: "disarm_2"
+    stage_10_duration: 0.05
+    stage_10_arm: false
+    stage_10_mode: "MANUAL"
+    stage_10_forward: 1500
+    stage_10_lateral: 1500
+    stage_10_thrust: 1500
+    stage_10_yaw: 1500
+    stage_10_roll: 1500
+    stage_10_pitch: 1500
+    
+    # Stage 11: Change to ALT_HOLD
+    stage_11_name: "change_to_alt_hold"
+    stage_11_duration: 0.05
+    stage_11_arm: false
+    stage_11_mode: "ALT_HOLD"
+    stage_11_forward: 1500
+    stage_11_lateral: 1500
+    stage_11_thrust: 1500
+    stage_11_yaw: 1500
+    stage_11_roll: 1500
+    stage_11_pitch: 1500
+    
+    # Stage 12: Forward
+    stage_12_name: "forward"
+    stage_12_duration: 3.0
+    stage_12_arm: true
+    stage_12_mode: "ALT_HOLD"
+    stage_12_forward: 1560
+    stage_12_lateral: 1500
+    stage_12_thrust: 1350
+    stage_12_yaw: 1500
+    stage_12_roll: 1500
+    stage_12_pitch: 1500

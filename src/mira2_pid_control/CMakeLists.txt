@@ -24,20 +24,16 @@ include_directories(
 add_executable(go_down_exe src/go_down.cpp)
 add_executable(depth_tuning_exe src/depth_tuner.cpp)
 add_executable(video_hardcode_exe src/video_submission_hardcode.cpp)
-add_executable(video_hardcode_xml_exe src/video_submission_hardcode_xml.cpp)
 add_executable(yaw_tuning_exe src/yaw_tuner.cpp)
 # Link libraries
 ament_target_dependencies(go_down_exe rclcpp std_srvs std_msgs custom_msgs geometry_msgs control_utils)
 ament_target_dependencies(depth_tuning_exe rclcpp std_srvs std_msgs custom_msgs geometry_msgs control_utils)
 ament_target_dependencies(video_hardcode_exe rclcpp std_msgs std_srvs custom_msgs geometry_msgs control_utils)
-ament_target_dependencies(video_hardcode_xml_exe ament_index_cpp std_srvs rclcpp std_msgs custom_msgs geometry_msgs control_utils TinyXML2)
-target_link_libraries(video_hardcode_xml_exe tinyxml2)
 ament_target_dependencies(yaw_tuning_exe rclcpp std_srvs std_msgs custom_msgs geometry_msgs control_utils)
 # Install targets
 install(TARGETS
   depth_tuning_exe
   video_hardcode_exe
-  video_hardcode_xml_exe
   yaw_tuning_exe
   go_down_exe
   DESTINATION lib/${PROJECT_NAME}
@@ -50,10 +46,17 @@ install(TARGETS
 install(DIRECTORY launch/
   DESTINATION share/${PROJECT_NAME}/launch
 )
+
+# Install config files
+install(DIRECTORY config/
+  DESTINATION share/${PROJECT_NAME}/config
+)
+
 install(PROGRAMS
 	scripts/key_pub.py
 	DESTINATION
 	lib/${PROJECT_NAME}
 )
+
 # Export package
 ament_package()
