@@ -11,11 +11,12 @@
 #include <string>
 #include <tinyxml2.h>
 #include <vector>
+#include <memory>
 
 // Control parameters and PWM Commands
 bool software_arm_flag = false;
 custom_msgs::msg::Commands cmd_pwm;
-PID_Controller depth;
+std::unique_ptr<PID_Controller> depth;
 double depth_error;
 rclcpp::Time start_routine;
 
@@ -41,7 +42,7 @@ void keys_callback(const std_msgs::msg::Char::SharedPtr msg) {
     software_arm_flag = false;
     std::cout << "unarmed\n";
     start_routine = rclcpp::Clock().now();
-    depth.emptyError();
+    depth->emptyError();
   } else if (key == 'p') {
     software_arm_flag = true;
     std::cout << "armed\n";
@@ -119,6 +120,7 @@ int main(int argc, char **argv) {
   // ROS 2 Node Declaration
   rclcpp::init(argc, argv);
   auto node = rclcpp::Node::make_shared("depth_tuner_controller");
+  depth = std::make_unique<PID_Controller>("depth", node);
 
   std::string share_dir =
       ament_index_cpp::get_package_share_directory("mira2_pid_control");
@@ -142,9 +144,9 @@ int main(int argc, char **argv) {
       "/master/telemetry", 10, telemetryCallback);
 
   // Depth
-  depth.kp = -2;
-  depth.ki = -0.2;
-  depth.kd = -10.69;
+  depth->kp = -2;
+  depth->ki = -0.2;
+  depth->kd = -10.69;
 
   RCLCPP_INFO(node->get_logger(), "lilbitchlaky");
 
@@ -196,7 +198,7 @@ int main(int argc, char **argv) {
     if (software_arm_flag == true) {
       rclcpp::Time time_now = rclcpp::Clock().now();
 
-      float pid_depth = depth.pid_control(
+      float pid_depth = depth->pid_control(
           depth_error, (time_now - init_time).seconds(), false);
 
       float elapsed = (time_now - start_routine).seconds();
@@ -228,7 +230,7 @@ int main(int argc, char **argv) {
 
         // Clear depth error for initial stage
         if (stage_idx == 0) {
-          depth.emptyError();
+          depth->emptyError();
         }
       } else {
         // Fallback - after all stages complete
@@ -244,7 +246,7 @@ int main(int argc, char **argv) {
       }
       std::cout << std::endl;
     } else {
-      depth.emptyError();
+      depth->emptyError();
       cmd_pwm.arm = false;
       cmd_pwm.mode = "ALT_HOLD";
       cmd_pwm.forward = 1500;

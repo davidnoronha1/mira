@@ -158,7 +158,7 @@ private:
     plog::info() << "Loaded " << class_names_.size() << " class names from " << class_names_path;
   }
 
-  std::vector<Detection> postProcess(const float *output_data, const ov::Shape &output_shape,
+  std::vector<Detection> postProcess(float *output_data, const ov::Shape &output_shape,
                                    float conf_threshold, float nms_threshold,
                                    float scale_x, float scale_y) {
     std::vector<Detection> detections;
@@ -171,7 +171,7 @@ private:
     int num_detections = output_shape[2];
 
     for (int i = 0; i < num_detections; i++) {
-      float *detection = (float*)output_data + i * (num_classes + 5);
+      float *detection = output_data + i * (num_classes + 5);
       
       float x = detection[0];
       float y = detection[1];

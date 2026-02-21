@@ -2,6 +2,7 @@
 #include <custom_msgs/msg/commands.hpp>
 #include <custom_msgs/msg/telemetry.hpp>
 #include <control_utils/control_utils.hpp>
+#include <memory>
 #include <rclcpp/rclcpp.hpp>
 #include <std_msgs/msg/char.hpp>
 #include <std_msgs/msg/float32_multi_array.hpp>
@@ -10,7 +11,7 @@
 // Control parameters and PWM Commands
 bool software_arm_flag = false;
 custom_msgs::msg::Commands cmd_pwm;
-PID_Controller depth;
+std::unique_ptr<PID_Controller> depth;
 double depth_error;
 rclcpp::Time start_routine;
 
@@ -23,7 +24,7 @@ void keys_callback(const std_msgs::msg::Char::SharedPtr msg) {
     software_arm_flag = false;
     std::cout << "unarmed\n";
     start_routine = rclcpp::Clock().now();
-    depth.emptyError();
+    depth->emptyError();
   } else if (key == 'p') {
     software_arm_flag = true;
     std::cout << "armed\n";
@@ -40,6 +41,7 @@ int main(int argc, char **argv) {
   // ROS 2 Node Declaration
   rclcpp::init(argc, argv);
   auto node = rclcpp::Node::make_shared("depth_tuner_controller");
+  depth = std::make_unique<PID_Controller>("depth", node);
 
   // ROS 2 Publisher
   auto pwm_publisher = node->create_publisher<custom_msgs::msg::Commands>(
@@ -53,11 +55,11 @@ int main(int argc, char **argv) {
       "/master/telemetry", 10, telemetryCallback);
 
   // Depth
-  depth.kp = -2;     // -2;
-  depth.ki = -0.2;   // -0.2;
-  depth.kd = -10.69; // -15.69;
+  depth->kp = -2;     // -2;
+  depth->ki = -0.2;   // -0.2;
+  depth->kd = -10.69; // -15.69;
 
-  RCLCPP_INFO(node->get_logger(), "lilbitchlaky");
+  RCLCPP_INFO(node->get_logger(), "lilbitchlaky (NODE READY)");
 
   // Arm Disarm Parameter
   bool arm = false;
@@ -105,7 +107,7 @@ int main(int argc, char **argv) {
       rclcpp::Time time_now = rclcpp::Clock().now();
       cmd_pwm.arm = false;
       if (software_arm_flag == true) {
-        float pid_depth = depth.pid_control(
+        float pid_depth = depth->pid_control(
             depth_error, (time_now - init_time).seconds(), false);
         std::cout << ((time_now - start_routine).seconds()) << "\n";
 
@@ -130,7 +132,7 @@ int main(int argc, char **argv) {
           cmd_pwm.lateral = 1500;
           cmd_pwm.thrust = 1500;
           cmd_pwm.yaw = 1500;
-          depth.emptyError();
+          depth->emptyError();
         } else if (stage == 1) {
           // sinking (previously thrust 1400 in your later variant)
           cmd_pwm.arm = true;
@@ -248,7 +250,7 @@ int main(int argc, char **argv) {
         }
       }
     } else {
-      depth.emptyError();
+      depth->emptyError();
       cmd_pwm.arm = false;
       cmd_pwm.mode = "ALT_HOLD";
       cmd_pwm.forward = 1500;

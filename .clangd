@@ -14,6 +14,14 @@ Diagnostics:
       - readability-*         # Improve code readability
     Remove:
       - modernize-use-trailing-return-type
+      - misc-non-private-member-variables-in-classes
+      - readability-function-cognitive-complexity
+      - bugprone-narrowing-conversions
+      - readability-magic-numbers
+      - misc-non-private-member-variables-in-classes
+      - cppcoreguidelines-narrowing-conversions
+      - cppcoreguidelines-avoid-magic-numbers
+      - cppcoreguidelines-non-private-member-variables-in-classes
 
 Index:
   Background: Build         # Enable background indexing
