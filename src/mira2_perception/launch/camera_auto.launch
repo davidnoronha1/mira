@@ -7,5 +7,5 @@
           output="screen">
           <param name="port" value="$(var port)"/>
     </node>
-     <executable cmd="sleep 2 ; gst-launch-1.0 rtspsrc location=rtsp://$(env MACHINE_IP):$(var port)/image_rtsp ! fakesink" cwd="/home" shell="true"/>
+     <executable cmd="sleep 2 ; gst-launch-1.0 rtspsrc location=rtsp://127.0.0.1:$(var port)/image_rtsp ! fakesink" cwd="/home" shell="true"/>
 </launch>

@@ -2,107 +2,104 @@
 //
 // Single-pipeline architecture:
 //
-//   v4l2src → decode → videoconvert → tee ┬→ queue → x264enc → rtph264pay  (RTSP clients)
-//                                          └→ queue → videoconvert → RGB → appsink  (ROS2)
+//   v4l2src → decode → videoconvert → tee ┬→ queue → x264enc → rtph264pay (RTSP
+//   clients)
+//                                          └→ queue → videoconvert → RGB →
+//                                          appsink  (ROS2)
 //
 // The RTSP media factory owns and runs the pipeline. We hook the factory's
 // "media-configure" signal to retrieve the appsink from inside that pipeline
 // and attach our ROS2 callback — so the camera is opened exactly once and
 // encoding happens exactly once regardless of the number of RTSP clients.
 
+#include "glib.h"
+#include "gst/gstdevicemonitor.h"
+#include "gst/gststructure.h"
 #include "gst/rtsp-server/rtsp-server-object.h"
+#include <future>
 #include <gst/app/gstappsink.h>
 #include <gst/gst.h>
 #include <gst/gstdevice.h>
 #include <gst/rtsp-server/rtsp-server.h>
 #include <image_transport/image_transport.hpp>
+#include <rclcpp/logging.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/image.hpp>
-#include <future>
 #include <sstream>
 #include <string>
 #include <thread>
 
-
-
 class RTSPCameraStreamer : public rclcpp::Node {
 public:
-  RTSPCameraStreamer()
-      : Node("rtsp_camera_streamer") {}
+  RTSPCameraStreamer() : Node("rtsp_camera_streamer") {}
 
   // ── Encoder detection ─────────────────────────────────────────────────────
-enum class EncoderType { X264, QSV, NVENC, V4L2 };
+  enum class EncoderType { X264, QSV, NVENC, V4L2 };
 
-struct EncoderInfo {
+  struct EncoderInfo {
     EncoderType type;
     std::string name;        // GStreamer element name
     std::string extra_props; // properties appended after bitrate
-};
+  };
 
-static bool gst_element_exists(const std::string &name) {
+  static bool gst_element_exists(const std::string &name) {
     GstElementFactory *f = gst_element_factory_find(name.c_str());
-    if (!f) return false;
+    if (!f)
+      return false;
     gst_object_unref(f);
     return true;
-}
+  }
 
-EncoderInfo detect_best_encoder(long bitrate, long framerate) {
+  EncoderInfo detect_best_encoder(long bitrate, long framerate) {
     // ── Intel QSV ──────────────────────────────────────────────────────────
     if (gst_element_exists("qsvh264enc")) {
-        RCLCPP_INFO(get_logger(), "Encoder: Intel QSV (qsvh264enc)");
-        return {
-            EncoderType::QSV,
-            "qsvh264enc",
-            " bitrate=" + std::to_string(bitrate) +
-            " target-usage=7"           // 1=quality … 7=speed (lowest latency)
-            " gop-size=" + std::to_string(framerate) +
-            " b-frames=0"
-            " low-latency=true"
-            " rate-control=cbr"
-        };
+      RCLCPP_INFO(get_logger(), "Encoder: Intel QSV (qsvh264enc)");
+      return {EncoderType::QSV, "qsvh264enc",
+              " bitrate=" + std::to_string(bitrate) +
+                  " target-usage=7" // 1=quality … 7=speed (lowest latency)
+                  " gop-size=" +
+                  std::to_string(framerate) +
+                  " b-frames=0"
+                  " low-latency=true"
+                  " rate-control=cbr"};
     }
 
     // ── NVIDIA NVENC ───────────────────────────────────────────────────────
     if (gst_element_exists("nvh264enc")) {
-        RCLCPP_INFO(get_logger(), "Encoder: NVIDIA NVENC (nvh264enc)");
-        return {
-            EncoderType::NVENC,
-            "nvh264enc",
-            " bitrate=" + std::to_string(bitrate) +
-            " preset=low-latency-hp"    // hp = high performance
-            " gop-size=" + std::to_string(framerate) +
-            " bframes=0"
-            " rc-mode=cbr"
-            " zerolatency=true"
-        };
+      RCLCPP_INFO(get_logger(), "Encoder: NVIDIA NVENC (nvh264enc)");
+      return {EncoderType::NVENC, "nvh264enc",
+              " bitrate=" + std::to_string(bitrate) +
+                  " preset=low-latency-hp" // hp = high performance
+                  " gop-size=" +
+                  std::to_string(framerate) +
+                  " bframes=0"
+                  " rc-mode=cbr"
+                  " zerolatency=true"};
     }
 
     // ── V4L2 M2M hardware (Raspberry Pi / i.MX / Rockchip …) ──────────────
     if (gst_element_exists("v4l2h264enc")) {
-        RCLCPP_INFO(get_logger(), "Encoder: V4L2 M2M hardware (v4l2h264enc)");
-        return {
-            EncoderType::V4L2,
-            "v4l2h264enc",
-            " extra-controls=\"encode,video_bitrate=" + std::to_string(bitrate * 1000) + "\""
-        };
+      RCLCPP_INFO(get_logger(), "Encoder: V4L2 M2M hardware (v4l2h264enc)");
+      return {EncoderType::V4L2, "v4l2h264enc",
+              " extra-controls=\"encode,video_bitrate=" +
+                  std::to_string(bitrate * 1000) + "\""};
     }
 
     // ── Software x264 fallback ─────────────────────────────────────────────
-    RCLCPP_WARN(get_logger(), "Encoder: software x264 (no hardware encoder found)");
-    return {
-        EncoderType::X264,
-        "x264enc",
-        " bitrate=" + std::to_string(bitrate) +
-        " speed-preset=ultrafast"
-        " tune=zerolatency"
-        " key-int-max=" + std::to_string(framerate) +
-        " bframes=0"
-        " sliced-threads=true"
-        " rc-lookahead=0"
-        " sync-lookahead=0"
-        " vbv-buf-capacity=0"
-    };
-}
+    RCLCPP_WARN(get_logger(),
+                "Encoder: software x264 (no hardware encoder found)");
+    return {EncoderType::X264, "x264enc",
+            " bitrate=" + std::to_string(bitrate) +
+                " speed-preset=ultrafast"
+                " tune=zerolatency"
+                " key-int-max=" +
+                std::to_string(framerate) +
+                " bframes=0"
+                " sliced-threads=true"
+                " rc-lookahead=0"
+                " sync-lookahead=0"
+                " vbv-buf-capacity=0"};
+  }
 
   // Called after make_shared() — safe to use shared_from_this() here.
   void initialize() {
@@ -123,68 +120,98 @@ EncoderInfo detect_best_encoder(long bitrate, long framerate) {
     declare_parameter("camera_frame_id", "camera");
 
     std::string device_path = get_parameter("device_path").as_string();
-    long vendor   = get_parameter("vendor_id").as_int();
-    long product  = get_parameter("product_id").as_int();
+    long vendor = get_parameter("vendor_id").as_int();
+    long product = get_parameter("product_id").as_int();
     std::string serial = get_parameter("serial_no").as_string();
-    long width    = get_parameter("image_width").as_int();
-    long height   = get_parameter("image_height").as_int();
+    long width = get_parameter("image_width").as_int();
+    long height = get_parameter("image_height").as_int();
     std::string fmt = get_parameter("frame_format").as_string();
     long framerate = get_parameter("framerate").as_int();
-    long port     = get_parameter("port").as_int();
-    long bitrate  = get_parameter("bitrate").as_int();
-    ros_topic_    = get_parameter("ros_topic").as_string();
-    frame_id_     = get_parameter("camera_frame_id").as_string();
+    long port = get_parameter("port").as_int();
+    long bitrate = get_parameter("bitrate").as_int();
+    ros_topic_ = get_parameter("ros_topic").as_string();
+    frame_id_ = get_parameter("camera_frame_id").as_string();
 
     constexpr const char *mount_point = "/image_rtsp";
 
-    if (vendor  != -1) RCLCPP_INFO(get_logger(), "Vendor ID:  0x%04lx", vendor);
-    if (product != -1) RCLCPP_INFO(get_logger(), "Product ID: 0x%04lx", product);
-    if (!serial.empty()) RCLCPP_INFO(get_logger(), "Serial: %s", serial.c_str());
+    if (vendor != -1)
+      RCLCPP_INFO(get_logger(), "Vendor ID:  0x%04lx", vendor);
+    if (product != -1)
+      RCLCPP_INFO(get_logger(), "Product ID: 0x%04lx", product);
+    if (!serial.empty())
+      RCLCPP_INFO(get_logger(), "Serial: %s", serial.c_str());
 
     // ── Device discovery ────────────────────────────────────────────────────
     GstDevice *target_device = nullptr;
-    if (vendor != -1 && product != -1) {
-      target_device = find_camera_by_id(vendor, product, serial);
-      if (!target_device)
-        throw std::runtime_error("No camera found matching vendor/product/serial");
-    } else {
+
+    RCLCPP_INFO(get_logger(),
+                "Use `gst-device-monitor-1.0 Video/Source` to list all "
+                "compatible devices and their properties");
+    RCLCPP_INFO(
+        get_logger(),
+        "Trying to find camera by vendor (%x), product (%x), serial (%s)",
+        vendor, product, serial.c_str());
+    target_device = find_camera_by_id(vendor, product, serial);
+
+    if (target_device == nullptr) {
+      RCLCPP_INFO(get_logger(),
+                  "Previous failed! Trying to find device by path (%s)",
+                  device_path.c_str());
       target_device = find_camera_by_path(device_path);
-      if (!target_device)
-        throw std::runtime_error("No camera devices found");
-      RCLCPP_WARN(get_logger(), "No specific camera criteria provided, using device_path or auto");
     }
-    RCLCPP_INFO(get_logger(), "Using webcam: %s", gst_device_get_display_name(target_device));
+
+    if (target_device == nullptr) {
+      RCLCPP_INFO(get_logger(), "Previous failed! Trying to find any device!");
+      target_device = find_camera_any(device_path);
+    }
+
+    RCLCPP_INFO(get_logger(), "Using webcam: %s",
+                target_device != nullptr
+                    ? gst_device_get_display_name(target_device)
+                    : device_path.c_str());
 
     // ── Capability negotiation ───────────────────────────────────────────────
     std::set<std::string> supported_formats;
-    std::set<std::pair<int,int>> supported_resolutions;
-    query_camera_capabilities(target_device, supported_formats, supported_resolutions);
+    std::set<std::pair<int, int>> supported_resolutions;
+    query_camera_capabilities(target_device, supported_formats,
+                              supported_resolutions);
 
     if (!supported_formats.empty()) {
       bool found = false;
       for (const auto &sf : supported_formats)
-        if (strcasecmp(sf.c_str(), fmt.c_str()) == 0) { found = true; break; }
+        if (strcasecmp(sf.c_str(), fmt.c_str()) == 0) {
+          found = true;
+          break;
+        }
       if (!found) {
         fmt = *supported_formats.begin();
-        RCLCPP_WARN(get_logger(), "Requested format not supported, using '%s'", fmt.c_str());
+        RCLCPP_WARN(get_logger(), "Requested format not supported, using '%s'",
+                    fmt.c_str());
       }
     }
 
     if (!supported_resolutions.empty()) {
       bool found = false;
       for (const auto &r : supported_resolutions)
-        if (r.first == width && r.second == height) { found = true; break; }
+        if (r.first == width && r.second == height) {
+          found = true;
+          break;
+        }
       if (!found) {
         auto best = *supported_resolutions.begin();
         int target_area = width * height;
         int min_diff = std::abs(best.first * best.second - target_area);
         for (const auto &r : supported_resolutions) {
           int diff = std::abs(r.first * r.second - target_area);
-          if (diff < min_diff) { min_diff = diff; best = r; }
+          if (diff < min_diff) {
+            min_diff = diff;
+            best = r;
+          }
         }
-        RCLCPP_WARN(get_logger(), "Resolution %ldx%ld not supported, using %dx%d",
-                    width, height, best.first, best.second);
-        width  = best.first;
+        RCLCPP_WARN(get_logger(),
+                    "Resolution %ldx%ld not supported, using %dx%d", width,
+                    height, best.first, best.second);
+        width = best.first;
         height = best.second;
       }
     }
@@ -192,9 +219,11 @@ EncoderInfo detect_best_encoder(long bitrate, long framerate) {
     gst_object_unref(target_device);
 
     // ── Log configuration ────────────────────────────────────────────────────
-    RCLCPP_INFO(get_logger(), "============================================================");
+    RCLCPP_INFO(get_logger(),
+                "============================================================");
     RCLCPP_INFO(get_logger(), "RTSP Stream Configuration:");
-    RCLCPP_INFO(get_logger(), "============================================================");
+    RCLCPP_INFO(get_logger(),
+                "============================================================");
     RCLCPP_INFO(get_logger(), "Device path:        %s", device_path.c_str());
     RCLCPP_INFO(get_logger(), "Image Width:        %ld px", width);
     RCLCPP_INFO(get_logger(), "Image Height:       %ld px", height);
@@ -203,11 +232,15 @@ EncoderInfo detect_best_encoder(long bitrate, long framerate) {
     RCLCPP_INFO(get_logger(), "H.264 Bitrate:      %ld kbps", bitrate);
     RCLCPP_INFO(get_logger(), "RTSP Port:          %ld", port);
     RCLCPP_INFO(get_logger(), "RTSP Mount Point:   %s", mount_point);
-    RCLCPP_INFO(get_logger(), "RTSP URL:           rtsp://<host>:%ld%s", port, mount_point);
+    RCLCPP_INFO(get_logger(), "RTSP URL:           rtsp://<host>:%ld%s", port,
+                mount_point);
     RCLCPP_INFO(get_logger(), "ROS2 Image Topic:   %s", ros_topic_.c_str());
-    RCLCPP_INFO(get_logger(), "Command to receive: ros2 run camera_driver camera_driver_recv "
-                              "--ros-args -p rtsp_url:=rtsp://<host>:%ld%s", port, mount_point);
-    RCLCPP_INFO(get_logger(), "============================================================");
+    RCLCPP_INFO(get_logger(),
+                "Command to receive: ros2 run camera_driver camera_driver_recv "
+                "--ros-args -p rtsp_url:=rtsp://<host>:%ld%s",
+                port, mount_point);
+    RCLCPP_INFO(get_logger(),
+                "============================================================");
 
     // ── image_transport publisher ────────────────────────────────────────────
     image_transport::ImageTransport it(shared_from_this());
@@ -216,9 +249,8 @@ EncoderInfo detect_best_encoder(long bitrate, long framerate) {
     // ── Build the shared pipeline string ────────────────────────────────────
     std::string gst_fmt = gst_caps_for_format(fmt);
     std::ostringstream ss;
-    ss << "( "
-       << "v4l2src device=" << device_path << " ! "
-       << gst_fmt << ",width=" << width << ",height=" << height
+    ss << "( " << " v4l2src device=" << device_path << " ! " << gst_fmt
+       << ",width=" << width << ",height=" << height
        << ",framerate=" << framerate << "/1 ! ";
 
     if (strcasecmp(fmt.c_str(), "MJPEG") == 0)
@@ -231,7 +263,8 @@ EncoderInfo detect_best_encoder(long bitrate, long framerate) {
        << "x264enc bitrate=" << bitrate
        << " speed-preset=ultrafast tune=zerolatency"
        << " key-int-max=" << framerate
-       << " bframes=0 sliced-threads=true rc-lookahead=0 sync-lookahead=0 vbv-buf-capacity=0 ! "
+       << " bframes=0 sliced-threads=true rc-lookahead=0 sync-lookahead=0 "
+          "vbv-buf-capacity=0 ! "
        << "rtph264pay name=pay0 pt=96 config-interval=1 "
 
        // Branch 2 – ROS2 appsink (RGB, no extra encoding)
@@ -242,7 +275,8 @@ EncoderInfo detect_best_encoder(long bitrate, long framerate) {
 
     std::string pipeline_str = ss.str();
     RCLCPP_INFO(get_logger(), "GStreamer pipeline: %s", pipeline_str.c_str());
-    RCLCPP_INFO(get_logger(), "============================================================");
+    RCLCPP_INFO(get_logger(),
+                "============================================================");
 
     // ── RTSP server ──────────────────────────────────────────────────────────
     server_ = gst_rtsp_server_new();
@@ -252,7 +286,6 @@ EncoderInfo detect_best_encoder(long bitrate, long framerate) {
     GstRTSPMediaFactory *factory = gst_rtsp_media_factory_new();
     gst_rtsp_media_factory_set_launch(factory, pipeline_str.c_str());
     gst_rtsp_media_factory_set_shared(factory, TRUE);
-
 
     g_signal_connect(factory, "media-configure",
                      G_CALLBACK(on_media_configure_static), this);
@@ -270,10 +303,13 @@ EncoderInfo detect_best_encoder(long bitrate, long framerate) {
     auto loop_ready_fut = loop_ready.get_future();
     glib_thread_ = std::thread([this, p = std::move(loop_ready)]() mutable {
       GSource *idle = g_idle_source_new();
-      g_source_set_callback(idle, [](gpointer data) -> gboolean {
-        static_cast<std::promise<void> *>(data)->set_value();
-        return G_SOURCE_REMOVE;
-      }, &p, nullptr);
+      g_source_set_callback(
+          idle,
+          [](gpointer data) -> gboolean {
+            static_cast<std::promise<void> *>(data)->set_value();
+            return G_SOURCE_REMOVE;
+          },
+          &p, nullptr);
       g_source_attach(idle, glib_context_);
       g_source_unref(idle);
       g_main_loop_run(loop_);
@@ -283,8 +319,10 @@ EncoderInfo detect_best_encoder(long bitrate, long framerate) {
     if (gst_rtsp_server_attach(server_, glib_context_) == 0)
       throw std::runtime_error("Failed to attach RTSP server");
 
-    RCLCPP_INFO(get_logger(), "RTSP server started. Waiting for clients on rtsp://<host>:%ld%s",
-                port, mount_point);
+    RCLCPP_INFO(
+        get_logger(),
+        "RTSP server started. Waiting for clients on rtsp://<host>:%ld%s", port,
+        mount_point);
   }
 
   ~RTSPCameraStreamer() { cleanup(); }
@@ -299,7 +337,10 @@ private:
 
   void on_media_configure(GstRTSPMedia *media) {
     GstElement *bin = gst_rtsp_media_get_element(media);
-    if (!bin) { RCLCPP_ERROR(get_logger(), "media-configure: no pipeline"); return; }
+    if (!bin) {
+      RCLCPP_ERROR(get_logger(), "media-configure: no pipeline");
+      return;
+    }
 
     GstElement *appsink = gst_bin_get_by_name(GST_BIN(bin), "ros_sink");
     if (!appsink) {
@@ -319,31 +360,33 @@ private:
   }
 
   // ── appsink callback ─────────────────────────────────────────────────────
-  static GstFlowReturn on_new_sample_static(GstAppSink *sink, gpointer user_data) {
+  static GstFlowReturn on_new_sample_static(GstAppSink *sink,
+                                            gpointer user_data) {
     return static_cast<RTSPCameraStreamer *>(user_data)->on_new_sample(sink);
   }
 
   GstFlowReturn on_new_sample(GstAppSink *sink) {
     GstSample *sample = gst_app_sink_pull_sample(sink);
-    if (!sample) return GST_FLOW_ERROR;
+    if (!sample)
+      return GST_FLOW_ERROR;
 
-    GstBuffer    *buffer = gst_sample_get_buffer(sample);
-    GstStructure *st     = gst_caps_get_structure(gst_sample_get_caps(sample), 0);
+    GstBuffer *buffer = gst_sample_get_buffer(sample);
+    GstStructure *st = gst_caps_get_structure(gst_sample_get_caps(sample), 0);
 
     int w = 0, h = 0;
-    gst_structure_get_int(st, "width",  &w);
+    gst_structure_get_int(st, "width", &w);
     gst_structure_get_int(st, "height", &h);
 
     GstMapInfo map;
     if (gst_buffer_map(buffer, &map, GST_MAP_READ)) {
       auto msg = std::make_shared<sensor_msgs::msg::Image>();
-      msg->header.stamp    = now();
+      msg->header.stamp = now();
       msg->header.frame_id = frame_id_;
-      msg->width           = static_cast<uint32_t>(w);
-      msg->height          = static_cast<uint32_t>(h);
-      msg->encoding        = "rgb8";
-      msg->is_bigendian    = 0;
-      msg->step            = static_cast<uint32_t>(w * 3);
+      msg->width = static_cast<uint32_t>(w);
+      msg->height = static_cast<uint32_t>(h);
+      msg->encoding = "rgb8";
+      msg->is_bigendian = 0;
+      msg->step = static_cast<uint32_t>(w * 3);
       msg->data.assign(map.data, map.data + map.size);
       image_pub_.publish(msg);
       gst_buffer_unmap(buffer, &map);
@@ -354,32 +397,42 @@ private:
   }
 
   // ── Device discovery ─────────────────────────────────────────────────────
-  GstDevice *find_camera_by_id(long vendor, long product, const std::string &serial) {
+  GstDevice *find_camera_by_id(long vendor, long product,
+                               const std::string &serial) {
+    if (vendor == -1 || product == -1 || serial == "") {
+      RCLCPP_WARN(get_logger(),
+                  "Invalid product, vendor, serial recieved, failing!");
+      return nullptr;
+    }
     GstDeviceMonitor *monitor = gst_device_monitor_new();
     gst_device_monitor_add_filter(monitor, "Video/Source", nullptr);
     if (!gst_device_monitor_start(monitor)) {
       RCLCPP_WARN(get_logger(), "Failed to start device monitor");
-      gst_object_unref(monitor); return nullptr;
+      gst_object_unref(monitor);
+      return nullptr;
     }
 
     GList *devices = gst_device_monitor_get_devices(monitor);
     GstDevice *result = nullptr;
 
     for (GList *l = devices; l && !result; l = l->next) {
-      GstDevice    *dev  = GST_DEVICE(l->data);
+      GstDevice *dev = GST_DEVICE(l->data);
       GstStructure *props = gst_device_get_properties(dev);
-      if (!props) continue;
+      if (!props)
+        continue;
 
       guint dev_vendor = 0, dev_product = 0;
-      gst_structure_get_uint(props, "device.vendor-id",  &dev_vendor);
+      gst_structure_get_uint(props, "device.vendor-id", &dev_vendor);
       gst_structure_get_uint(props, "device.product-id", &dev_product);
       const gchar *dev_sn = gst_structure_get_string(props, "device.serial");
 
-      bool match = (vendor  == 0 || dev_vendor  == (guint)vendor)  &&
-                   (product == 0 || dev_product == (guint)product) &&
-                   (serial.empty() || (dev_sn && std::string(dev_sn) == serial));
+      bool match =
+          (vendor == 0 || dev_vendor == (guint)vendor) &&
+          (product == 0 || dev_product == (guint)product) &&
+          (serial.empty() || (dev_sn && std::string(dev_sn) == serial));
 
-      if (match) result = GST_DEVICE(gst_object_ref(dev));
+      if (match)
+        result = GST_DEVICE(gst_object_ref(dev));
       gst_structure_free(props);
     }
 
@@ -389,32 +442,55 @@ private:
     return result;
   }
 
-  GstDevice *find_camera_by_path(std::string &device_path) {
+  GstDevice *find_camera_any(std::string &device_path) {
     GstDeviceMonitor *monitor = gst_device_monitor_new();
     gst_device_monitor_add_filter(monitor, "Video/Source", nullptr);
     if (!gst_device_monitor_start(monitor)) {
       RCLCPP_WARN(get_logger(), "Failed to start device monitor");
-      gst_object_unref(monitor); return nullptr;
+      gst_object_unref(monitor);
+      return nullptr;
+    }
+
+    GList *devices = gst_device_monitor_get_devices(monitor);
+    GstDevice *result = GST_DEVICE(g_object_ref(g_list_first(devices)->data));
+    auto props = gst_device_get_properties(result);
+    auto dev_path = gst_structure_get_string(props, "api.v4l2.path");
+    device_path = dev_path;
+    gst_structure_free(props);
+
+    g_list_free_full(devices, gst_object_unref);
+    gst_device_monitor_stop(monitor);
+    gst_object_unref(monitor);
+    return result;
+  }
+
+  GstDevice *find_camera_by_path(std::string &device_path) {
+    if (device_path == "") {
+      RCLCPP_WARN(get_logger(), "No device path provided, Failing!");
+      return nullptr;
+    }
+    GstDeviceMonitor *monitor = gst_device_monitor_new();
+    gst_device_monitor_add_filter(monitor, "Video/Source", nullptr);
+    if (!gst_device_monitor_start(monitor)) {
+      RCLCPP_WARN(get_logger(), "Failed to start device monitor");
+      gst_object_unref(monitor);
+      return nullptr;
     }
 
     GList *devices = gst_device_monitor_get_devices(monitor);
     GstDevice *result = nullptr;
 
-    for (GList *l = devices; l && !result; l = l->next) {
-      GstDevice    *dev   = GST_DEVICE(l->data);
+    for (GList *l = devices; l && result != nullptr; l = l->next) {
+      GstDevice *dev = GST_DEVICE(l->data);
       GstStructure *props = gst_device_get_properties(dev);
-      if (!props) continue;
+      if (props == nullptr)
+        continue;
 
       const gchar *dev_path = gst_structure_get_string(props, "api.v4l2.path");
 
-      if (device_path.empty()) {
-        RCLCPP_INFO(get_logger(), "Auto-selecting first camera: %s",
-                    dev_path ? dev_path : "unknown");
-        if (dev_path) device_path = dev_path;
+      if (dev_path == device_path) {
+        result = g_object_ref(dev);
       }
-
-      if (device_path.empty() || (dev_path && device_path == dev_path))
-        result = GST_DEVICE(gst_object_ref(dev));
 
       gst_structure_free(props);
     }
@@ -426,39 +502,46 @@ private:
   }
 
   // ── Capability query ─────────────────────────────────────────────────────
-  void query_camera_capabilities(GstDevice *dev,
-                                 std::set<std::string> &formats,
-                                 std::set<std::pair<int,int>> &resolutions) {
+  void query_camera_capabilities(GstDevice *dev, std::set<std::string> &formats,
+                                 std::set<std::pair<int, int>> &resolutions) {
     GstCaps *caps = gst_device_get_caps(dev);
-    if (!caps) return;
+    if (!caps)
+      return;
 
     for (guint i = 0; i < gst_caps_get_size(caps); i++) {
-      GstStructure *s     = gst_caps_get_structure(caps, i);
-      const gchar  *mtype = gst_structure_get_name(s);
+      GstStructure *s = gst_caps_get_structure(caps, i);
+      const gchar *mtype = gst_structure_get_name(s);
 
       if (g_strcmp0(mtype, "image/jpeg") == 0) {
         formats.insert("MJPEG");
       } else if (g_strcmp0(mtype, "video/x-raw") == 0) {
         const gchar *f = gst_structure_get_string(s, "format");
-        if      (g_strcmp0(f, "YUY2") == 0) formats.insert("YUYV");
-        else if (g_strcmp0(f, "NV12") == 0) formats.insert("NV12");
-        else if (g_strcmp0(f, "RGB")  == 0) formats.insert("RGB");
-        else if (g_strcmp0(f, "BGR")  == 0) formats.insert("BGR");
+        if (g_strcmp0(f, "YUY2") == 0)
+          formats.insert("YUYV");
+        else if (g_strcmp0(f, "NV12") == 0)
+          formats.insert("NV12");
+        else if (g_strcmp0(f, "RGB") == 0)
+          formats.insert("RGB");
+        else if (g_strcmp0(f, "BGR") == 0)
+          formats.insert("BGR");
       }
 
       int w = 0, h = 0;
-      if (gst_structure_get_int(s, "width", &w) && gst_structure_get_int(s, "height", &h))
+      if (gst_structure_get_int(s, "width", &w) &&
+          gst_structure_get_int(s, "height", &h))
         resolutions.insert({w, h});
     }
 
     if (!formats.empty()) {
       std::ostringstream os;
-      for (auto &f : formats) os << f << " ";
+      for (auto &f : formats)
+        os << f << " ";
       RCLCPP_INFO(get_logger(), "Supported formats: %s", os.str().c_str());
     }
     if (!resolutions.empty()) {
       std::ostringstream os;
-      for (auto &r : resolutions) os << r.first << "x" << r.second << " ";
+      for (auto &r : resolutions)
+        os << r.first << "x" << r.second << " ";
       RCLCPP_INFO(get_logger(), "Supported resolutions: %s", os.str().c_str());
     }
 
@@ -467,28 +550,45 @@ private:
 
   // ── Helpers ───────────────────────────────────────────────────────────────
   static std::string gst_caps_for_format(const std::string &fmt) {
-    if (strcasecmp(fmt.c_str(), "MJPEG") == 0) return "image/jpeg";
-    if (strcasecmp(fmt.c_str(), "YUYV") == 0)  return "video/x-raw,format=YUY2";
-    if (strcasecmp(fmt.c_str(), "RGB")  == 0)  return "video/x-raw,format=RGB";
-    if (strcasecmp(fmt.c_str(), "BGR")  == 0)  return "video/x-raw,format=BGR";
-    if (strcasecmp(fmt.c_str(), "NV12") == 0)  return "video/x-raw,format=NV12";
+    if (strcasecmp(fmt.c_str(), "MJPEG") == 0)
+      return "image/jpeg";
+    if (strcasecmp(fmt.c_str(), "YUYV") == 0)
+      return "video/x-raw,format=YUY2";
+    if (strcasecmp(fmt.c_str(), "RGB") == 0)
+      return "video/x-raw,format=RGB";
+    if (strcasecmp(fmt.c_str(), "BGR") == 0)
+      return "video/x-raw,format=BGR";
+    if (strcasecmp(fmt.c_str(), "NV12") == 0)
+      return "video/x-raw,format=NV12";
     return "image/jpeg";
   }
 
   // ── Cleanup ───────────────────────────────────────────────────────────────
   void cleanup() {
-    if (server_) { g_object_unref(server_); server_ = nullptr; }
-    if (loop_)   { g_main_loop_quit(loop_); }
-    if (glib_thread_.joinable()) glib_thread_.join();
-    if (loop_)   { g_main_loop_unref(loop_); loop_ = nullptr; }
-    if (glib_context_) { g_main_context_unref(glib_context_); glib_context_ = nullptr; }
+    if (server_) {
+      g_object_unref(server_);
+      server_ = nullptr;
+    }
+    if (loop_) {
+      g_main_loop_quit(loop_);
+    }
+    if (glib_thread_.joinable())
+      glib_thread_.join();
+    if (loop_) {
+      g_main_loop_unref(loop_);
+      loop_ = nullptr;
+    }
+    if (glib_context_) {
+      g_main_context_unref(glib_context_);
+      glib_context_ = nullptr;
+    }
   }
 
   // ── Members ───────────────────────────────────────────────────────────────
-  GstRTSPServer *server_       = nullptr;
-  GMainContext  *glib_context_ = nullptr;
-  GMainLoop     *loop_         = nullptr;
-  std::thread    glib_thread_;
+  GstRTSPServer *server_ = nullptr;
+  GMainContext *glib_context_ = nullptr;
+  GMainLoop *loop_ = nullptr;
+  std::thread glib_thread_;
 
   image_transport::Publisher image_pub_;
   std::string ros_topic_;
@@ -503,7 +603,8 @@ int main(int argc, char **argv) {
     node->initialize();
     rclcpp::spin(node);
   } catch (const std::exception &e) {
-    RCLCPP_ERROR(rclcpp::get_logger("rtsp_camera_streamer"), "Error: %s", e.what());
+    RCLCPP_ERROR(rclcpp::get_logger("rtsp_camera_streamer"), "Error: %s",
+                 e.what());
     rclcpp::shutdown();
     return 1;
   }
