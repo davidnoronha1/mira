@@ -13,16 +13,21 @@ class PID_Controller {
   rclcpp::Node::SharedPtr node;
   rclcpp::Publisher<std_msgs::msg::Float32>::SharedPtr pid_pub;
   rclcpp::Publisher<std_msgs::msg::Float32>::SharedPtr error_pub;
-  rclcpp::node_interfaces::OnSetParametersCallbackHandle::SharedPtr param_callback_handle;
+  rclcpp::node_interfaces::PostSetParametersCallbackHandle::SharedPtr param_callback_handle;
   rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr reset_service;
 
 public:
   PID_Controller(const std::string &name, rclcpp::Node::SharedPtr _node)
       : node(std::move(_node)) {
-    node->declare_parameter<float>(name + "_pid_kp", 0);
-    node->declare_parameter<float>(name + "_pid_kd", 0);
-    node->declare_parameter<float>(name + "_pid_ki", 0);
-    node->declare_parameter<float>(name + "_pid_base_offset", zero_offset);
+
+    const auto kp_param_name = name + "_pid_kp";
+    const auto kd_param_name = name + "_pid_kd";
+    const auto ki_param_name = name + "_pid_ki";
+    const auto base_offset_param_name = name + "_pid_base_offset";
+    node->declare_parameter<float>(kp_param_name, 0);
+    node->declare_parameter<float>(kd_param_name, 0);
+    node->declare_parameter<float>(ki_param_name, 0);
+    node->declare_parameter<float>(base_offset_param_name, zero_offset);
 
     error_pub = node->create_publisher<std_msgs::msg::Float32>(
         name + "_pid_error", rclcpp::QoS(10));
@@ -40,34 +45,42 @@ public:
                       name.c_str());
         });
 
-    param_callback_handle = node->add_on_set_parameters_callback([&](const std::vector<
-                                             rclcpp::Parameter> &parameters) {
-      rcl_interfaces::msg::SetParametersResult result;
-      result.successful = true;
-
-      for (const auto &param : parameters) {
-        if (param.get_name() == (name + "_pid_kp")) {
-          kp = param.get_value<float>();
-        } else if (param.get_name() == (name + "_pid_kd")) {
-          kd = param.get_value<float>();
-        } else if (param.get_name() == (name + "_pid_ki")) {
-          ki = param.get_value<float>();
-        } else if (param.get_name() == (name + "_pid_base_offset")) {
-          base_offset = param.get_value<float>();
-        }
-      }
-
-      RCLCPP_INFO(
-          node->get_logger(),
-          "Updated PID parameters: kp=%.2f, kd=%.2f, ki=%.2f, base_offset=%.2f",
-          kp, kd, ki, base_offset);
-      return result;
-    });
-
     kp = node->get_parameter(name + "_pid_kp").as_double();
     kd = node->get_parameter(name + "_pid_kd").as_double();
     ki = node->get_parameter(name + "_pid_ki").as_double();
     base_offset = node->get_parameter(name + "_pid_base_offset").as_double();
+
+    param_callback_handle = node->add_post_set_parameters_callback([=](const std::vector<
+                                             rclcpp::Parameter> &parameters) {
+      rcl_interfaces::msg::SetParametersResult result;
+      result.successful = true;
+      std::stringstream ss;
+
+      for (const auto &param : parameters) {
+        const auto name = param.get_name();
+        if (name == kp_param_name) {
+          kp = param.get_value<float>();
+          ss << "kp=" << kp << " ";
+        } else if (name == kd_param_name) {
+          kd = param.get_value<float>();
+          ss << "kd=" << kd << " ";
+        } else if (name == ki_param_name) {
+          ki = param.get_value<float>();
+          ss << "ki=" << ki << " ";
+        } else if (name == base_offset_param_name) {
+          base_offset = param.get_value<float>();
+          ss << "base_offset=" << base_offset << " ";
+        } else {
+          RCLCPP_INFO(node->get_logger(), "Unknown parameter: '%s'. Only known parameters are: '%s', '%s', '%s', '%s'",
+                      name.c_str(), kp_param_name.c_str(), kd_param_name.c_str(),
+                      ki_param_name.c_str(), base_offset_param_name.c_str());
+        }
+      }
+
+      RCLCPP_INFO(node->get_logger(), "Updated PID parameters: %s", ss.str().c_str());
+
+      return result;
+    });
   }
 
   auto pid_control(float error, float dtime, bool _invert = false) -> float {
