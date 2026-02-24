@@ -144,26 +144,26 @@ public:
     // ── Device discovery ────────────────────────────────────────────────────
     GstDevice *target_device = nullptr;
 
-    RCLCPP_INFO(get_logger(),
-                "Use `gst-device-monitor-1.0 Video/Source` to list all "
-                "compatible devices and their properties");
-    RCLCPP_INFO(
-        get_logger(),
-        "Trying to find camera by vendor (%x), product (%x), serial (%s)",
-        vendor, product, serial.c_str());
-    target_device = find_camera_by_id(vendor, product, serial);
+    // RCLCPP_INFO(get_logger(),
+    //             "Use `gst-device-monitor-1.0 Video/Source` to list all "
+    //             "compatible devices and their properties");
+    // RCLCPP_INFO(
+    //     get_logger(),
+    //     "Trying to find camera by vendor (%x), product (%x), serial (%s)",
+    //     vendor, product, serial.c_str());
+    // target_device = find_camera_by_id(vendor, product, serial);
 
-    if (target_device == nullptr) {
-      RCLCPP_INFO(get_logger(),
-                  "Previous failed! Trying to find device by path (%s)",
-                  device_path.c_str());
-      target_device = find_camera_by_path(device_path);
-    }
+    // if (target_device == nullptr) {
+    //   RCLCPP_INFO(get_logger(),
+    //               "Previous failed! Trying to find device by path (%s)",
+    //               device_path.c_str());
+    //   target_device = find_camera_by_path(device_path);
+    // }
 
-    if (target_device == nullptr) {
-      RCLCPP_INFO(get_logger(), "Previous failed! Trying to find any device!");
-      target_device = find_camera_any(device_path);
-    }
+    // if (target_device == nullptr) {
+    //   RCLCPP_INFO(get_logger(), "Previous failed! Trying to find any device!");
+    //   target_device = find_camera_any(device_path);
+    // }
 
     RCLCPP_INFO(get_logger(), "Using webcam: %s",
                 target_device != nullptr
@@ -249,7 +249,8 @@ public:
     // ── Build the shared pipeline string ────────────────────────────────────
     std::string gst_fmt = gst_caps_for_format(fmt);
     std::ostringstream ss;
-    ss << "( " << " v4l2src device=" << device_path << " ! " << gst_fmt
+    // EDIT THIS LINE:
+    ss << "( " << " v4l2src device=/dev/video0 " ! " << gst_fmt
        << ",width=" << width << ",height=" << height
        << ",framerate=" << framerate << "/1 ! ";
 
