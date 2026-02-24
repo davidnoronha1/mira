@@ -25,7 +25,7 @@ setup(
         'console_scripts': [
             'alt_master = mira2_control_master.alt_master:main',
             'master = mira2_control_master.master:main',
-			'docking_controller_node = mira2_control.dock_controller:main',
+			'docking_controller_node = mira2_control_master.dock_controller:main',
 	    'killswitch = mira2_control_master.killswitch:main'
         ],
     },
