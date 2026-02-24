@@ -17,6 +17,7 @@ dependencies = [
     "pyserial>=3.5",
     "pyyaml>=6.0.2",
     "tk>=0.1.0",
+    "opencv-contrib-python",
 ]
 
 [tools.pyright]

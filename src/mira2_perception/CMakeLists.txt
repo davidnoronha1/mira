@@ -26,4 +26,8 @@ endif()
 install(DIRECTORY launch/
   DESTINATION share/${PROJECT_NAME}/launch
 )
+install(PROGRAMS
+  docking_perception_p2/improved.py
+  DESTINATION lib/${PROJECT_NAME}
+)
 ament_package()
