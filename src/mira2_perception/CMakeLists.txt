@@ -27,7 +27,7 @@ install(DIRECTORY launch/
   DESTINATION share/${PROJECT_NAME}/launch
 )
 install(PROGRAMS
-  mira2_perception/docking_perception_p2/improved.py
+  docking_perception_p2/improved.py
   DESTINATION lib/${PROJECT_NAME}
 )
 ament_package()
