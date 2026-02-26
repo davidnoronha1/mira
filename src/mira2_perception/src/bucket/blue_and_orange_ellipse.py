@@ -10,7 +10,7 @@ from scipy.spatial.transform import Rotation as R
 import time
 
 #change video path to camera
-cap = cv2.VideoCapture("blue_orange_bucket.mp4")
+cap = cv2.VideoCapture("rtsp://192.168.2.6:8554/image_rtsp")
 
 if not cap.isOpened():
     print("Cannot open video")
@@ -232,3 +232,4 @@ cv2.destroyAllWindows()
 # ros
 node.destroy_node()
 rclpy.shutdown()
+
