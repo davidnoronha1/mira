@@ -1,3 +1,4 @@
+
 // camera_rtsp_streamer_v6.cpp
 //
 // Single-pipeline architecture:
@@ -144,26 +145,26 @@ public:
     // ── Device discovery ────────────────────────────────────────────────────
     GstDevice *target_device = nullptr;
 
-    // RCLCPP_INFO(get_logger(),
-    //             "Use `gst-device-monitor-1.0 Video/Source` to list all "
-    //             "compatible devices and their properties");
-    // RCLCPP_INFO(
-    //     get_logger(),
-    //     "Trying to find camera by vendor (%x), product (%x), serial (%s)",
-    //     vendor, product, serial.c_str());
-    // target_device = find_camera_by_id(vendor, product, serial);
+    RCLCPP_INFO(get_logger(),
+                "Use `gst-device-monitor-1.0 Video/Source` to list all "
+                "compatible devices and their properties");
+    RCLCPP_INFO(
+        get_logger(),
+        "Trying to find camera by vendor (%x), product (%x), serial (%s)",
+        vendor, product, serial.c_str());
+    target_device = find_camera_by_id(vendor, product, serial);
 
-    // if (target_device == nullptr) {
-    //   RCLCPP_INFO(get_logger(),
-    //               "Previous failed! Trying to find device by path (%s)",
-    //               device_path.c_str());
-    //   target_device = find_camera_by_path(device_path);
-    // }
+    if (target_device == nullptr) {
+      RCLCPP_INFO(get_logger(),
+                  "Previous failed! Trying to find device by path (%s)",
+                  device_path.c_str());
+      target_device = find_camera_by_path(device_path);
+    }
 
-    // if (target_device == nullptr) {
-    //   RCLCPP_INFO(get_logger(), "Previous failed! Trying to find any device!");
-    //   target_device = find_camera_any(device_path);
-    // }
+    if (target_device == nullptr) {
+      RCLCPP_INFO(get_logger(), "Previous failed! Trying to find any device!");
+      target_device = find_camera_any(device_path);
+    }
 
     RCLCPP_INFO(get_logger(), "Using webcam: %s",
                 target_device != nullptr
@@ -249,8 +250,7 @@ public:
     // ── Build the shared pipeline string ────────────────────────────────────
     std::string gst_fmt = gst_caps_for_format(fmt);
     std::ostringstream ss;
-    // EDIT THIS LINE:
-    ss << "( " << " v4l2src device=/dev/video0 " ! " << gst_fmt
+    ss << "( " << " v4l2src device=" << device_path << " ! " << gst_fmt
        << ",width=" << width << ",height=" << height
        << ",framerate=" << framerate << "/1 ! ";
 
@@ -419,18 +419,34 @@ private:
     for (GList *l = devices; l && !result; l = l->next) {
       GstDevice *dev = GST_DEVICE(l->data);
       GstStructure *props = gst_device_get_properties(dev);
-      if (!props)
+      if (props == nullptr)
         continue;
 
-      guint dev_vendor = 0, dev_product = 0;
-      gst_structure_get_uint(props, "device.vendor-id", &dev_vendor);
-      gst_structure_get_uint(props, "device.product-id", &dev_product);
+      const gchar *dev_vendor_str =
+          gst_structure_get_string(props, "device.vendor.id");
+      const gchar *dev_product_str =
+          gst_structure_get_string(props, "device.product.id");
       const gchar *dev_sn = gst_structure_get_string(props, "device.serial");
+
+      if (dev_product_str == nullptr || dev_vendor_str == nullptr ||
+          dev_sn == nullptr) {
+        RCLCPP_WARN(get_logger(),
+                    "Device has no device.vendor.id, device.product.id or "
+                    "device.serial property, Check gst-device-monitor-1.0");
+        continue;
+      }
+
+      int dev_vendor = strtol(dev_vendor_str, nullptr, 16);
+      int dev_product = strtol(dev_product_str, nullptr, 16);
+
+      RCLCPP_INFO(get_logger(), "Found device (%x, %x, %s)", dev_vendor,
+                  dev_product, dev_sn);
 
       bool match =
           (vendor == 0 || dev_vendor == (guint)vendor) &&
           (product == 0 || dev_product == (guint)product) &&
-          (serial.empty() || (dev_sn && std::string(dev_sn) == serial));
+          (serial.empty() ||
+           (dev_sn && std::string(dev_sn).find(serial) != std::string::npos));
 
       if (match)
         result = GST_DEVICE(gst_object_ref(dev));
@@ -453,11 +469,22 @@ private:
     }
 
     GList *devices = gst_device_monitor_get_devices(monitor);
+  retry:
     GstDevice *result = GST_DEVICE(g_object_ref(g_list_first(devices)->data));
     auto props = gst_device_get_properties(result);
     auto dev_path = gst_structure_get_string(props, "api.v4l2.path");
-    device_path = dev_path;
-    gst_structure_free(props);
+    if (dev_path == nullptr) {
+      dev_path = gst_structure_get_string(props, "device.path");
+    }
+    if (dev_path != nullptr) {
+      RCLCPP_INFO(get_logger(), "Got device with path: %s", dev_path);
+      device_path = g_strdup(dev_path);
+      gst_structure_free(props);
+    } else {
+      devices = g_list_first(devices);
+      gst_structure_free(props);
+      goto retry;
+    }
 
     g_list_free_full(devices, gst_object_unref);
     gst_device_monitor_stop(monitor);
