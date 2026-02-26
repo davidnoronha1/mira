@@ -21,7 +21,7 @@ include_directories(
 )
 
 # Declare a C++ executable
-add_executable(gate_navigator_exe src/gate_navigator.cpp)
+add_executable(gate_navigator_exe src/gate/gate_navigator.cpp)
 
 # Link libraries
 ament_target_dependencies(gate_navigator_exe
@@ -37,6 +37,15 @@ ament_target_dependencies(gate_navigator_exe
 install(TARGETS gate_navigator_exe
   DESTINATION lib/${PROJECT_NAME}
 )
+
+# Install scripts
+
+ament_python_install_package(${PROJECT_NAME})
+
+install(PROGRAMS
+src/bucket/phase2.py
+src/docking/dock_controller.py
+DESTINATION lib/${PROJECT_NAME})
 
 # Export package
 ament_package()
