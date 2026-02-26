@@ -13,6 +13,7 @@ find_package(geometry_msgs REQUIRED)
 find_package(custom_msgs REQUIRED)
 find_package(vision_msgs REQUIRED)
 find_package(control_utils REQUIRED)
+find_package(std_srvs REQUIRED)
 
 # Include directories
 include_directories(
@@ -27,6 +28,7 @@ ament_target_dependencies(gate_navigator_exe
   rclcpp
   geometry_msgs
   custom_msgs
+  std_srvs
   vision_msgs
   control_utils
 )

@@ -6,6 +6,12 @@ export RCUTILS_CONSOLE_OUTPUT_FORMAT={severity} {message}
 export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
 export MACHINE_IP=$(shell hostname -I | awk '{print $$1}')
 
+ifeq ($(MACHINE_IP),192.168.2.6)
+export MACHINE_NAME=ORIN
+else ifeq ($(MACHINE_IP),192.168.2.4)
+export MACHINE_NAME=RPI4
+endif
+
 SHELL := /bin/bash
 
 WS := source .venv/bin/activate && source install/setup.bash
@@ -201,6 +207,14 @@ camera_frontcam:
 	${WS} && \
 	${GSTREAMER_FIX} && \
 	ros2 launch mira2_perception camera_imx335.launch camera_name:=camera_frontcam
+
+r:
+	${WS} && \
+	ros2 run ${A}
+
+rgdb:
+	${WS} && \
+	ros2 run --prefix 'gdbserver localhost:3000' ${A}
 
 PIXHAWK_PORT ?= /dev/Pixhawk
 alt_master: check-ros
