@@ -5,6 +5,8 @@ export RCUTILS_COLORIZED_OUTPUT=1
 export RCUTILS_CONSOLE_OUTPUT_FORMAT={severity} {message}
 # export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
 export MACHINE_IP=$(shell hostname -I | awk '{print $$1}')
+export OPENCV_FFMPEG_CAPTURE_OPTIONS="fifo_size;500000|overrun_nonfatal;1|fflags;nobuffer|flags;low_delay|framedrop;1|vf;setpts=0"
+GSTREAMER_FIX=export LD_PRELOAD=$(shell gcc -print-file-name=libunwind.so.8)
 
 ifeq ($(MACHINE_IP),192.168.2.6)
 export MACHINE_NAME=ORIN
@@ -59,7 +61,7 @@ endif
 $(info ✅ python3     → $(PYTHON3_PATH))
 $(info ✅ python3.12  → $(PYTHON312_PATH))
 
-
+ 
 check-ros: check-uv
 ifndef ROS_JAZZY_EXISTS
 	$(error ❌ ROS Jazzy not found at /opt/ros/jazzy. Only ROS Jazzy is supported by this workspace.)
@@ -69,7 +71,7 @@ endif
 # Build the workspace
 
 # Alternativley you can use mold which is a bit faster
-LINKER=lld
+LINKER=lld 
 CMAKE_ARGS:= -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
 			 -DCMAKE_COLOR_DIAGNOSTICS=ON \
 			 -GNinja \
@@ -147,6 +149,9 @@ install-mavproxy: check-uv
 	$(info Applying patch for mavproxy)
 	@patch /home/$(USER)/.local/share/uv/tools/mavproxy/lib/$(PYTHON_VERSION)/site-packages/MAVProxy/modules/lib/rline.py < ./misc/patches/mavproxy_rline_fix.patch
 
+shell:
+	@bash --rcfile <(echo "cd $(CURDIR) && source $$HOME/.bashrc && source $(CURDIR)/.venv/bin/activate && source $(CURDIR)/install/setup.bash") -i
+
 proxy-pixhawk:
 	$(info If you get a realine error -> Edit the file mentioned in the stacktrace and remove the import from __future__ for input())
 ifndef LAPTOP_IP
@@ -191,11 +196,10 @@ fix-vscode:
 validate-all:
 	find ./src -type f -name "package.xml" -exec uv run ./util/package-utils/validate_package.py {} \;
 
-GSTREAMER_FIX=export LD_PRELOAD=$(shell gcc -print-file-name=libunwind.so.8)
 
 camera_bottomcam:
 	${WS} && \
-	${GSTREAMER_FIX} && \
+	${GSTREAMER_FIX} &&  \
 	ros2 launch mira2_perception camera_imx335.launch camera_name:=camera_bottomcam
 
 camera_auto:
@@ -207,14 +211,6 @@ camera_frontcam:
 	${WS} && \
 	${GSTREAMER_FIX} && \
 	ros2 launch mira2_perception camera_imx335.launch camera_name:=camera_frontcam
-
-r:
-	${WS} && \
-	ros2 run ${A}
-
-rgdb:
-	${WS} && \
-	ros2 run --prefix 'gdbserver localhost:3000' ${A}
 
 PIXHAWK_PORT ?= /dev/Pixhawk
 alt_master: check-ros
@@ -228,13 +224,6 @@ alt_master_sitl:
 
 teleop: check-ros
 	${WS} && ros2 launch mira2_rov teleop.launch
-
-# Dashboard applications
-dashboard: check-ros
-	${WS} && ros2 run mira2_dashboard mira2_dashboard_exe
-
-telemetry-viz: check-ros
-	${WS} && ros2 run mira2_dashboard telemetry_viz
 
 # Development setup
 setup: check-ros install-deps submodules build install-udev fix-vscode
