@@ -111,7 +111,7 @@ class UnderwaterDockingNode(Node):
         self.board_points = self.generate_board_points()
 
         # Video Source
-        video_path = self.get_parameter('video_file').value
+        video_path = "rtsp://192.168.2.6:8554/image_rtsp"# self.get_parameter('video_file').value
         if video_path:
             self.get_logger().info(f"Using Video: {video_path}")
             self.cap = cv2.VideoCapture(video_path)

@@ -86,7 +86,7 @@ class DockingController(Node):
     def control_loop(self):
         cmd = Commands()
         cmd.mode = "ALT_HOLD" # Ensure we are in depth hold mode
-        cmd.arm = 1
+        cmd.arm = True
         
         # Reset channels to neutral
         cmd.pitch = 1500
@@ -182,7 +182,7 @@ class DockingController(Node):
             cmd.forward = 0
             cmd.lateral = 0
             cmd.thrust = 0
-            cmd.arm = 0 # Disarm
+            cmd.arm = False # Disarm
             self.get_logger().info("DOCKED.")
             
         elif self.state == State.RECOVERY:
