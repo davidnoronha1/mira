@@ -40,6 +40,7 @@ class BucketControls(Node):
         self.last_pose_time = 0.0
         self.bucket_visible = False
         self.bucket_blue = False
+        self.bucket_orange = False
         self.target_pose = None
         self.current_heading = 0.0
         self.blind_timer_start = None
@@ -102,8 +103,10 @@ class BucketControls(Node):
     def buck_callback(self, msg):
         if msg.data == "blue":
             self.bucket_blue = True
-        else:
+            self.bucket_orange = False
+        elif msg.data == "orange":
             self.bucket_blue = False
+            self.bucket_orange = True
 
     # ---------------- Main Loop ----------------
 
@@ -133,11 +136,11 @@ class BucketControls(Node):
             )
 
             if self.bucket_visible and self.bucket_blue:
-                self.get_logger().info("blue bucket found -> align xy")
+                self.get_logger().info("correct bucket found -> align xy")
                 self.state = State.ALIGN_XY
 
             elif self.bucket_visible and not self.bucket_blue:
-                self.get_logger().info("bucket not blue -> starting secondary search")
+                self.get_logger().info("wrong bucket -> restarting search")
                 self.search2_start = time.time()
                 self.search2_direction = 1
                 self.state = State.SEARCH2
@@ -210,7 +213,7 @@ class BucketControls(Node):
         elif self.state == State.SEARCH2:
 
             if self.bucket_visible and self.bucket_blue:
-                self.get_logger().info("blue bucket found -> align XY")
+                self.get_logger().info("correct bucket found -> align XY")
                 self.state = State.ALIGN_XY
                 return
             
