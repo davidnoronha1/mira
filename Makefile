@@ -3,7 +3,7 @@
 export FORCE_COLOR=1
 export RCUTILS_COLORIZED_OUTPUT=1
 export RCUTILS_CONSOLE_OUTPUT_FORMAT={severity} {message}
-export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
+# export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
 export MACHINE_IP=$(shell hostname -I | awk '{print $$1}')
 
 ifeq ($(MACHINE_IP),192.168.2.6)
