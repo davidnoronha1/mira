@@ -1,7 +1,6 @@
 #pragma once
 
 #include "../../app.hpp"
-#include <functional>
 #include <openvino/openvino.hpp>
 #include <ament_index_cpp/get_package_share_directory.hpp>
 #include <opencv2/opencv.hpp>
@@ -24,17 +23,14 @@ class Yolo11OpenVinoModel : public ImageProcessor {
 
 public:
   Yolo11OpenVinoModel(rclcpp::Logger logger, const std::string &device = "CPU", 
-              int height = 640, int width = 640,
-              std::function<void(const std::vector<Detection>&)> callback = nullptr);
+              int height = 640, int width = 640);
 
-  void processImage(const cv::Mat &image) override;
+  std::future<std::vector<Detection>> processImage(const cv::Mat &image) override;
 
-  ov::InferRequest processFrameAsync(const cv::Mat &frame,
-                                     std::function<void(std::vector<Detection>)> callback);
+  
 
 private:
   void initializeClassNames();
-  
   static cv::Mat cpuPreprocess(const cv::Mat &frame);
   
   std::vector<Detection> postProcess(float *output_data, const ov::Shape &output_shape,
