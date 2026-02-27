@@ -1,5 +1,6 @@
 #include "yolo_v11_openvino.hpp"
 #include <fstream>
+#include <utility>
 #include <vector>
 
 Yolo11OpenVinoModel::Yolo11OpenVinoModel(rclcpp::Logger logger,
@@ -105,13 +106,13 @@ cv::Mat Yolo11OpenVinoModel::cpuPreprocess(const cv::Mat &frame) {
   return blob;
 }
 
-std::future<std::vector<Detection>>
+std::future<std::pair<std::vector<Detection>, const cv::Mat>>
 Yolo11OpenVinoModel::processImage(const cv::Mat &image) {
   float scale_x = static_cast<float>(image.cols) / 640.0f;
   float scale_y = static_cast<float>(image.rows) / 640.0f;
 
   auto req = this->createInferRequest(image);
-  auto promise = std::make_shared<std::promise<std::vector<Detection>>>();
+  auto promise = std::make_shared<std::promise<std::pair<std::vector<Detection>, const cv::Mat>>>();
   auto future = promise->get_future();
 
   // Start inference and wait for completion
@@ -125,11 +126,13 @@ Yolo11OpenVinoModel::processImage(const cv::Mat &image) {
     ov::Tensor output_tensor = req.get_output_tensor();
     float *output_data = output_tensor.data<float>();
     ov::Shape output_shape = output_tensor.get_shape();
-
+    
     auto detections =
         postProcess(output_data, output_shape, 0.5f, 0.4f, scale_x, scale_y);
 
-    promise->set_value(detections);
+    auto pair = std::make_pair(std::move(detections), image);
+    promise->set_value(pair);
+    // promise->set_value(std::make_pair(detections, image.clone()));
     // return detections;
   });
 

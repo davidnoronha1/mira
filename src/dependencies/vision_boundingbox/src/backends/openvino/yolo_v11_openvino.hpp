@@ -25,7 +25,7 @@ public:
   Yolo11OpenVinoModel(rclcpp::Logger logger, const std::string &device = "CPU", 
               int height = 640, int width = 640);
 
-  std::future<std::vector<Detection>> processImage(const cv::Mat &image) override;
+  std::future<std::pair<std::vector<Detection>, const cv::Mat>> processImage(const cv::Mat &image) override;
 
   
 

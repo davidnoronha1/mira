@@ -253,7 +253,7 @@ void CUDART_CB Yolo11TensorRTModel::onInferenceComplete(
             CONF_THRESHOLD, NMS_THRESHOLD,
             cbd->scale_x, cbd->scale_y);
 
-        cbd->ctx->promise.set_value(std::move(detections));
+        cbd->ctx->promise.set_value(std::make_pair(std::move(detections), cbd->image));
     } catch (...) {
         cbd->ctx->promise.set_exception(std::current_exception());
     }
@@ -269,7 +269,7 @@ Yolo11TensorRTModel::processImage(const cv::Mat& image)
     const float scale_y = static_cast<float>(image.rows) / MODEL_INPUT_H;
 
     // ── Preprocess on the calling thread (pure CPU, cheap) ────────────────────
-    std::vector<float> blob = cpuPreprocess(image);
+    std::vector<float> blob = cpuPreprocess(image); // TODO: FIX , WHY ARE WE DOING THIS ON CPU
 
     // ── Allocate per-call context ─────────────────────────────────────────────
     auto ctx = std::make_unique<InferenceContext>();
@@ -312,7 +312,7 @@ Yolo11TensorRTModel::processImage(const cv::Mat& image)
     // ── Schedule callback ─────────────────────────────────────────────────────
     // CallbackData takes ownership of ctx. The raw pointer is passed through
     // the C-style callback API and re-owned inside onInferenceComplete.
-    auto* cbd  = new CallbackData{std::move(ctx), this, scale_x, scale_y};
+    auto* cbd  = new CallbackData{std::move(ctx), this, scale_x, scale_y, std::move(image)};
 
     CUDA_CHECK(cudaStreamAddCallback(
         cbd->ctx->stream,

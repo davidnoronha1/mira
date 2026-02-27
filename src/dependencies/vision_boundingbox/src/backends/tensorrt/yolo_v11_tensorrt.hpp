@@ -44,7 +44,7 @@ struct InferenceContext {
     void*          d_input  = nullptr;
     void*          d_output = nullptr;
     std::vector<float> h_output;
-    std::promise<std::vector<Detection>> promise;
+    std::promise<std::pair<std::vector<Detection>, cv::Mat>> promise;
 
     InferenceContext() = default;
 
@@ -76,7 +76,7 @@ public:
 
     // Returns a future that resolves once GPU inference + postprocess complete.
     // Multiple calls may be in-flight simultaneously on separate CUDA streams.
-    std::future<std::vector<Detection>> processImage(const cv::Mat& image) override;
+    std::future<std::pair<std::vector<Detection>, cv::Mat>> processImage(const cv::Mat& image) override;
 
 private:
     // ── Model constants ───────────────────────────────────────────────────────
@@ -125,9 +125,10 @@ private:
         Yolo11TensorRTModel*              self;
         float                             scale_x;
         float                             scale_y;
+        cv::Mat                           image;
     };
 
-    static void CUDART_CB onInferenceComplete(cudaStream_t  stream,
+    void CUDART_CB onInferenceComplete(cudaStream_t  stream,
                                               cudaError_t   status,
                                               void*         userdata);
 };

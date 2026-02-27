@@ -28,7 +28,7 @@ public:
 
   virtual ~ImageProcessor() = default;
 
-  virtual std::future<std::vector<Detection>> processImage(const cv::Mat &image) = 0;
+  virtual std::future<std::pair<std::vector<Detection>, const cv::Mat>> processImage(const cv::Mat &image) = 0;
 
  
 };
