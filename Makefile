@@ -101,14 +101,14 @@ repoversion:
 	@git log -1 --oneline
 
 docker-ensure:
-	docker-compose up --no-recreate -d mira
+	docker compose up --no-recreate -d mira
 
 docker-x11:
 	xhost +local:docker || true
 
 build-docker-container: docker-ensure
 	$(info Building Docker container...)
-	@docker-compose build mira
+	@docker compose build mira
 
 docker-fix-perms:
 	sudo chown -R $(shell id -u):$(shell id -g) .
@@ -116,13 +116,13 @@ docker-fix-perms:
 export _UID=$(shell id -u)
 export _GID=$(shell id -g)
 build-in-docker: docker-fix-perms docker-ensure
-	docker-compose exec mira
+	docker compose exec mira
 	 	bash -c "make repoversion && \
 	 	make clean && \
 	 	make build"
 
 docker: docker-ensure docker-x11
-	docker-compose exec -u root mira /bin/bash
+	docker compose exec -u root mira /bin/bash
 
 b: check-ros
 	@source /opt/ros/jazzy/setup.bash && \
@@ -133,7 +133,7 @@ b: check-ros
 install-deps: check-ros check-uv
 	$(info ROS2 Jazzy, UV and Rosdep should be installed)
 	$(info Installing basic build dependencies)
-	@sudo apt install lld ninja-build build-essential cmake ros-jazzy-rmw-cyclonedds-cpp
+	@sudo apt install -y lld ninja-build build-essential cmake ros-jazzy-rmw-cyclonedds-cpp
 	$(info Installing Python dependencies...)
 	@[ -d .venv ] || uv venv --system-site-packages
 	@uv sync
