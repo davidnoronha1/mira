@@ -1,0 +1,19 @@
+<package format="3">
+  <name>mira2_actions</name>
+  <version>0.0.0</version>
+  <description>TODO: Package description</description>
+  <maintainer email="your.email@example.com">Your Name</maintainer>
+  <license>TODO: License declaration</license>
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <test_depend>ament_lint_auto</test_depend>
+  <test_depend>ament_lint_common</test_depend>
+  <depend>behaviortree_cpp</depend>
+  <depend>rclcpp</depend>
+  <depend>ament_index_cpp</depend>
+  <depend>control_utils</depend>
+  <depend>custom_msgs</depend>
+  <depend>vision_msgs</depend>
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>
