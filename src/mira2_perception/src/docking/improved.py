@@ -10,6 +10,8 @@ import json
 import os
 import sys
 from scipy.spatial.transform import Rotation as R, Slerp
+# print(sys.path)
+from utils.lib.coordinate import opencv_to_ros
 
 # ==========================================
 # 1. SMART POSE FILTER (Outlier + Smoothing)
@@ -97,8 +99,8 @@ class UnderwaterDockingNode(Node):
         self.marker_size = self.get_parameter('marker_size').value
         
         # ArUco Config
-        self.aruco_dict = aruco.Dictionary_get(aruco.DICT_ARUCO_ORIGINAL)
-        self.params = aruco.DetectorParameters_create()
+        self.aruco_dict = aruco.getPredefinedDictionary(aruco.DICT_ARUCO_ORIGINAL)
+        self.params = aruco.DetectorParameters()
         self.params.cornerRefinementMethod = aruco.CORNER_REFINE_SUBPIX
         
         # Enhancement Filter (CLAHE)
@@ -177,9 +179,8 @@ class UnderwaterDockingNode(Node):
                         # PUBLISH POSE
                         msg = PoseStamped()
                         msg.header.stamp = self.get_clock().now().to_msg()
-                        msg.header.frame_id = "camera_optical_frame"
-                        msg.pose.position.x, msg.pose.position.y, msg.pose.position.z = f_pos
-                        msg.pose.orientation.x, msg.pose.orientation.y, msg.pose.orientation.z, msg.pose.orientation.w = f_quat
+                        msg.header.frame_id = "camera_bottom"
+                        msg.pose.position.x, msg.pose.position.y, msg.pose.position.z, msg.pose.orientation.x, msg.pose.orientation.y, msg.pose.orientation.z, msg.pose.orientation.w = opencv_to_ros(f_pos, f_quat)
                         self.publisher_.publish(msg)
 
                         if self.gui:
