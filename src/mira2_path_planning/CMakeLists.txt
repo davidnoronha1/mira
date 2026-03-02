@@ -40,8 +40,6 @@ install(TARGETS gate_navigator_exe
 
 # Install scripts
 
-ament_python_install_package(${PROJECT_NAME})
-
 install(PROGRAMS
 src/bucket/phase2.py
 src/docking/dock_controller.py

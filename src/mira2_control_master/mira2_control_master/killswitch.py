@@ -2,7 +2,7 @@
 
 import rclpy
 from rclpy.node import Node
-from custom_msgs.msg import EmergencyKill
+from std_srvs.srv import Trigger
 from std_msgs.msg import String
 import serial
 
@@ -10,9 +10,12 @@ class KillSwitchPublisher(Node):
     is_killed = False
     def __init__(self):
         super().__init__('kill_switch_pub_node')
-        self.publisher_ = self.create_publisher(EmergencyKill, '/emergency_stop', 10)
         
-
+        # Create service client for toggle emergency
+        self.toggle_client = self.create_client(Trigger, '/toggle_emergency')
+        while not self.toggle_client.wait_for_service(timeout_sec=1.0):
+            self.get_logger().info('Waiting for /toggle_emergency service...')
+        
         # Connect to Arduino
         try:
             self.ser = serial.Serial('/dev/Arduino', 9600, timeout=1)
@@ -34,18 +37,14 @@ class KillSwitchPublisher(Node):
                 line = self.ser.readline().decode('utf-8').strip()
 
                 if not self.is_killed and line.strip() == "0":
-                    self.get_logger().warn("Magnet Removed  -> Publishing KILL")
-                    msg = EmergencyKill()
-                    msg.reason = "Kill switch pulled"
-                    msg.kill_master = True
-                    self.publisher_.publish(msg)
+                    self.get_logger().warn("Magnet Removed  -> Calling toggle service")
+                    request = Trigger.Request()
+                    self.toggle_client.call_async(request)
                     self.is_killed = True
                 elif self.is_killed and line.strip() == "1":
-                    self.get_logger().warn("Magent Attached -> Publishing all clear")
-                    msg = EmergencyKill()
-                    msg.reason = "Kill switch reattached"
-                    msg.all_clear = True
-                    self.publisher_.publish(msg)
+                    self.get_logger().warn("Magent Attached -> Calling toggle service")
+                    request = Trigger.Request()
+                    self.toggle_client.call_async(request)
                     self.is_killed = False
 
                     # We use warn so it shows up yellow in the logs

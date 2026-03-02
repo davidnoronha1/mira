@@ -4,10 +4,12 @@ import rclpy
 from rclpy.node import Node
 from pymavlink.dialects.v10 import ardupilotmega
 from pymavlink import mavutil
-from custom_msgs.msg import Commands, Telemetry, EmergencyKill
-from std_srvs.srv import Empty
+from custom_msgs.msg import Commands, Telemetry
+from std_srvs.srv import Empty, Trigger
 from rclpy.utilities import remove_ros_args
 from optparse import OptionParser
+import signal
+import sys
 
 # Constants for channel mappings
 # 1   Pitch
@@ -29,10 +31,11 @@ class PixhawkMaster(Node):
     arming/disarming, and send telemetry data.
     """
 
+    emergency_locked = False
+
     def __init__(self):
         super().__init__("pymav_master")
         # When True, arming is inhibited until manually cleared
-        self.master_kill = False
         self.emergency_locked = False
         self.arm_state = False
 
@@ -68,34 +71,16 @@ class PixhawkMaster(Node):
         self.thruster_subs_rov = self.create_subscription(
             Commands, "/master/commands", self.rov_callback, 10
         )
-        self.kill_sub = self.create_subscription(
-            EmergencyKill, "/emergency_stop", self.kill_callback, 10
-        )
-        # Service to clear emergency lock (manual reset)
-        self.clear_kill_srv = self.create_service(Empty, "/clear_emergency", self.clear_emergency)
+        self.imu_pub = self.create_publisher(Imu, "/master/imu_ned", 10)
+        # Service to toggle emergency lock
+        self.toggle_kill_srv = self.create_service(Trigger, "/toggle_emergency", self.toggle_emergency)
         self.channel_ary = [1500] * 8  # Initialize channel values array
         self.get_logger().info("Waiting for heartbeat from Pixhawk...")
         self.master.wait_heartbeat()  # Wait for the heartbeat from the Pixhawk
         self.telem_msg = Telemetry()  # Initialize telemetry message
         self.get_logger().info("PixhawkMaster node initialized")
 
-    def kill_callback(self, msg):
-        print("GOT EMERGENCY KILL MESSAGE")
-        if msg.kill_master == True:
-            # Engage emergency lock and disarm immediately. Keep node alive
-            # so it can continue to block further arming attempts.
-            self.emergency_locked = True
-            if self.arm_state:
-                self.disarm()
-                self.arm_state = False
-            self.get_logger().warn(f"KILL SWITCH ({msg.reason}) ENABLED: emergency lock engaged, disarming")
-        # Clear emergency lock when switch is attached again (level pulled to GND)
-        elif msg.all_clear == True:
-           if self.emergency_locked:
-               self.emergency_locked = False
-               self.get_logger().info(f"Kill switch ({msg.reason}) cleared: emergency lock released")
-
-    def rov_callback(self, msg):
+    def rov_callback(self, msg: Commands):
         # obj.get_logger().info("Got command!")
 
         # Handle arming/disarming
@@ -183,16 +168,23 @@ class PixhawkMaster(Node):
         )
         self.get_logger().info(f"Mode changed to: {self.mode}")
 
-    def clear_emergency(self, request, response):
-        """Service handler to clear an emergency lock."""
+    def toggle_emergency(self, request: Trigger.Request, response: Trigger.Response):
+        """Service handler to toggle emergency lock."""
+        self.emergency_locked = not self.emergency_locked
         if self.emergency_locked:
-            self.emergency_locked = False
-            self.get_logger().info("Emergency lock cleared via /clear_emergency service")
+            if self.arm_state:
+                self.disarm()
+                self.arm_state = False
+            response.success = True
+            response.message = "Emergency lock engaged, disarming"
+            self.get_logger().warn(response.message)
         else:
-            self.get_logger().info("/clear_emergency called but no emergency was active")
+            response.success = True
+            response.message = "Emergency lock cleared"
+            self.get_logger().info(response.message)
         return response
 
-    def set_rc_channel_pwm(self, id, pwm):
+    def set_rc_channel_pwm(self, id: int, pwm: int):
         """
         Set the PWM value for a specified RC channel.
         """
@@ -243,13 +235,32 @@ class PixhawkMaster(Node):
         else:
             self.get_logger().error(f"Command Failed for {get_name_from_value(message_id)}")
 
-    def telem_publish_func(self, timestamp_now):
+    def publish_imu(self):
+        ros_imu_msg = Imu()
+        ros_imu_msg.header.stamp = self.get_clock().now().to_msg()
+        # Convert from mG to m/s^2
+        g_to_ms2 = 9.80665
+        ros_imu_msg.linear_acceleration.x = self.imu_msg.xacc * g_to_ms2 / 1000.0
+        ros_imu_msg.linear_acceleration.y = self.imu_msg.yacc * g_to_ms2 / 1000.0
+        ros_imu_msg.linear_acceleration.z = self.imu_msg.zacc * g_to_ms2 / 1000.0
+        # Convert from mrad/s to rad/s
+        ros_imu_msg.angular_velocity.x = self.imu_msg.xgyro / 1000.0
+        ros_imu_msg.angular_velocity.y = self.imu_msg.ygyro / 1000.0
+        ros_imu_msg.angular_velocity.z = self.imu_msg.zgyro / 1000.0
+        # Convert from mGauss to Tesla
+        mgauss_to_tesla = 1e-7
+        ros_imu_msg.magnetic_field.x = self.imu_msg.xmag * mgauss_to_tesla
+        ros_imu_msg.magnetic_field.y = self.imu_msg.ymag * mgauss_to_tesla
+        ros_imu_msg.magnetic_field.z = self.imu_msg.zmag * mgauss_to_tesla
+        self.imu_pub.publish(ros_imu_msg)
+
+    def telem_publish_func(self):
         """
         Publish telemetry data based on received MAVLink messages.
         """
         self.telem_msg.arm = self.arm_state
         self.telem_msg.battery_voltage = float(self.sys_status_msg.voltage_battery / 1000)
-        self.telem_msg.timestamp = 0.0 # float(timestamp_now)
+        self.telem_msg.timestamp = self.get_clock().now().to_msg().sec
         
         self.telem_msg.internal_pressure = self.vfr_hud_msg.alt
         self.telem_msg.external_pressure = self.depth_msg.press_abs
@@ -299,6 +310,8 @@ class PixhawkMaster(Node):
             pass
         self.telemetry_pub.publish(self.telem_msg)
 
+        self.publish_imu()
+
 
 def main(args=None):
     rclpy.init(args=args)
@@ -307,6 +320,19 @@ def main(args=None):
     
     # Instantiate class
     obj = PixhawkMaster()
+
+    # Set up signal handler for graceful shutdown
+    def signal_handler(sig, frame):
+        obj.get_logger().info("Signal received, disarming and shutting down...")
+        if obj.arm_state:
+            obj.disarm()
+            obj.arm_state = False
+        obj.destroy_node()
+        rclpy.shutdown()
+        sys.exit(0)
+    
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
 
     # Request message intervals
 
@@ -366,12 +392,15 @@ def main(args=None):
                 obj.get_logger().warn(f"Error receiving message: {e}")
                 continue
 
-            timestamp_now = obj.get_clock().now().to_msg().sec
-            obj.telem_publish_func(timestamp_now)
+            # timestamp_now = obj.get_clock().now().to_msg().sec
+            obj.telem_publish_func()
 
             rclpy.spin_once(obj, timeout_sec=0.1)
     except KeyboardInterrupt:
-        pass
+        obj.get_logger().info("KeyboardInterrupt received, disarming and shutting down...")
+        if obj.arm_state:
+            obj.disarm()
+            obj.arm_state = False
     finally:
         obj.destroy_node()
         rclpy.shutdown()
