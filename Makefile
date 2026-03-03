@@ -83,8 +83,8 @@ CMAKE_ARGS:= -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
 SKIP_PACKAGES ?= vision_boundingbox vision_depth
 export COLCON_ARGS= --cmake-args $(CMAKE_ARGS) \
                           --parallel-workers $(shell nproc) \
-						  --event-handlers console_cohesion+
-			  # --packages-skip $(SKIP_PACKAGES) \
+			  --event-handlers console_cohesion+ \
+			  --packages-skip $(SKIP_PACKAGES)
 			  # --merge-install
 			  # --symlink-install
 

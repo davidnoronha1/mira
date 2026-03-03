@@ -45,7 +45,10 @@ RUN rm -rf ./build ./log ./install
 RUN apt-get install --no-install-recommends -y \
     usbutils \
     gstreamer1.0-plugins-good \
-    libgstreamer1.0-dev libgstreamer-plugins-good1.0-dev libgstreamer-plugins-bad1.0-dev \
+    libgstrtspserver-1.0-dev \
+    libgstreamer1.0-dev \
+    libgstreamer-plugins-good1.0-dev \
+    libgstreamer-plugins-bad1.0-dev \
     gstreamer1.0-tools \
     gstreamer1.0-plugins-base-apps \
     vim
