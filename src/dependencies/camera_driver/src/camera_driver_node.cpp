@@ -1,4 +1,3 @@
-
 // camera_rtsp_streamer_v6.cpp
 //
 // Single-pipeline architecture:
@@ -13,7 +12,6 @@
 // and attach our ROS2 callback — so the camera is opened exactly once and
 // encoding happens exactly once regardless of the number of RTSP clients.
 
-#include "glib.h"
 #include "gst/gstdevicemonitor.h"
 #include "gst/gststructure.h"
 #include "gst/rtsp-server/rtsp-server-object.h"
@@ -23,9 +21,11 @@
 #include <gst/gstdevice.h>
 #include <gst/rtsp-server/rtsp-server.h>
 #include <image_transport/image_transport.hpp>
+#include <camera_info_manager/camera_info_manager.hpp>
 #include <rclcpp/logging.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/image.hpp>
+#include <sensor_msgs/msg/camera_info.hpp>
 #include <sstream>
 #include <string>
 #include <thread>
@@ -128,18 +128,6 @@ public:
   }
 
   // Find a camera whose physical USB port matches `usb_port`.
-  //
-  // GStreamer / udev exposes the port in several properties depending on the
-  // stack in use:
-  //   • "device.bus_path"  – most common (udev), e.g. "usb-0000:00:14.0-1.2"
-  //   • "sysfs-path"       – full sysfs path, contains the bus-port string
-  //   • "api.v4l2.path"    – PipeWire/WirePlumber (e.g. "/dev/video2"); not
-  //                          a USB port, but we fall through to path matching
-  //                          below if nothing else matched.
-  //
-  // If a matching device is found its /dev/videoN path is written into
-  // `device_path` so the pipeline string is correct even if the caller did not
-  // supply one.
   GstDevice *find_camera_by_usb_port(const std::string &usb_port,
                                      std::string &device_path) {
     GList *devices = nullptr;
@@ -157,19 +145,15 @@ public:
       if (!props)
         continue;
 
-      // Log all properties at DEBUG level so users can figure out what their
-      // system exposes (handy when usb_port does not match anything).
       {
         gchar *props_str = gst_structure_to_string(props);
         RCLCPP_DEBUG(get_logger(), "Device properties: %s", props_str);
         g_free(props_str);
       }
 
-      // Check the three property keys that may carry USB topology info.
       const gchar *bus_path =
           gst_structure_get_string(props, "device.bus_path");
       const gchar *sysfs = gst_structure_get_string(props, "sysfs-path");
-      // PipeWire sometimes stores it under object.path, e.g. "v4l2:/dev/video2"
       const gchar *obj_path = gst_structure_get_string(props, "object.path");
 
       bool matched = usb_port_matches(bus_path, usb_port) ||
@@ -181,7 +165,6 @@ public:
                     gst_device_get_display_name(dev),
                     bus_path ? bus_path : "<none>");
 
-        // Resolve the /dev/videoN path so the pipeline can use it.
         const gchar *v4l2_path =
             gst_structure_get_string(props, "api.v4l2.path");
         if (!v4l2_path)
@@ -229,7 +212,12 @@ public:
     declare_parameter("ros_topic", "");
     declare_parameter("camera_frame_id", "camera");
     declare_parameter("usb_port", "");
-    // declare_parameter("camera")
+    // Path to a camera calibration .ini / .yaml file understood by
+    // camera_info_manager.  Examples:
+    //   "file:///path/to/camera.yaml"          (absolute file URL)
+    //   "package://my_pkg/config/camera.yaml"  (ROS package URL)
+    //   ""  →  no calibration, publishes an uncalibrated CameraInfo
+    declare_parameter("camera_info_url", "");
 
     std::string usb_port = get_parameter("usb_port").as_string();
     std::string device_path = get_parameter("device_path").as_string();
@@ -242,6 +230,7 @@ public:
     long framerate = get_parameter("framerate").as_int();
     long port = get_parameter("port").as_int();
     long bitrate = get_parameter("bitrate").as_int();
+    std::string camera_info_url = get_parameter("camera_info_url").as_string();
 
     frame_id_ = get_parameter("camera_frame_id").as_string();
     ros_topic_ = get_parameter("ros_topic").as_string();
@@ -343,6 +332,29 @@ public:
     gst_object_unref(target_device);
     auto *const machine_ip = get_machine_ip();
 
+    // ── CameraInfoManager ────────────────────────────────────────────────────
+    // The camera name is the frame_id; this determines the key used when
+    // loading from a .ini file (section [camera_name]).
+    camera_info_manager_ =
+        std::make_shared<camera_info_manager::CameraInfoManager>(
+            this, frame_id_);
+
+    if (!camera_info_url.empty()) {
+      if (camera_info_manager_->validateURL(camera_info_url)) {
+        camera_info_manager_->loadCameraInfo(camera_info_url);
+        RCLCPP_INFO(get_logger(), "Camera info loaded from: %s",
+                    camera_info_url.c_str());
+      } else {
+        RCLCPP_WARN(get_logger(),
+                    "camera_info_url '%s' is invalid — publishing uncalibrated "
+                    "CameraInfo",
+                    camera_info_url.c_str());
+      }
+    } else {
+      RCLCPP_WARN(get_logger(),
+                  "No camera_info_url set — publishing uncalibrated CameraInfo");
+    }
+
     // ── Log configuration ────────────────────────────────────────────────────
     RCLCPP_INFO(get_logger(),
                 "============================================================");
@@ -360,6 +372,8 @@ public:
     RCLCPP_INFO(get_logger(), "RTSP URL:           rtsp://%s:%ld%s", machine_ip,
                 port, mount_point);
     RCLCPP_INFO(get_logger(), "ROS2 Image Topic:   %s", ros_topic_.c_str());
+    RCLCPP_INFO(get_logger(), "Camera Info URL:    %s",
+                camera_info_url.empty() ? "(none)" : camera_info_url.c_str());
     RCLCPP_INFO(get_logger(),
                 "Command to receive: ffplay -fflags nobuffer -flags low_delay "
                 "-framedrop -vf 'setpts=0' rtsp://%s:%d/%s",
@@ -370,6 +384,12 @@ public:
     // ── image_transport publisher ────────────────────────────────────────────
     image_transport::ImageTransport it(shared_from_this());
     image_pub_ = it.advertise(ros_topic_, 1);
+
+    // ── camera_info publisher ─────────────────────────────────────────────────
+    // Published on <ros_topic>/camera_info to match the conventional
+    // image_transport namespace (e.g. "camera/image_raw" → "camera/camera_info")
+    camera_info_pub_ = create_publisher<sensor_msgs::msg::CameraInfo>(
+        ros_topic_ + "/camera_info", rclcpp::SensorDataQoS());
 
     // ── Build the shared pipeline string ────────────────────────────────────
     std::string gst_fmt = gst_caps_for_format(fmt);
@@ -386,11 +406,6 @@ public:
 
        // Branch 1 – RTSP/H.264
        << "t. ! queue leaky=downstream max-size-buffers=2 ! "
-       //  << "x264enc bitrate=" << bitrate
-       //  << " speed-preset=ultrafast tune=zerolatency"
-       //  << " key-int-max=" << framerate
-       //  << " bframes=0 sliced-threads=true rc-lookahead=0 sync-lookahead=0 "
-       //     "vbv-buf-capacity=0 ! "
        << " videoconvert ! " << caps_for_encoder(best_enc.type) << " ! "
        << best_enc.name << " " << best_enc.extra_props << " ! "
        << "rtph264pay name=pay0 pt=96 config-interval=1 "
@@ -422,8 +437,6 @@ public:
     g_object_unref(mounts);
 
     // ── GLib main loop ───────────────────────────────────────────────────────
-    // Use a dedicated context so we can guarantee the loop is running before
-    // calling attach() — otherwise attach() returns 0 on a quiet context.
     glib_context_ = g_main_context_new();
     loop_ = g_main_loop_new(glib_context_, FALSE);
 
@@ -442,7 +455,7 @@ public:
       g_source_unref(idle);
       g_main_loop_run(loop_);
     });
-    loop_ready_fut.wait(); // blocks until the loop is actually spinning
+    loop_ready_fut.wait();
 
     if (gst_rtsp_server_attach(server_, glib_context_) == 0)
       throw std::runtime_error("Failed to attach RTSP server");
@@ -507,16 +520,34 @@ private:
 
     GstMapInfo map;
     if (gst_buffer_map(buffer, &map, GST_MAP_READ)) {
-      auto msg = std::make_shared<sensor_msgs::msg::Image>();
-      msg->header.stamp = now();
-      msg->header.frame_id = frame_id_;
-      msg->width = static_cast<uint32_t>(w);
-      msg->height = static_cast<uint32_t>(h);
-      msg->encoding = "rgb8";
-      msg->is_bigendian = 0;
-      msg->step = static_cast<uint32_t>(w * 3);
-      msg->data.assign(map.data, map.data + map.size);
-      image_pub_.publish(msg);
+      auto stamp = now();
+
+      // ── Image message ──────────────────────────────────────────────────
+      auto img_msg = std::make_shared<sensor_msgs::msg::Image>();
+      img_msg->header.stamp = stamp;
+      img_msg->header.frame_id = frame_id_;
+      img_msg->width = static_cast<uint32_t>(w);
+      img_msg->height = static_cast<uint32_t>(h);
+      img_msg->encoding = "rgb8";
+      img_msg->is_bigendian = 0;
+      img_msg->step = static_cast<uint32_t>(w * 3);
+      img_msg->data.assign(map.data, map.data + map.size);
+      image_pub_.publish(img_msg);
+
+      // ── CameraInfo message ─────────────────────────────────────────────
+      // getCameraInfo() returns the loaded calibration (or an uncalibrated
+      // default if no URL was given / loading failed).
+      auto ci_msg = std::make_shared<sensor_msgs::msg::CameraInfo>(
+          camera_info_manager_->getCameraInfo());
+      ci_msg->header.stamp = stamp;   // same stamp as the image
+      ci_msg->header.frame_id = frame_id_;
+      // Overwrite width/height with the actual negotiated resolution so the
+      // message is consistent even if the calibration file was recorded at a
+      // different size.
+      ci_msg->width = static_cast<uint32_t>(w);
+      ci_msg->height = static_cast<uint32_t>(h);
+      camera_info_pub_->publish(*ci_msg);
+
       gst_buffer_unmap(buffer, &map);
     }
 
@@ -746,6 +777,9 @@ private:
   std::thread glib_thread_;
 
   image_transport::Publisher image_pub_;
+  rclcpp::Publisher<sensor_msgs::msg::CameraInfo>::SharedPtr camera_info_pub_;
+  std::shared_ptr<camera_info_manager::CameraInfoManager> camera_info_manager_;
+
   std::string ros_topic_;
   std::string frame_id_;
 };

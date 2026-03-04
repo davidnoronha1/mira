@@ -27,6 +27,7 @@
         <param name="port" value="$(var port)"/>
         <param name="usb_port" value="" />
 		<param name="camera_frame_id" value="$(var camera_frame_id)"/>
+    <param name="camera_info_url" value="package:///mira2_perception/config/camera_bottom.ini" />
     </node>
       <executable cmd="sleep 2 ; gst-launch-1.0 rtspsrc location=rtsp://127.0.0.1:$(var port)/image_rtsp ! fakesink" cwd="/home" shell="true"/>
  </launch>
