@@ -30,6 +30,11 @@
 #include <string>
 #include <thread>
 
+const char *get_machine_ip() {
+  auto x = getenv("MACHINE_IP");
+  return x == nullptr ? "{MACHINE_IP}" : x;
+}
+
 class RTSPCameraStreamer : public rclcpp::Node {
 public:
   RTSPCameraStreamer() : Node("rtsp_camera_streamer") {}
@@ -42,6 +47,19 @@ public:
     std::string name;        // GStreamer element name
     std::string extra_props; // properties appended after bitrate
   };
+
+  static std::string caps_for_encoder(EncoderType t) {
+    switch (t) {
+    case EncoderType::X264:
+      return "video/x-raw,format=I420";
+    case EncoderType::QSV:
+      return "video/x-raw,format=NV12";
+    case EncoderType::NVENC:
+      return "video/x-raw,format=NV12";
+    case EncoderType::V4L2:
+      return "video/x-raw,format=NV12";
+    }
+  }
 
   static bool gst_element_exists(const std::string &name) {
     GstElementFactory *f = gst_element_factory_find(name.c_str());
@@ -102,6 +120,97 @@ public:
                 " vbv-buf-capacity=0"};
   }
 
+  static bool usb_port_matches(const gchar *prop_value,
+                               const std::string &usb_port) {
+    if (!prop_value)
+      return false;
+    return std::string(prop_value).find(usb_port) != std::string::npos;
+  }
+
+  // Find a camera whose physical USB port matches `usb_port`.
+  //
+  // GStreamer / udev exposes the port in several properties depending on the
+  // stack in use:
+  //   • "device.bus_path"  – most common (udev), e.g. "usb-0000:00:14.0-1.2"
+  //   • "sysfs-path"       – full sysfs path, contains the bus-port string
+  //   • "api.v4l2.path"    – PipeWire/WirePlumber (e.g. "/dev/video2"); not
+  //                          a USB port, but we fall through to path matching
+  //                          below if nothing else matched.
+  //
+  // If a matching device is found its /dev/videoN path is written into
+  // `device_path` so the pipeline string is correct even if the caller did not
+  // supply one.
+  GstDevice *find_camera_by_usb_port(const std::string &usb_port,
+                                     std::string &device_path) {
+    GList *devices = nullptr;
+    GstDeviceMonitor *monitor = gst_device_monitor_new();
+    gst_device_monitor_add_filter(monitor, "Video/Source", nullptr);
+    if (!monitor)
+      return nullptr;
+
+    GstDevice *result = nullptr;
+    devices = gst_device_monitor_get_devices(monitor);
+
+    for (GList *l = devices; l && !result; l = l->next) {
+      GstDevice *dev = GST_DEVICE(l->data);
+      GstStructure *props = gst_device_get_properties(dev);
+      if (!props)
+        continue;
+
+      // Log all properties at DEBUG level so users can figure out what their
+      // system exposes (handy when usb_port does not match anything).
+      {
+        gchar *props_str = gst_structure_to_string(props);
+        RCLCPP_DEBUG(get_logger(), "Device properties: %s", props_str);
+        g_free(props_str);
+      }
+
+      // Check the three property keys that may carry USB topology info.
+      const gchar *bus_path =
+          gst_structure_get_string(props, "device.bus_path");
+      const gchar *sysfs = gst_structure_get_string(props, "sysfs-path");
+      // PipeWire sometimes stores it under object.path, e.g. "v4l2:/dev/video2"
+      const gchar *obj_path = gst_structure_get_string(props, "object.path");
+
+      bool matched = usb_port_matches(bus_path, usb_port) ||
+                     usb_port_matches(sysfs, usb_port) ||
+                     usb_port_matches(obj_path, usb_port);
+
+      if (matched) {
+        RCLCPP_INFO(get_logger(), "USB port match on device: %s  (bus_path=%s)",
+                    gst_device_get_display_name(dev),
+                    bus_path ? bus_path : "<none>");
+
+        // Resolve the /dev/videoN path so the pipeline can use it.
+        const gchar *v4l2_path =
+            gst_structure_get_string(props, "api.v4l2.path");
+        if (!v4l2_path)
+          v4l2_path = gst_structure_get_string(props, "device.path");
+        if (v4l2_path && device_path.empty()) {
+          device_path = v4l2_path;
+          RCLCPP_INFO(get_logger(), "Resolved USB port %s → device path %s",
+                      usb_port.c_str(), device_path.c_str());
+        }
+
+        result = GST_DEVICE(gst_object_ref(dev));
+      }
+
+      gst_structure_free(props);
+    }
+
+    if (!result)
+      RCLCPP_WARN(get_logger(),
+                  "No device found at USB port '%s'. "
+                  "Run `gst-device-monitor-1.0 Video/Source` and look for "
+                  "device.bus_path or sysfs-path to find the correct value.",
+                  usb_port.c_str());
+
+    g_list_free_full(devices, gst_object_unref);
+    gst_device_monitor_stop(monitor);
+    gst_object_unref(monitor);
+    return result;
+  }
+
   // Called after make_shared() — safe to use shared_from_this() here.
   void initialize() {
     gst_init(nullptr, nullptr);
@@ -117,9 +226,12 @@ public:
     declare_parameter("port", 8554);
     declare_parameter("bitrate", 2000);
     declare_parameter("device_path", "");
-    declare_parameter("ros_topic", "camera/image_raw");
+    declare_parameter("ros_topic", "");
     declare_parameter("camera_frame_id", "camera");
+    declare_parameter("usb_port", "");
+    // declare_parameter("camera")
 
+    std::string usb_port = get_parameter("usb_port").as_string();
     std::string device_path = get_parameter("device_path").as_string();
     long vendor = get_parameter("vendor_id").as_int();
     long product = get_parameter("product_id").as_int();
@@ -130,8 +242,12 @@ public:
     long framerate = get_parameter("framerate").as_int();
     long port = get_parameter("port").as_int();
     long bitrate = get_parameter("bitrate").as_int();
-    ros_topic_ = get_parameter("ros_topic").as_string();
+
     frame_id_ = get_parameter("camera_frame_id").as_string();
+    ros_topic_ = get_parameter("ros_topic").as_string();
+    if (ros_topic_ == "") {
+      ros_topic_ = frame_id_;
+    }
 
     constexpr const char *mount_point = "/image_rtsp";
 
@@ -148,11 +264,18 @@ public:
     RCLCPP_INFO(get_logger(),
                 "Use `gst-device-monitor-1.0 Video/Source` to list all "
                 "compatible devices and their properties");
-    RCLCPP_INFO(
-        get_logger(),
-        "Trying to find camera by vendor (%x), product (%x), serial (%s)",
-        vendor, product, serial.c_str());
-    target_device = find_camera_by_id(vendor, product, serial);
+
+    RCLCPP_INFO(get_logger(), "Trying to find camera by USB port (%s)",
+                usb_port.c_str());
+    target_device = find_camera_by_usb_port(usb_port, device_path);
+
+    if (target_device == nullptr) {
+      RCLCPP_INFO(
+          get_logger(),
+          "Trying to find camera by vendor (%x), product (%x), serial (%s)",
+          vendor, product, serial.c_str());
+      target_device = find_camera_by_id(vendor, product, serial);
+    }
 
     if (target_device == nullptr) {
       RCLCPP_INFO(get_logger(),
@@ -218,6 +341,7 @@ public:
     }
 
     gst_object_unref(target_device);
+    auto *const machine_ip = get_machine_ip();
 
     // ── Log configuration ────────────────────────────────────────────────────
     RCLCPP_INFO(get_logger(),
@@ -233,13 +357,13 @@ public:
     RCLCPP_INFO(get_logger(), "H.264 Bitrate:      %ld kbps", bitrate);
     RCLCPP_INFO(get_logger(), "RTSP Port:          %ld", port);
     RCLCPP_INFO(get_logger(), "RTSP Mount Point:   %s", mount_point);
-    RCLCPP_INFO(get_logger(), "RTSP URL:           rtsp://<host>:%ld%s", port,
-                mount_point);
+    RCLCPP_INFO(get_logger(), "RTSP URL:           rtsp://%s:%ld%s", machine_ip,
+                port, mount_point);
     RCLCPP_INFO(get_logger(), "ROS2 Image Topic:   %s", ros_topic_.c_str());
     RCLCPP_INFO(get_logger(),
-                "Command to receive: ros2 run camera_driver camera_driver_recv "
-                "--ros-args -p rtsp_url:=rtsp://<host>:%ld%s",
-                port, mount_point);
+                "Command to receive: ffplay -fflags nobuffer -flags low_delay "
+                "-framedrop -vf 'setpts=0' rtsp://%s:%d/%s",
+                machine_ip, port, mount_point);
     RCLCPP_INFO(get_logger(),
                 "============================================================");
 
@@ -249,6 +373,7 @@ public:
 
     // ── Build the shared pipeline string ────────────────────────────────────
     std::string gst_fmt = gst_caps_for_format(fmt);
+    auto best_enc = detect_best_encoder(bitrate, framerate);
     std::ostringstream ss;
     ss << "( " << " v4l2src device=" << device_path << " ! " << gst_fmt
        << ",width=" << width << ",height=" << height
@@ -257,15 +382,17 @@ public:
     if (strcasecmp(fmt.c_str(), "MJPEG") == 0)
       ss << "jpegdec ! ";
 
-    ss << "videoconvert ! video/x-raw,format=I420 ! tee name=t "
+    ss << " tee name=t "
 
        // Branch 1 – RTSP/H.264
        << "t. ! queue leaky=downstream max-size-buffers=2 ! "
-       << "x264enc bitrate=" << bitrate
-       << " speed-preset=ultrafast tune=zerolatency"
-       << " key-int-max=" << framerate
-       << " bframes=0 sliced-threads=true rc-lookahead=0 sync-lookahead=0 "
-          "vbv-buf-capacity=0 ! "
+       //  << "x264enc bitrate=" << bitrate
+       //  << " speed-preset=ultrafast tune=zerolatency"
+       //  << " key-int-max=" << framerate
+       //  << " bframes=0 sliced-threads=true rc-lookahead=0 sync-lookahead=0 "
+       //     "vbv-buf-capacity=0 ! "
+       << " videoconvert ! " << caps_for_encoder(best_enc.type) << " ! "
+       << best_enc.name << " " << best_enc.extra_props << " ! "
        << "rtph264pay name=pay0 pt=96 config-interval=1 "
 
        // Branch 2 – ROS2 appsink (RGB, no extra encoding)
