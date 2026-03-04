@@ -83,14 +83,14 @@ class VisionBoundingBoxNode(Node):
         # Publishers
         self.bbox_pub = self.create_publisher(
             BoundingBox2DArray,
-            '/vision/detections/bounding_box',
+            '/vision/bounding_box',
             10
         )
         
         if self.publish_image:
             self.image_pub = self.create_publisher(
                 Image,
-                '/vision/detections/image',
+                '/vision/bounding_box/image',
                 10
             )
         

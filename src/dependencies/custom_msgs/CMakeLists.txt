@@ -18,6 +18,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/EmergencyKill.msg"
   "msg/Depth.msg"
   "msg/Heading.msg"
+  "msg/ArucoPose.msg"
   "msg/ConfidenceLevel.msg"
   DEPENDENCIES sensor_msgs std_msgs
 )
@@ -29,6 +30,7 @@ rosidl_get_typesupport_target(${PROJECT_NAME}_typesupport_c
   "msg/EmergencyKill.msg"
   "msg/Depth.msg"
   "msg/Heading.msg"
+  "msg/ArucoPose.msg"
   "msg/ConfidenceLevel.msg"
   DEPENDENCIES std_msgs
 )
