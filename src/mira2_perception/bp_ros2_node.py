@@ -10,9 +10,9 @@ from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSHistoryPolicy
 # ==========================================================
 # IMPORTING THE EXACT DREADNOUGHT VISION LOGIC
 # ==========================================================
-from bp_vision.contour import _getFinalContours
-from bp_vision.rect_fix import correct_rectangle_contour
-from bp_vision.geometry import find_rectangle_corners
+from mira2_perception.contour import _getFinalContours
+from mira2_perception.rect_fix import correct_rectangle_contour
+from mira2_perception.geometry import find_rectangle_corners
 
 # ==========================================================
 # SENIOR's ENHANCEMENT FUNCTION
