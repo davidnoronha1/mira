@@ -10,7 +10,7 @@
     <arg name="image_height"  default="720"/>
     <arg name="frame_format"  default="MJPEG"/>
     <arg name="framerate"     default="30"/>
-    <arg name="port" default="2000" />
+    <arg name="port" default="2001" />
     <arg name="camera_frame_id" default="camera_bottom" />
 
     <node pkg="camera_driver"
@@ -25,7 +25,7 @@
         <param name="frame_format"  value="$(var frame_format)"/>
         <param name="framerate"     value="$(var framerate)"/>
         <param name="port" value="$(var port)"/>
-        <param name="usb_port" value="" />
+        <param name="usb_port" value="0:2.4" />
 		<param name="camera_frame_id" value="$(var camera_frame_id)"/>
     </node>
       <executable cmd="sleep 2 ; gst-launch-1.0 rtspsrc location=rtsp://127.0.0.1:$(var port)/image_rtsp ! fakesink" cwd="/home" shell="true"/>
