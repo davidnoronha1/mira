@@ -71,7 +71,7 @@ public:
     {
         // Create subscription to bounding box topic
         bbox_sub_ = ros_state_->node->create_subscription<vision_msgs::msg::BoundingBox2DArray>(
-            "/vision/detections/bounding_box", 10,
+            "/vision/bounding_box", 10,
             std::bind(&DetectObjectBoundingbox::bbox_callback, this, std::placeholders::_1));
     }
 
