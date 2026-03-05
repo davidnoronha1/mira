@@ -31,8 +31,10 @@ GREEN = "\033[32m"
 YELLOW= "\033[33m"
 CYAN  = "\033[36m"
 RESET = "\033[0m"
+BLUE = "\033[34m"
 
 def info(msg: str):    print(f"{GREEN}✅ {msg}{RESET}")
+def msg(msg: str):     print(f"{BLUE}ℹ️ {msg}{RESET}")
 def warn(msg: str):    print(f"{YELLOW}⚠️  {msg}{RESET}")
 def error(msg: str):   print(f"{RED}❌ {msg}{RESET}", file=sys.stderr)
 def header(msg: str):  print(f"\n{BOLD}{CYAN}▶ {msg}{RESET}")
@@ -93,7 +95,7 @@ def run(
 		error(f"Command failed (exit {result.returncode}): {cmd}")
 		if capture and result.stderr:
 			print(result.stderr, file=sys.stderr)
-		sys.exit(result.returncode)
+		raise subprocess.CalledProcessError(result.returncode, cmd, output=result.stdout, stderr=result.stderr)
 	return result
 
 
@@ -486,12 +488,15 @@ def target_validate_all():
 def target_proxy_pixhawk(laptop_ip: str):
 	"""Forward Pixhawk telemetry via mavproxy to a laptop IP."""
 	if not laptop_ip:
-		error("--laptop-ip is required. Example: python dev.py proxy-pixhawk --laptop-ip 192.168.2.XX")
-		sys.exit(1)
+		warn("--laptop-ip is not given, not proxying to laptop. Example: python dev.py proxy-pixhawk --laptop-ip 192.168.2.XX")
 	if not exists("mavproxy.py") and not exists("mavproxy"):
 		error("mavproxy not found. Run: python dev.py install-mavproxy")
 		sys.exit(1)
-	run(f"uv run mavproxy.py --master=/dev/Pixhawk --baudrate 57600 --out udp:{laptop_ip}:14550")
+	try: 
+		run(f"uv run mavproxy.py --master=/dev/Pixhawk --baudrate 57600 " + (f" --out udp:{laptop_ip}:14550 " if laptop_ip else  "") + f"--out udp:{MACHINE_IP}:14551")
+	except subprocess.CalledProcessError as e:
+		msg("If you see the `no module named future` error, please apply the patch in misc/patches/mavproxy_rline_fix.patch and try again. OR edit the file and comment out the import")
+		error(f"mavproxy exited with code {e.returncode}")
 
 
 @task("Open an interactive bash shell with workspace sourced")
@@ -532,13 +537,6 @@ def target_alt_master(pixhawk_port: str = "/dev/Pixhawk"):
 	"""Launch alternative master control."""
 	check_ros()
 	run(f"{WS_SOURCE} && ros2 launch mira2_control_master alt_master.launch pixhawk_address:={pixhawk_port}")
-
-
-@task("Launch master against local ArduPilot SITL")
-def target_alt_master_sitl():
-	"""Launch master against local ArduPilot SITL."""
-	run(f"{WS_SOURCE} && ros2 run mira2_control_master alt_master --ros-args -p pixhawk_address:=tcp:127.0.0.1:5760")
-
 
 @task("Launch teleoperation")
 def target_teleop():
@@ -773,7 +771,7 @@ def main():
 	parser.add_argument("--docker",     action="store_true",  help="Run this task inside the Docker container")
 	parser.add_argument("-p", "--package", metavar="PKG",     help="Package name (for b / build --packages-select)")
 	parser.add_argument("--laptop-ip",  metavar="IP",         help="Laptop IP for proxy-pixhawk")
-	parser.add_argument("--pixhawk-port", default="/dev/Pixhawk", help="Pixhawk device path (default: /dev/Pixhawk)")
+	parser.add_argument("--pixhawk-port", default="/dev/Pixhawk", help="Pixhawk device path (default: /dev/Pixhawk, SITL: tcp:localhost:5760, proxy: tcp:localhost:14551)")
 	parser.add_argument("--name",       default="bottomcam",  help="Camera name for camera target")
 	parser.add_argument("--python-version", default="python3.12", help="Python version for mavproxy install")
 	parser.add_argument("--file",       metavar="LAUNCH",     help="Launch file for launch target (format: 'package file' or 'file')")
