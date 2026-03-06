@@ -1,8 +1,8 @@
 import matplotlib.pyplot as plt
 import cv2
 import numpy as np
-from bp_vision.rect import isRectangleFromApproximation
-from bp_vision.rect import correctRectangleContour
+from mira2_perception.rect import isRectangleFromApproximation
+from mira2_perception.rect import correctRectangleContour
 
 
 
