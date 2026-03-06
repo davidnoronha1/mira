@@ -200,7 +200,7 @@ validate-all:
 camera_bottomcam:
 	${WS} && \
 	${GSTREAMER_FIX} &&  \
-	ros2 launch mira2_perception camera_imx335.launch camera_name:=camera_bottomcam
+	ros2 launch mira2_perception camera_bottom.launch
 
 camera_auto:
 	${WS} && \
@@ -210,7 +210,7 @@ camera_auto:
 camera_frontcam:
 	${WS} && \
 	${GSTREAMER_FIX} && \
-	ros2 launch mira2_perception camera_imx335.launch camera_name:=camera_frontcam
+	ros2 launch mira2_perception camera_front.launch
 
 PIXHAWK_PORT ?= /dev/Pixhawk
 alt_master: check-ros
