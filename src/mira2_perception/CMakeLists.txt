@@ -26,5 +26,7 @@ endif()
 install(DIRECTORY launch/
   DESTINATION share/${PROJECT_NAME}/launch
 )
-
+install(FILES
+  optimized_calib.npz
+  DESTINATION share/${PROJECT_NAME}
 ament_package()
