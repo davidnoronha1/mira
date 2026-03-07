@@ -5,6 +5,7 @@ from rclpy.node import Node
 from pymavlink.dialects.v10 import ardupilotmega
 from pymavlink import mavutil
 from custom_msgs.msg import Commands, Telemetry
+from sensor_msgs.msg import Imu
 from std_srvs.srv import Empty, Trigger
 from rclpy.utilities import remove_ros_args
 from optparse import OptionParser
@@ -249,9 +250,9 @@ class PixhawkMaster(Node):
         ros_imu_msg.angular_velocity.z = self.imu_msg.zgyro / 1000.0
         # Convert from mGauss to Tesla
         mgauss_to_tesla = 1e-7
-        ros_imu_msg.magnetic_field.x = self.imu_msg.xmag * mgauss_to_tesla
-        ros_imu_msg.magnetic_field.y = self.imu_msg.ymag * mgauss_to_tesla
-        ros_imu_msg.magnetic_field.z = self.imu_msg.zmag * mgauss_to_tesla
+        # ros_imu_msg.magnetic_field.x = self.imu_msg.xmag * mgauss_to_tesla
+        # ros_imu_msg.magnetic_field.y = self.imu_msg.ymag * mgauss_to_tesla
+        # ros_imu_msg.magnetic_field.z = self.imu_msg.zmag * mgauss_to_tesla
         self.imu_pub.publish(ros_imu_msg)
 
     def telem_publish_func(self):
@@ -260,7 +261,7 @@ class PixhawkMaster(Node):
         """
         self.telem_msg.arm = self.arm_state
         self.telem_msg.battery_voltage = float(self.sys_status_msg.voltage_battery / 1000)
-        self.telem_msg.timestamp = self.get_clock().now().to_msg().sec
+        self.telem_msg.timestamp = float(self.get_clock().now().to_msg().sec)
         
         self.telem_msg.internal_pressure = self.vfr_hud_msg.alt
         self.telem_msg.external_pressure = self.depth_msg.press_abs

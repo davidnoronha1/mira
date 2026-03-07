@@ -10,6 +10,7 @@ find_package(rclcpp REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(PkgConfig REQUIRED)
+find_package(camera_info_manager REQUIRED)
 find_package(image_transport REQUIRED)
 
 # Find system libraries
@@ -25,6 +26,7 @@ target_link_libraries(camera_driver_exe
 ament_target_dependencies(camera_driver_exe
   rclcpp
   image_transport
+  camera_info_manager
   sensor_msgs
   std_msgs
 )
