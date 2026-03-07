@@ -15,17 +15,14 @@
 
     <node pkg="camera_driver"
           exec="camera_driver_exe"
-          name="$(var camera_name)_driver"
+          name="camera_front_driver"
           output="screen">
-        <param name="vendor_id"     value="$(var vendor_id)"/>
-        <param name="product_id"    value="$(var product_id)"/>
-        <param name="serial_no"     value="$(var serial_no)"/>
         <param name="image_width"   value="$(var image_width)"/>
         <param name="image_height"  value="$(var image_height)"/>
         <param name="frame_format"  value="$(var frame_format)"/>
-        <param name="framerate"     value="$(var framerate)"/>
-        <param name="port" value="$(var port)"/>
-        <param name="usb_port" value="" />
+        <param name="framerate"     value="$(var framerate)" />
+        <param name="port" value="2001"/>
+        <param name="usb_port" value="usb-3610000.usb-2.1" />
 		<param name="camera_frame_id" value="$(var camera_frame_id)"/>
     </node>
       <executable cmd="sleep 2 ; gst-launch-1.0 rtspsrc location=rtsp://127.0.0.1:$(var port)/image_rtsp ! fakesink" cwd="/home" shell="true"/>
