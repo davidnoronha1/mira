@@ -12,6 +12,7 @@
 #include <vector>
 #include <cmath>
 #include "../common.hpp"
+#include "vision_msgs/msg/detection2_d_array.hpp"
 
 /**
  * @brief ApproachBB: Approach a detected bounding box
@@ -33,11 +34,11 @@ public:
     void onHalted() override;
 
 private:
-    void bbox_callback(const vision_msgs::msg::BoundingBox2DArray::SharedPtr msg);
+    void bbox_callback(const vision_msgs::msg::Detection2DArray::SharedPtr msg);
     void publish_neutral();
 
     ROSState* ros_state_;
-    rclcpp::Subscription<vision_msgs::msg::BoundingBox2DArray>::SharedPtr bb_sub_;
+    rclcpp::Subscription<vision_msgs::msg::Detection2DArray>::SharedPtr bb_sub_;
 
     // PID Controllers
     PID_Controller yaw_pid;

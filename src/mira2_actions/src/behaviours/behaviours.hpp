@@ -7,6 +7,7 @@
 #include <string>
 #include <deque>
 #include "../common.hpp"
+#include "vision_msgs/msg/detection2_d_array.hpp"
 
 /**
  * @brief DetectObjectBoundingbox: Checks for consistent detection of a specified object
@@ -28,10 +29,10 @@ public:
     void onHalted() override;
 
 private:
-    void bbox_callback(const vision_msgs::msg::BoundingBox2DArray::SharedPtr msg);
+    void bbox_callback(const vision_msgs::msg::Detection2DArray::SharedPtr msg);
 
     ROSState* ros_state_;
-    rclcpp::Subscription<vision_msgs::msg::BoundingBox2DArray>::SharedPtr bbox_sub_;
+    rclcpp::Subscription<vision_msgs::msg::Detection2DArray>::SharedPtr bbox_sub_;
     
     std::string target_object_;
     double detection_duration_;

@@ -1,14 +1,17 @@
 #include "motions.hpp"
+#include "vision_msgs/msg/detection2_d_array.hpp"
 
-void ApproachBB::bbox_callback(const vision_msgs::msg::BoundingBox2DArray::SharedPtr msg)
+void ApproachBB::bbox_callback(const vision_msgs::msg::Detection2DArray::SharedPtr msg)
 {
     bb_found_ = false;
     bb_area_norm_ = 0.0;
     bb_x_center_norm_ = 0.5;
-    for (const auto& bbox : msg->boxes)
+    for (const auto& detection : msg->detections)
     {
-        // if(bbox. != target_object_)
-            // continue;
+        if(detection.id != target_object_)
+            continue;
+
+        auto bbox = detection.bbox;
 
         double x_center_norm = bbox.center.position.x / frame_width_ ;
 
@@ -46,8 +49,8 @@ ApproachBB::ApproachBB(const std::string& name,
     bb_x_center_norm_(0.5),
     bb_area_norm_(0.0)
 {
-    bb_sub_ = ros_state_->node->create_subscription<vision_msgs::msg::BoundingBox2DArray>(
-        "/vision/detected_objects", 10, std::bind(&ApproachBB::bbox_callback, this, std::placeholders::_1));
+    bb_sub_ = ros_state_->node->create_subscription<vision_msgs::msg::Detection2DArray>(
+        "/vision/detections", 10, std::bind(&ApproachBB::bbox_callback, this, std::placeholders::_1));
 }
 
 BT::PortsList ApproachBB::providedPorts()

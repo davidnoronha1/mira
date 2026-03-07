@@ -1,12 +1,13 @@
 #include "behaviours.hpp"
+#include "vision_msgs/msg/detection2_d_array.hpp"
 
-void DetectObjectBoundingbox::bbox_callback(const vision_msgs::msg::BoundingBox2DArray::SharedPtr msg)
+void DetectObjectBoundingbox::bbox_callback(const vision_msgs::msg::Detection2DArray::SharedPtr msg)
 {
     // Check if any bounding box has the target frame_id
     bool found_in_this_frame = false;
-    for (const auto& bbox : msg->boxes) {
+    for (const auto& bbox : msg->detections) {
         // Check if the header frame_id matches our target object
-        if (msg->header.frame_id == target_object_) {
+        if (bbox.id == target_object_) {
             found_in_this_frame = true;
             break;
         }
@@ -48,8 +49,8 @@ DetectObjectBoundingbox::DetectObjectBoundingbox(const std::string& name, const 
       object_detected_(false)
 {
     // Create subscription to bounding box topic
-    bbox_sub_ = ros_state_->node->create_subscription<vision_msgs::msg::BoundingBox2DArray>(
-        "/vision/bounding_box", 10,
+    bbox_sub_ = ros_state_->node->create_subscription<vision_msgs::msg::Detection2DArray>(
+        "/vision/detections", 10,
         std::bind(&DetectObjectBoundingbox::bbox_callback, this, std::placeholders::_1));
 }
 
