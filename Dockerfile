@@ -44,13 +44,11 @@ RUN rm -rf ./build ./log ./install
 
 RUN apt-get install --no-install-recommends -y \
     usbutils \
-    gstreamer1.0-plugins-good \
+    gstreamer1.0-plugins-good gstreamer1.0-plugins-ugly gstreamer1.0-plugins-base-apps gstreamer1.0-plugins-bad \
     libgstreamer1.0-dev libgstreamer-plugins-good1.0-dev libgstreamer-plugins-bad1.0-dev \
+    libgstrtspserver-1.0-dev \
     gstreamer1.0-tools \
-    gstreamer1.0-plugins-base-apps \
     vim
-
-
 
 # Build the workspace
 RUN /bin/bash -c "make build"

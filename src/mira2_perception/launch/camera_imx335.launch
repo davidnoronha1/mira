@@ -11,7 +11,7 @@
     <arg name="frame_format"  default="MJPEG"/>
     <arg name="framerate"     default="30"/>
     <arg name="port" default="2000" />
-    <arg name="camer_name" default="camera_bottomcam" />
+    <arg name="camera_name" default="camera_imx335" />
 
     <node pkg="camera_driver"
           exec="camera_driver_exe"

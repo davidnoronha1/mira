@@ -4,11 +4,12 @@
 #include "sensor_msgs/msg/camera_info.hpp"
 #include "sensor_msgs/msg/image.hpp"
 #include "tf2_ros/transform_broadcaster.h"
+#include "custom_msgs/msg/aruco_pose.hpp"
 #include <cv_bridge/cv_bridge.hpp>
 #include <image_transport/image_transport.hpp>
 #include <opencv2/aruco.hpp>
 #include <opencv2/opencv.hpp>
-#include <std_msgs/msg/int32_multi_array.hpp>
+#include <rclcpp/publisher.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <string>
 #include <tf2/LinearMath/Quaternion.h>
@@ -16,6 +17,9 @@
 #include <vector>
 
 class ArucoDetectorSingle {
+  inline static rclcpp::Publisher<custom_msgs::msg::ArucoPose>::SharedPtr aruco_pose_publisher_ = nullptr;
+  inline static rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr debug_image_publisher_ = nullptr;
+  inline static std::shared_ptr<tf2_ros::TransformBroadcaster> tf_br_ = nullptr;
 public:
   ArucoDetectorSingle(rclcpp::Node::SharedPtr node,
                       const std::string &camera_label)
@@ -26,18 +30,26 @@ public:
         "/" + camera_label_ + "/camera_info", 10, std::bind(
             &ArucoDetectorSingle::cameraInfoCallback, this, std::placeholders::_1));
 
-    // Create image subscription
-    image_sub_ = node_->create_subscription<sensor_msgs::msg::Image>(
-        "/" + camera_label_ + "/image_raw", 10, std::bind(
-            &ArucoDetectorSingle::imageCallback, this, std::placeholders::_1));
+    // Create image_transport subscriber
+    image_transport::ImageTransport it(node_);
+    image_sub_ = it.subscribe("/" + camera_label_ + "/image", 10,
+        std::bind(&ArucoDetectorSingle::imageCallback, this, std::placeholders::_1));
 
-    // Create publisher for detected markers visualization
-    marker_publisher_ = node_->create_publisher<sensor_msgs::msg::Image>(
-        "/" + camera_label_ + "/image_detected_markers", 10);
+    // Create publisher for ArucoPose messages on /vision/aruco
+    if (aruco_pose_publisher_ == nullptr) {
+      aruco_pose_publisher_ = node_->create_publisher<custom_msgs::msg::ArucoPose>(
+        "/vision/aruco", 10);
+      }
 
-    // Publisher for detected marker IDs
-    marker_id_publisher_ = node_->create_publisher<std_msgs::msg::Int32MultiArray>(
-        "/" + camera_label_ + "/marker_ids", 10);
+    // Create publisher for debug visualization image
+    if (debug_image_publisher_ == nullptr) {
+      debug_image_publisher_ = node_->create_publisher<sensor_msgs::msg::Image>(
+          "/vision/aruco/image", 10);
+    }
+
+    if (tf_br_ == nullptr) {
+      tf_br_ = std::make_shared<tf2_ros::TransformBroadcaster>(node_);
+    }
 
     RCLCPP_INFO(
         node_->get_logger(),
@@ -46,14 +58,6 @@ public:
   }
 
   // Shared resources - static members
-  static std::shared_ptr<tf2_ros::TransformBroadcaster>
-  getTfBroadcaster(rclcpp::Node::SharedPtr node) {
-    static std::shared_ptr<tf2_ros::TransformBroadcaster> tf_br = nullptr;
-    if (!tf_br) {
-      tf_br = std::make_shared<tf2_ros::TransformBroadcaster>(node);
-    }
-    return tf_br;
-  }
 
   static cv::Ptr<cv::aruco::Dictionary> getDictionary() {
     static cv::Ptr<cv::aruco::Dictionary> dictionary = nullptr;
@@ -94,12 +98,9 @@ private:
   bool camera_info_received_ = false;
 
   // ROS communication
-  rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr image_sub_;
+  image_transport::Subscriber image_sub_;
   rclcpp::Subscription<sensor_msgs::msg::CameraInfo>::SharedPtr
       camera_info_sub_;
-  rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr marker_publisher_;
-  rclcpp::Publisher<std_msgs::msg::Int32MultiArray>::SharedPtr
-      marker_id_publisher_;
 
   // Per-camera detection results (not shared to avoid thread safety issues)
   std::vector<int> markerIds_;
@@ -149,7 +150,6 @@ private:
 
     const std::string cameraName = camera_label_;
     cv::Mat imageCopy;
-    // std::vector<int> detected_ids;
 
     try {
       // Detect ArUco markers using shared dictionary
@@ -165,7 +165,7 @@ private:
         tvecs_.resize(markerIds_.size());
 
         // Get shared resources
-        auto tf_br = getTfBroadcaster(node_);
+        auto tf_br = tf_br_;
         const cv::Mat &objPoints = getObjectPoints();
 
         // Process each detected marker
@@ -206,24 +206,34 @@ private:
           // Broadcast transform using shared broadcaster
           tf_br->sendTransform(transform);
 
-          // Draw coordinate axes on the marker
+          // Publish ArucoPose message
+          custom_msgs::msg::ArucoPose aruco_msg;
+          aruco_msg.pose.header.stamp = node_->now();
+          aruco_msg.pose.header.frame_id = cameraName;
+          aruco_msg.pose.pose.position.x = tf_orig.getOrigin().x();
+          aruco_msg.pose.pose.position.y = tf_orig.getOrigin().y();
+          aruco_msg.pose.pose.position.z = tf_orig.getOrigin().z();
+          aruco_msg.pose.pose.orientation.x = tf_orig.getRotation().x();
+          aruco_msg.pose.pose.orientation.y = tf_orig.getRotation().y();
+          aruco_msg.pose.pose.orientation.z = tf_orig.getRotation().z();
+          aruco_msg.pose.pose.orientation.w = tf_orig.getRotation().w();
+          aruco_msg.marker_id = markerIds_[i];
+          
+          aruco_pose_publisher_->publish(aruco_msg);
+
+          // Draw coordinate axes on the debug image
           cv::drawFrameAxes(imageCopy, cameraMatrix_, distCoeffs_, rvecs_[i],
                             tvecs_[i], getMarkerLength() * 1.5f, 2);
         }
 
-        // Draw detected markers
+        // Draw detected markers on the debug image
         cv::aruco::drawDetectedMarkers(imageCopy, markerCorners_, markerIds_);
       }
 
-      // Publish visualization image
-      marker_publisher_->publish(
-          *cv_bridge::CvImage(msg->header, "bgr8", imageCopy).toImageMsg());
-
-      marker_id_publisher_->publish([this]() {
-        auto msg = std_msgs::msg::Int32MultiArray();
-        msg.data = markerIds_;
-        return msg;
-      }());
+      // Publish debug visualization image
+      auto debug_image = cv_bridge::CvImage(msg->header, "bgr8", imageCopy).toImageMsg();
+      debug_image->header.frame_id = cameraName; // Set frame_id for visualization
+      debug_image_publisher_->publish(*debug_image);
 
     } catch (const std::exception &e) {
       RCLCPP_ERROR(node_->get_logger(), "Error during image processing: %s",
@@ -240,7 +250,7 @@ int main(int argc, char **argv) {
 
   // Get camera labels from parameter
   std::vector<std::string> camera_labels = node->declare_parameter(
-      "camera_labels", std::vector<std::string>{"camera_1"});
+      "camera_labels", std::vector<std::string>{"camera_front", "camera_bottom"});
 
   RCLCPP_INFO(node->get_logger(), "Starting ArUco detector for %zu cameras",
               camera_labels.size());
