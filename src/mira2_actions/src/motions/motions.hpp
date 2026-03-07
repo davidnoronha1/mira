@@ -8,6 +8,7 @@
 #include <custom_msgs/msg/commands.hpp>
 #include <custom_msgs/msg/telemetry.hpp>
 #include <vision_msgs/msg/bounding_box2_d_array.hpp>
+#include <geometry_msgs/msg/point.hpp>
 #include <string>
 #include <vector>
 #include <cmath>
@@ -137,4 +138,181 @@ private:
     rclcpp::Time start_time_;
     rclcpp::Time dwell_start_time_;
     bool in_dwell_;
+};
+
+/**
+ * @brief AlignXY: Align to target point using lateral and forward PD control
+ * 
+ * Subscribes to a Point topic and uses PD control to center the target.
+ * Returns SUCCESS when target is centered within tolerance.
+ */
+class AlignXY : public BT::StatefulActionNode
+{
+public:
+    AlignXY(const std::string& name,
+            const BT::NodeConfiguration& config,
+            ROSState* ros_state);
+
+    static BT::PortsList providedPorts();
+    
+    BT::NodeStatus onStart() override;
+    BT::NodeStatus onRunning() override;
+    void onHalted() override;
+
+private:
+    void point_callback(const geometry_msgs::msg::Point::SharedPtr msg);
+    void publish_neutral();
+
+    ROSState* ros_state_;
+    rclcpp::Subscription<geometry_msgs::msg::Point>::SharedPtr point_sub_;
+
+    // PD Controllers
+    PID_Controller lateral_pd;
+    PID_Controller forward_pd;
+    PID_Controller yaw_pd;
+
+    // Parameters
+    std::string point_topic_;
+    double tolerance_x_;
+    double tolerance_y_;
+    double target_lost_timeout_;
+    double timeout_;
+    std::string flight_mode_;
+
+    // Target tracking
+    double target_nx_;
+    double target_ny_;
+    double prev_nx_;
+    double prev_ny_;
+    bool target_visible_;
+    rclcpp::Time last_detection_time_;
+    rclcpp::Time start_time_;
+    rclcpp::Time last_update_time_;
+    
+    double locked_heading_;
+    bool heading_locked_;
+};
+
+/**
+ * @brief ApproachWithDepth: Approach target while controlling depth
+ * 
+ * Maintains XY alignment while diving based on depth proxy value.
+ * Returns SUCCESS when depth target is reached.
+ */
+class ApproachWithDepth : public BT::StatefulActionNode
+{
+public:
+    ApproachWithDepth(const std::string& name,
+                     const BT::NodeConfiguration& config,
+                     ROSState* ros_state);
+
+    static BT::PortsList providedPorts();
+    
+    BT::NodeStatus onStart() override;
+    BT::NodeStatus onRunning() override;
+    void onHalted() override;
+
+private:
+    void point_callback(const geometry_msgs::msg::Point::SharedPtr msg);
+    void publish_neutral();
+
+    ROSState* ros_state_;
+    rclcpp::Subscription<geometry_msgs::msg::Point>::SharedPtr point_sub_;
+
+    // PD Controllers
+    PID_Controller lateral_pd;
+    PID_Controller forward_pd;
+    PID_Controller yaw_pd;
+
+    // Parameters
+    std::string point_topic_;
+    double success_depth_;
+    double blind_lock_depth_;
+    double thrust_pwm_shallow_;
+    double thrust_pwm_deep_;
+    double depth_threshold_;
+    double target_lost_timeout_;
+    double timeout_;
+    std::string flight_mode_;
+
+    // Target tracking
+    double target_nx_;
+    double target_ny_;
+    double target_depth_;
+    double prev_nx_;
+    double prev_ny_;
+    bool target_visible_;
+    rclcpp::Time last_detection_time_;
+    rclcpp::Time start_time_;
+    rclcpp::Time last_update_time_;
+    
+    double locked_heading_;
+    bool heading_locked_;
+};
+
+/**
+ * @brief HoldPosition: Hold current position for a duration
+ * 
+ * Publishes neutral commands to maintain position.
+ * Returns SUCCESS after duration has elapsed.
+ */
+class HoldPosition : public BT::StatefulActionNode
+{
+public:
+    HoldPosition(const std::string& name,
+                const BT::NodeConfiguration& config,
+                ROSState* ros_state);
+
+    static BT::PortsList providedPorts();
+    
+    BT::NodeStatus onStart() override;
+    BT::NodeStatus onRunning() override;
+    void onHalted() override;
+
+private:
+    void publish_neutral();
+
+    ROSState* ros_state_;
+    
+    double duration_;
+    std::string flight_mode_;
+    
+    rclcpp::Time start_time_;
+};
+
+/**
+ * @brief LateralEvasion: Perform oscillating lateral movement
+ * 
+ * Strafes left and right to evade obstacles.
+ * Runs indefinitely or for specified cycles/timeout.
+ */
+class LateralEvasion : public BT::StatefulActionNode
+{
+public:
+    LateralEvasion(const std::string& name,
+                  const BT::NodeConfiguration& config,
+                  ROSState* ros_state);
+
+    static BT::PortsList providedPorts();
+    
+    BT::NodeStatus onStart() override;
+    BT::NodeStatus onRunning() override;
+    void onHalted() override;
+
+private:
+    void publish_neutral();
+
+    ROSState* ros_state_;
+    
+    double amplitude_;
+    double period_;
+    int cycles_;
+    double timeout_;
+    std::string flight_mode_;
+    bool oscillate_;
+    
+    rclcpp::Time start_time_;
+    rclcpp::Time cycle_start_time_;
+    int current_direction_;
+    int completed_cycles_;
 };
