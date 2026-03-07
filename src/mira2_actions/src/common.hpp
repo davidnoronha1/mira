@@ -1,3 +1,4 @@
+#pragma once
 #include <custom_msgs/msg/commands.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <custom_msgs/msg/telemetry.hpp>
@@ -11,8 +12,8 @@ struct ROSState {
 	private:
 	rclcpp::Subscription<custom_msgs::msg::Telemetry>::SharedPtr telemetry_sub;
 
-	ROSState () {
-		node = rclcpp::Node::make_shared("mira2_action_server");
+	public:
+	ROSState (rclcpp::Node::SharedPtr node) : node(node) {
 		telemetry_sub = node->create_subscription<custom_msgs::msg::Telemetry>(
 			"/master/telemetry", 1,
 			[this](const custom_msgs::msg::Telemetry::SharedPtr msg) {

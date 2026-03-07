@@ -1,30 +1,18 @@
-#include "../common.hpp"
-#include <behaviortree_cpp/basic_types.h>
-#include <behaviortree_cpp/bt_factory.h>
-#include <cmath>
-#include <control_utils/control_utils.hpp>
-#include <custom_msgs/msg/commands.hpp>
-#include <custom_msgs/msg/telemetry.hpp>
-#include <rclcpp/rclcpp.hpp>
+#include "motions.hpp"
 
-class RotateToTargetHeading : public BT::SyncActionNode {
-  PID_Controller yaw_pid;
-  ROSState *ros_state_;
+RotateToTargetHeading::RotateToTargetHeading(const std::string &name,
+                      const BT::NodeConfiguration &config,
+                      ROSState *ros_state)
+    : BT::StatefulActionNode(name, config), 
+      yaw_pid("yaw", ros_state->node),
+      ros_state_(ros_state),
+      target_heading_(0.0),
+      yaw_error_(0.0),
+      tolerance_(5.0),
+      timeout_(30.0) 
+{}
 
-  double target_heading_ = 0.0;
-  double yaw_error_ = 0.0;
-
-  rclcpp::Time start_time_;
-  bool initialized_ = false;
-
-public:
-  RotateToTargetHeading(const std::string &name,
-                        const BT::NodeConfiguration &config,
-                        ROSState *ros_state)
-      : BT::SyncActionNode(name, config), yaw_pid("yaw", ros_state->node),
-        ros_state_(ros_state) {}
-
-  static BT::PortsList providedPorts() {
+BT::PortsList RotateToTargetHeading::providedPorts() {
     return {
         BT::InputPort<double>("target_heading",
                               "Desired heading to rotate to (degrees)"),
@@ -38,47 +26,51 @@ public:
                               "Maximum time to attempt rotation (seconds)")};
   }
 
-  BT::NodeStatus tick() {
-    // Initialize on first tick
-    if (!initialized_) {
-      // Get target heading from port
-      auto target = getInput<double>("target_heading");
-      if (!target) {
+BT::NodeStatus RotateToTargetHeading::onStart()
+{
+    // Get target heading from port
+    auto target = getInput<double>("target_heading");
+    if (!target) {
         throw BT::RuntimeError("Missing required input [target_heading]: ",
                                target.error());
-      }
-      target_heading_ = target.value();
-
-      // Get PID parameters from ports
-      auto kp = getInput<double>("yaw_pid_kp").value();
-      auto ki = getInput<double>("yaw_pid_ki").value();
-      auto kd = getInput<double>("yaw_pid_kd").value();
-      auto base_offset = getInput<double>("yaw_pid_base_offset").value();
-
-      // Configure PID controller
-      yaw_pid.kp = kp;
-      yaw_pid.ki = ki;
-      yaw_pid.kd = kd;
-      yaw_pid.base_offset = base_offset;
-      yaw_pid.emptyError();
-
-      start_time_ = ros_state_->node->now();
-      initialized_ = true;
-
-      RCLCPP_INFO(ros_state_->node->get_logger(),
-                  "RotateToTargetHeading: Starting rotation to %.1f degrees",
-                  target_heading_);
     }
+    target_heading_ = target.value();
 
+    // Get PID parameters from ports
+    auto kp = getInput<double>("yaw_pid_kp").value();
+    auto ki = getInput<double>("yaw_pid_ki").value();
+    auto kd = getInput<double>("yaw_pid_kd").value();
+    auto base_offset = getInput<double>("yaw_pid_base_offset").value();
+
+    // Get tolerance and timeout
+    tolerance_ = getInput<double>("tolerance").value();
+    timeout_ = getInput<double>("timeout").value();
+
+    // Configure PID controller
+    yaw_pid.kp = kp;
+    yaw_pid.ki = ki;
+    yaw_pid.kd = kd;
+    yaw_pid.base_offset = base_offset;
+    yaw_pid.emptyError();
+
+    start_time_ = ros_state_->node->now();
+
+    RCLCPP_INFO(ros_state_->node->get_logger(),
+                "RotateToTargetHeading: Starting rotation to %.1f degrees",
+                target_heading_);
+    
+    return BT::NodeStatus::RUNNING;
+}
+
+BT::NodeStatus RotateToTargetHeading::onRunning()
+{
     // Check for timeout
-    auto timeout = getInput<double>("timeout").value();
     double elapsed = (ros_state_->node->now() - start_time_).seconds();
-    if (elapsed > timeout) {
-      RCLCPP_WARN(ros_state_->node->get_logger(),
-                  "RotateToTargetHeading: Timeout reached after %.1f seconds",
-                  elapsed);
-      initialized_ = false;
-      return BT::NodeStatus::FAILURE;
+    if (elapsed > timeout_) {
+        RCLCPP_WARN(ros_state_->node->get_logger(),
+                    "RotateToTargetHeading: Timeout reached after %.1f seconds",
+                    elapsed);
+        return BT::NodeStatus::FAILURE;
     }
 
     // Calculate yaw error (shortest angle difference)
@@ -88,25 +80,23 @@ public:
         std::fmod((target_heading_ - current_heading + 180.0), 360.0) - 180.0;
 
     // Check if we've reached the target
-    auto tolerance = getInput<double>("tolerance").value();
-    if (std::abs(yaw_error_) < tolerance) {
-      RCLCPP_INFO(
-          ros_state_->node->get_logger(),
-          "RotateToTargetHeading: Target heading reached (error: %.2f deg)",
-          yaw_error_);
+    if (std::abs(yaw_error_) < tolerance_) {
+        RCLCPP_INFO(
+            ros_state_->node->get_logger(),
+            "RotateToTargetHeading: Target heading reached (error: %.2f deg)",
+            yaw_error_);
 
-      // Send neutral commands before finishing
-      custom_msgs::msg::Commands cmd;
-      cmd.mode = "STABILIZE";
-      cmd.arm = true;
-      cmd.forward = 1500;
-      cmd.lateral = 1500;
-      cmd.thrust = 1500;
-      cmd.yaw = 1500;
-      ros_state_->cmd_publisher->publish(cmd);
+        // Send neutral commands before finishing
+        custom_msgs::msg::Commands cmd;
+        cmd.mode = "STABILIZE";
+        cmd.arm = true;
+        cmd.forward = 1500;
+        cmd.lateral = 1500;
+        cmd.thrust = 1500;
+        cmd.yaw = 1500;
+        ros_state_->cmd_publisher->publish(cmd);
 
-      initialized_ = false;
-      return BT::NodeStatus::SUCCESS;
+        return BT::NodeStatus::SUCCESS;
     }
 
     // Calculate PID output for yaw
@@ -128,5 +118,19 @@ public:
                  current_heading, target_heading_, yaw_error_, cmd.yaw);
 
     return BT::NodeStatus::RUNNING;
-  }
-};
+}
+
+void RotateToTargetHeading::onHalted()
+{
+    RCLCPP_INFO(ros_state_->node->get_logger(), "RotateToTargetHeading: halted");
+    
+    // Send neutral commands
+    custom_msgs::msg::Commands cmd;
+    cmd.mode = "STABILIZE";
+    cmd.arm = true;
+    cmd.forward = 1500;
+    cmd.lateral = 1500;
+    cmd.thrust = 1500;
+    cmd.yaw = 1500;
+    ros_state_->cmd_publisher->publish(cmd);
+}

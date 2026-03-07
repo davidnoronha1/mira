@@ -19,7 +19,12 @@ find_package(custom_msgs REQUIRED)
 find_package(vision_msgs REQUIRED)
 
 # Create executable
-add_executable(mira2_actions_exe src/main.cpp src/behaviours/DetectObjectBoundingbox.cpp)
+add_executable(mira2_actions_exe 
+  src/main.cpp 
+  src/behaviours/DetectObjectBoundingbox.cpp
+  src/motions/GoToBoundingBox.cpp
+  src/motions/RotateToTargetHeading.cpp
+  src/motions/YawSweep.cpp)
 ament_target_dependencies(mira2_actions_exe
  rclcpp
  behaviortree_cpp

@@ -1,30 +1,17 @@
-#include "../common.cpp"
-#include <behaviortree_cpp/basic_types.h>
-#include <behaviortree_cpp/bt_factory.h>
-#include <cmath>
-#include <control_utils/control_utils.hpp>
-#include <custom_msgs/msg/commands.hpp>
-#include <custom_msgs/msg/telemetry.hpp>
-#include <rclcpp/rclcpp.hpp>
+#include "motions.hpp"
 
-class RotateToTargetHeading : public BT::SyncActionNode {
-  PID_Controller yaw_pid;
-  ROSState *ros_state_;
+RotateToTargetHeading::RotateToTargetHeading(const std::string &name,
+                      const BT::NodeConfiguration &config,
+                      ROSState *ros_state)
+    : BT::SyncActionNode(name, config), 
+      yaw_pid("yaw", ros_state->node),
+      ros_state_(ros_state),
+      target_heading_(0.0),
+      yaw_error_(0.0),
+      initialized_(false) 
+{}
 
-  double target_heading_ = 0.0;
-  double yaw_error_ = 0.0;
-
-  rclcpp::Time start_time_;
-  bool initialized_ = false;
-
-public:
-  RotateToTargetHeading(const std::string &name,
-                        const BT::NodeConfiguration &config,
-                        ROSState *ros_state)
-      : BT::SyncActionNode(name, config), yaw_pid("yaw", ros_state->node),
-        ros_state_(ros_state) {}
-
-  static BT::PortsList providedPorts() {
+BT::PortsList RotateToTargetHeading::providedPorts() {
     return {
         BT::InputPort<double>("target_heading",
                               "Desired heading to rotate to (degrees)"),
@@ -38,7 +25,7 @@ public:
                               "Maximum time to attempt rotation (seconds)")};
   }
 
-  BT::NodeStatus tick() {
+BT::NodeStatus RotateToTargetHeading::tick() {
     // Initialize on first tick
     if (!initialized_) {
       // Get target heading from port
@@ -129,4 +116,3 @@ public:
 
     return BT::NodeStatus::RUNNING;
   }
-};

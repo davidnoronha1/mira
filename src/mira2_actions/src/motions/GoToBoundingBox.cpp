@@ -1,97 +1,56 @@
-#pragma once 
+#include "motions.hpp"
 
-#include "../common.hpp"
-#include <behaviortree_cpp/basic_types.h>
-#include <behaviortree_cpp/bt_factory.h>
-#include <cmath>
-#include <control_utils/control_utils.hpp>
-#include <custom_msgs/msg/commands.hpp>
-#include <custom_msgs/msg/telemetry.hpp>
-#include <rclcpp/rclcpp.hpp>
-#include <vision_msgs/msg/bounding_box2_d_array.hpp>
-
-
-class ApproachBB : public BT::SyncActionNode
+void ApproachBB::bbox_callback(const vision_msgs::msg::BoundingBox2DArray::SharedPtr msg)
 {
-    ROSState* ros_state_;
-
-    rclcpp::Subscription<vision_msgs::msg::BoundingBox2DArray>::SharedPtr bb_sub_;
-
-
-
-    // make PID Controller
-    PID_Controller yaw_pid;
-    PID_Controller lateral_pid;
-
-
-    // params read on first tick
-    std::string target_object_;
-    double forward_pwm_ = 1550.0;
-    double frame_width_ = 1.0;
-    double frame_height_ = 1.0;
-    double success_bb_area_ = 0.70;
-    double x_tolerance_ = 0.05;
-    double bb_lost_timeout_ = 1.0;
-    double timeout_ = 20.0;
-
-    std::string flight_mode_ = "ALT_HOLD";
-
-    //runtime state 
-
-    bool initialized_ = false;
-    rclcpp::Time start_time_;
-    rclcpp::Time last_detection_time_; // tracks when we last saw the object 
-
-    // latest bb info
-    bool bb_found_           = false;
-    double bb_x_center_norm_ = 0.5; // 0.5 -> screen center, 0.0 -> left edge, 1.0 -> right edge
-    double bb_area_norm_         = 0.0; // fraction of frame area 
-
-
-    void bbox_callback(const vision_msgs::msg::BoundingBox2DArray::SharedPtr msg)
+    bb_found_ = false;
+    bb_area_norm_ = 0.0;
+    bb_x_center_norm_ = 0.5;
+    for (const auto& bbox : msg->boxes)
     {
-        bb_found_ = false;
-        bb_area_norm_ = 0.0;      // already there ✓
-        bb_x_center_norm_ = 0.5;  // ← add this too, stale center could cause initial jerk
-        for (const auto& bbox : msg->boxes)
+        // if(bbox. != target_object_)
+            // continue;
+
+        double x_center_norm = bbox.center.position.x / frame_width_ ;
+
+        double bb_area_pixels = bbox.size_x * bbox.size_y;
+        double frame_area = frame_width_ * frame_height_;
+        double bb_area = bb_area_pixels / frame_area;
+
+        if(!bb_found_ || bb_area > bb_area_norm_)
         {
-            if(bbox.label != target_object_)
-                continue;
-
-            double x_center_norm = bbox.center.position.x / frame_width_ ;
-
-            double bb_area_pixels = bbox.size_x * bbox.size_y;
-            double frame_area = frame_width_ * frame_height_;
-            double bb_area = bb_area_pixels / frame_area;
-
-            if(!bb_found_ || bb_area > bb_area_norm_)
-            {
-                bb_found_ = true;
-                bb_x_center_norm_ = x_center_norm;
-                bb_area_norm_ = bb_area;
-            }
+            bb_found_ = true;
+            bb_x_center_norm_ = x_center_norm;
+            bb_area_norm_ = bb_area;
         }
-        if(bb_found_)
-            last_detection_time_ = ros_state_->node->now();
     }
+    if(bb_found_)
+        last_detection_time_ = ros_state_->node->now();
+}
 
-
-public: 
-
-ApproachBB(const std::string& name, 
+ApproachBB::ApproachBB(const std::string& name, 
            const BT::NodeConfiguration& config,
            ROSState* ros_state)
-    : BT::SyncActionNode(name, config),
+    : BT::StatefulActionNode(name, config),
+    ros_state_(ros_state),
     yaw_pid("yaw",ros_state->node),
     lateral_pid("lateral",ros_state->node),
-    ros_state_(ros_state)
-    {
-    bbox_sub_ = ros_state_->node->create_subscription<vision_msgs::msg::BoundingBox2DArray>(
+    forward_pwm_(1550.0),
+    frame_width_(1.0),
+    frame_height_(1.0),
+    success_bb_area_(0.70),
+    x_tolerance_(0.05),
+    bb_lost_timeout_(1.0),
+    timeout_(20.0),
+    flight_mode_("ALT_HOLD"),
+    bb_found_(false),
+    bb_x_center_norm_(0.5),
+    bb_area_norm_(0.0)
+{
+    bb_sub_ = ros_state_->node->create_subscription<vision_msgs::msg::BoundingBox2DArray>(
         "/vision/detected_objects", 10, std::bind(&ApproachBB::bbox_callback, this, std::placeholders::_1));
-    }
+}
 
-
-static BT::PortsList providedPorts()
+BT::PortsList ApproachBB::providedPorts()
 {
     return {
         BT::InputPort<std::string>("object","Target Object label to approach "),
@@ -135,69 +94,52 @@ static BT::PortsList providedPorts()
             BT::InputPort<double>("lateral_pid_base_offset", 1500.0, "Lateral PID base offset (neutral PWM)"),       
         };
 }
-    
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // tick — called every BT cycle (10 Hz in your main loop)
-    //
-    // FLOW:
-    //   First tick only:  read all ports, configure PIDs, record start time
-    //   Every tick:
-    //     1. Check hard timeout → FAILURE
-    //     2. Check object lost timeout → FAILURE
-    //     3. If BB found this frame:
-    //        a. Check success condition (BB area >= threshold) → SUCCESS
-    //        b. Compute x-center error → run yaw + lateral PIDs
-    //        c. Publish forward + yaw + lateral command
-    //     4. If BB not found this frame:
-    //        a. Publish neutral to stop and wait
-    //        b. RUNNING (still within object_lost_timeout_)
-    // ─────────────────────────────────────────────────────────────────────────
-
-
-BT::NodeStatus tick() override
+BT::NodeStatus ApproachBB::onStart()
 {
-    if(!initialized_){
-        auto object = getInput<std::string>("object");
-        if(!object){
-            throw BT::RuntimeError("Mission required input [object]: ", object.error());
-        }
-
-        target_object_ = object.value();
-        forward_pwm_ = getInput<double>("forward_pwm").value();
-        frame_width_ = getInput<double>("frame_width").value();
-        frame_height_ = getInput<double>("frame_height").value();
-        success_bb_area_ = getInput<double>("success_area_ratio").value();
-        x_tolerance_ = getInput<double>("x_center_tolerance").value();
-        bb_lost_timeout_ = getInput<double>("object_lost_timeout").value();
-        timeout_ = getInput<double>("timeout").value();
-        flight_mode_ = getInput<std::string>("flight_mode").value();
-
-        // Configure PIDs
-        yaw_pid.kp = getInput<double>("yaw_pid_kp").value();
-        yaw_pid.ki = getInput<double>("yaw_pid_ki").value();
-        yaw_pid.kd = getInput<double>("yaw_pid_kd").value();
-        yaw_pid.base_offset = getInput<double>("yaw_pid_base_offset").value();
-        yaw_pid.emptyError();
-
-        lateral_pid.kp = getInput<double>("lateral_pid_kp").value();
-        lateral_pid.ki = getInput<double>("lateral_pid_ki").value();
-        lateral_pid.kd = getInput<double>("lateral_pid_kd").value();
-        lateral_pid.base_offset = getInput<double>("lateral_pid_base_offset").value();
-        lateral_pid.emptyError();
-
-        start_time_ = ros_state_->node->now();
-        last_detection_time_ = start_time_;
-        initialized_ = true;
-        bb_found_ = false;
-        bb_area_norm_ = 0.0;
-
-        RCLCPP_INFO(ros_state_->node->get_logger(),
-            "ApproachBB: starting to approach to '%s' "
-            "(success at bb_area=%.0f%%, flight_mode=%s)",
-            target_object_.c_str(), success_bb_area_ * 100.0, flight_mode_.c_str());
+    auto object = getInput<std::string>("object");
+    if(!object){
+        throw BT::RuntimeError("Mission required input [object]: ", object.error());
     }
 
+    target_object_ = object.value();
+    forward_pwm_ = getInput<double>("forward_pwm").value();
+    frame_width_ = getInput<double>("frame_width").value();
+    frame_height_ = getInput<double>("frame_height").value();
+    success_bb_area_ = getInput<double>("success_area_ratio").value();
+    x_tolerance_ = getInput<double>("x_center_tolerance").value();
+    bb_lost_timeout_ = getInput<double>("object_lost_timeout").value();
+    timeout_ = getInput<double>("timeout").value();
+    flight_mode_ = getInput<std::string>("flight_mode").value();
+
+    // Configure PIDs
+    yaw_pid.kp = getInput<double>("yaw_pid_kp").value();
+    yaw_pid.ki = getInput<double>("yaw_pid_ki").value();
+    yaw_pid.kd = getInput<double>("yaw_pid_kd").value();
+    yaw_pid.base_offset = getInput<double>("yaw_pid_base_offset").value();
+    yaw_pid.emptyError();
+
+    lateral_pid.kp = getInput<double>("lateral_pid_kp").value();
+    lateral_pid.ki = getInput<double>("lateral_pid_ki").value();
+    lateral_pid.kd = getInput<double>("lateral_pid_kd").value();
+    lateral_pid.base_offset = getInput<double>("lateral_pid_base_offset").value();
+    lateral_pid.emptyError();
+
+    start_time_ = ros_state_->node->now();
+    last_detection_time_ = start_time_;
+    bb_found_ = false;
+    bb_area_norm_ = 0.0;
+
+    RCLCPP_INFO(ros_state_->node->get_logger(),
+        "ApproachBB: starting to approach to '%s' "
+        "(success at bb_area=%.0f%%, flight_mode=%s)",
+        target_object_.c_str(), success_bb_area_ * 100.0, flight_mode_.c_str());
+    
+    return BT::NodeStatus::RUNNING;
+}
+
+BT::NodeStatus ApproachBB::onRunning()
+{
     rclcpp::Time now = ros_state_->node->now();
     double elapsed = (now - start_time_).seconds();
 
@@ -206,7 +148,6 @@ BT::NodeStatus tick() override
             RCLCPP_WARN(ros_state_->node->get_logger(),
                 "ApproachBoundingBox: hard timeout after %.1f s", elapsed);
             publish_neutral();
-            initialized_ = false;
             return BT::NodeStatus::FAILURE;
         }
 
@@ -214,14 +155,13 @@ BT::NodeStatus tick() override
         // If the BB hasn't been seen for object_lost_timeout_ seconds → FAILURE.
         // This handles: object moved out of frame, vision node crashed, etc.
         double time_since_detection = (now - last_detection_time_).seconds();
-        if (elapsed > 1.0 && time_since_detection > object_lost_timeout_) {
+        if (elapsed > 1.0 && time_since_detection > bb_lost_timeout_) {
             // The elapsed > 1.0 guard avoids false triggers right at startup
             // before the first detection has had a chance to arrive.
             RCLCPP_WARN(ros_state_->node->get_logger(),
                 "ApproachBoundingBox: object '%s' lost for %.1f s → FAILURE",
                 target_object_.c_str(), time_since_detection);
             publish_neutral();
-            initialized_ = false;
             return BT::NodeStatus::FAILURE;
         }
     
@@ -244,7 +184,6 @@ BT::NodeStatus tick() override
                 bb_area_norm_ * 100.0,
                 success_bb_area_ * 100.0);
             publish_neutral();
-            initialized_ = false;
             return BT::NodeStatus::SUCCESS;
         }
     
@@ -271,7 +210,7 @@ BT::NodeStatus tick() override
         // overshooting past the object while still correcting alignment.
         // If |x_error| > x_center_tolerance_, use a gentler forward value.
         double effective_forward = forward_pwm_;
-        if (std::abs(x_error) > x_center_tolerance_) {
+        if (std::abs(x_error) > x_tolerance_) {
             // Reduce forward by up to 50% proportional to how off-center we are.
             // At x_error=0.5 (fully off-center) → forward reduced to 50%.
             // At x_error=0.05 (just outside tolerance) → nearly full forward.
@@ -299,18 +238,21 @@ BT::NodeStatus tick() override
         return BT::NodeStatus::RUNNING;
     }
 
-private:
-    void publish_neutral()
-    {
-        custom_msgs::msg::Commands cmd;
-        cmd.mode    = flight_mode_;
-        cmd.arm     = true;
-        cmd.forward = 1500;
-        cmd.lateral = 1500;
-        cmd.thrust  = 1500;
-        cmd.yaw     = 1500;
-        ros_state_->cmd_publisher->publish(cmd);
-    }
+void ApproachBB::onHalted()
+{
+    RCLCPP_INFO(ros_state_->node->get_logger(), "ApproachBB: halted");
+    publish_neutral();
+}
 
-    
-};
+void ApproachBB::publish_neutral()
+{
+    custom_msgs::msg::Commands cmd;
+    cmd.mode    = flight_mode_;
+    cmd.arm     = true;
+    cmd.forward = 1500;
+    cmd.lateral = 1500;
+    cmd.thrust  = 1500;
+    cmd.yaw     = 1500;
+    ros_state_->cmd_publisher->publish(cmd);
+}
+
