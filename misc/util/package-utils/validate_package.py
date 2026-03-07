@@ -149,12 +149,34 @@ def check_build_files(path):
                         print(CMAKE_INCLUDE_INSTALL_SNIPPET)
 
                 # Check for executables and their install rules
-                executable_targets = re.findall(r'add_executable\(([\w_]+)\s', cmake_content)
+                # Filter out commented lines first
+                lines = cmake_content.split('\n')
+                uncommented_content = '\n'.join(
+                    line for line in lines if not line.strip().startswith('#')
+                )
+                
+                executable_targets = re.findall(r'add_executable\(([\w_]+)\s', uncommented_content)
                 if not executable_targets:
                     print("❌ Warning: No executables found in CMakeLists.txt.")
                 else:
-                    installed_targets = re.findall(r'install\(TARGETS\s+([\w_]+)\s+DESTINATION\s+lib/\$\{PROJECT_NAME}\)', cmake_content)
-                    installed_set = set(installed_targets)
+                    # Find all install(TARGETS ...) statements that install to lib/${PROJECT_NAME}
+                    # This pattern handles multiple targets and multiline install statements
+                    installed_set = set()
+                    
+                    # Pattern to find install(TARGETS ... DESTINATION lib/${PROJECT_NAME})
+                    # Using re.DOTALL to handle multiline statements
+                    install_pattern = r'install\s*\(\s*TARGETS\s+(.*?)\s+DESTINATION\s+lib/\$\{PROJECT_NAME\}'
+                    install_matches = re.findall(install_pattern, uncommented_content, re.DOTALL | re.IGNORECASE)
+                    
+                    for match in install_matches:
+                        # Extract all target names from the TARGETS section
+                        # Split by whitespace and filter out non-target keywords
+                        target_names = match.split()
+                        for name in target_names:
+                            # Skip CMake keywords that might appear between TARGETS and DESTINATION
+                            if name.upper() not in ['EXPORT', 'NAMESPACE', 'FILE', 'COMPONENT', 'CONFIGURATIONS', 
+                                                      'RUNTIME', 'LIBRARY', 'ARCHIVE', 'PUBLIC_HEADER', 'PRIVATE_HEADER']:
+                                installed_set.add(name)
 
                     for exe in executable_targets:
                         if exe not in installed_set:

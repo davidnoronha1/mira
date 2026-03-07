@@ -6,6 +6,7 @@
           name="camera_auto"
           output="screen">
           <param name="port" value="$(var port)"/>
+          <param name="camera_frame_id" value="camera_auto"/>
     </node>
      <executable cmd="sleep 2 ; gst-launch-1.0 rtspsrc location=rtsp://127.0.0.1:$(var port)/image_rtsp ! fakesink" cwd="/home" shell="true"/>
 </launch>

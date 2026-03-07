@@ -9,6 +9,13 @@ Usage:
 	python mira.py build --dry-run     # Preview commands without running them
 	python mira.py build --docker      # Run build inside Docker container
 	python mira.py clean --docker      # Run clean inside Docker container
+
+Autocomplete:
+	To enable shell autocomplete, run:
+		source enable_autocomplete.sh
+	Or manually:
+		pip install argcomplete
+		eval "$(register-python-argcomplete mira.py)"
 """
 
 import argparse
@@ -20,6 +27,12 @@ import subprocess
 import sys
 from pathlib import Path
 from typing import Optional
+
+try:
+	import argcomplete
+	HAS_ARGCOMPLETE = True
+except ImportError:
+	HAS_ARGCOMPLETE = False
 
 # ─────────────────────────────────────────────
 # ANSI color helpers
@@ -361,6 +374,65 @@ def check_ros():
 	info("ROS Jazzy found.")
 
 
+def validate_packages():
+	"""Validate all ROS2 packages in the workspace using validate_package.py."""
+	header("Validating packages...")
+	
+	# Find all package.xml files in src/
+	src_path = Path("src")
+	if not src_path.exists():
+		warn("src/ directory not found")
+		return
+	
+	package_xmls = list(src_path.glob("**/package.xml"))
+	
+	if not package_xmls:
+		warn("No packages found in src/")
+		return
+	
+	info(f"Found {len(package_xmls)} package(s) to validate")
+	print()
+	
+	validation_script = Path("misc/util/package-utils/validate_package.py")
+	if not validation_script.exists():
+		warn(f"Validation script not found at {validation_script}")
+		warn("Skipping detailed validation")
+		return
+	
+	has_errors = False
+	for pkg_xml in sorted(package_xmls):
+		package_dir = pkg_xml.parent
+		package_name = package_dir.name
+		
+		# Skip COLCON_IGNORE directories
+		if (package_dir / "COLCON_IGNORE").exists():
+			continue
+		
+		step(f"Validating {package_name}...")
+		result = run(
+			f"python3 {validation_script} {package_dir}",
+			capture=True,
+			check=False,
+			hidden=True
+		)
+		
+		if result.returncode != 0 or "❌" in result.stdout:
+			has_errors = True
+			print(result.stdout)
+			if result.stderr:
+				print(result.stderr)
+		else:
+			# Show summary only for successful validation
+			if "✅" in result.stdout:
+				print(f"      ✅ {package_name} validated successfully")
+	
+	print()
+	if has_errors:
+		warn("Some packages have validation issues (continuing anyway)")
+	else:
+		info("All packages validated successfully")
+
+
 # ─────────────────────────────────────────────
 # Targets
 # ─────────────────────────────────────────────
@@ -369,6 +441,10 @@ def check_ros():
 def target_build(packages_select: Optional[str] = None):
 	"""Build the ROS workspace (or a single package with -p)."""
 	check_ros()
+	
+	# Validate all packages before building
+	validate_packages()
+	
 	warn("If you built in docker last — you'll need to clean and rebuild")
 	warn("If build fails due to CMakeCacheList issues, run: python dev.py clean")
 	header("Building workspace...")
@@ -480,8 +556,44 @@ def target_repoversion():
 @task("Validate all package.xml files in src/")
 def target_validate_all():
 	"""Validate all package.xml files in src/."""
-	header("Validating package.xml files...")
-	run("find ./src -type f -name 'package.xml' -exec uv run ./util/package-utils/validate_package.py {} \\;")
+	validate_packages()
+
+
+@task("Enable shell autocomplete for mira.py")
+def target_enable_autocomplete():
+	"""Enable shell autocomplete for mira.py using argcomplete."""
+	header("Setting up autocomplete for mira.py...")
+	
+	# Check if argcomplete is installed
+	result = run(
+		"python3 -c 'import argcomplete'",
+		capture=True,
+		check=False,
+		hidden=True
+	)
+	
+	if result.returncode != 0:
+		info("Installing argcomplete...")
+		run("uv pip install argcomplete")
+	else:
+		info("argcomplete is already installed")
+	
+	# Generate the autocomplete command
+	mira_path = Path("mira.py").resolve()
+	autocomplete_cmd = f'eval "$(register-python-argcomplete {mira_path})"'
+	
+	print()
+	info("Autocomplete setup complete!")
+	print()
+	print(f"{BOLD}To enable autocomplete in your current shell, run:{RESET}")
+	print(f"  {CYAN}{autocomplete_cmd}{RESET}")
+	print()
+	print(f"{BOLD}To make it permanent, add this line to your ~/.bashrc:{RESET}")
+	print(f"  {CYAN}{autocomplete_cmd}{RESET}")
+	print()
+	print(f"{BOLD}Quick permanent setup:{RESET}")
+	print(f"  {CYAN}echo '{autocomplete_cmd}' >> ~/.bashrc{RESET}")
+	print()
 
 
 @task("Forward Pixhawk telemetry via mavproxy to a laptop IP (requires --laptop-ip)")
@@ -510,6 +622,24 @@ def target_shell():
 		f"source {Path('.').resolve()}/install/setup.bash"
 	)
 	os.execlp("bash", "bash", "--rcfile", f"<(echo '{rcfile}')")
+
+
+@task("View an RTSP stream using ffplay (requires --rtsp-url)")
+def target_view_rtsp_stream(rtsp_url: Optional[str] = None):
+	"""View an RTSP stream using ffplay with low-latency settings."""
+	if not rtsp_url:
+		error("--rtsp-url is required. Example: python mira.py view-rtsp-stream --rtsp-url rtsp://192.168.2.6:8554/image_rtsp")
+		sys.exit(1)
+	
+	if not exists("ffplay"):
+		error("ffplay not found. Install with: sudo apt install ffmpeg")
+		sys.exit(1)
+	
+	header(f"Opening RTSP stream: {rtsp_url}")
+	info("Press 'q' to quit the stream")
+	
+	# Run ffplay with low-latency settings
+	run(f'ffplay -fflags nobuffer -flags low_delay -framedrop -vf "setpts=0" {rtsp_url}')
 
 
 @task("Launch a camera node (--name bottomcam|frontcam|auto)")
@@ -821,6 +951,12 @@ def main():
 	parser.add_argument("--python-version", default="python3.12", help="Python version for mavproxy install")
 	parser.add_argument("--file",       metavar="LAUNCH",     help="Launch file for launch target (format: 'package file' or 'file')")
 	parser.add_argument("--node",       metavar="NODE",       help="Node for run target (format: 'package executable' or 'executable')")
+	parser.add_argument("--rtsp-url",   metavar="URL",        help="RTSP stream URL for view-rtsp-stream target")
+	
+	# Enable argcomplete if available
+	if HAS_ARGCOMPLETE:
+		argcomplete.autocomplete(parser)
+	
 	args = parser.parse_args()
 
 	DRY_RUN = args.dry_run
@@ -914,6 +1050,11 @@ def main():
 		fn(args.file)
 	elif fn_name == "run":
 		fn(args.node)
+	elif fn_name == "view_rtsp_stream":
+		fn(args.rtsp_url)
+	elif fn_name in ["validate_all", "enable_autocomplete"]:
+		# Tasks that take no arguments
+		fn()
 	else:
 		fn()
 

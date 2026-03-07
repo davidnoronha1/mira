@@ -233,9 +233,9 @@ public:
     std::string camera_info_url = get_parameter("camera_info_url").as_string();
 
     frame_id_ = get_parameter("camera_frame_id").as_string();
-    ros_topic_ = get_parameter("ros_topic").as_string();
-    if (ros_topic_ == "") {
-      ros_topic_ = frame_id_;
+    ros_topic_basename_ = get_parameter("ros_topic").as_string();
+    if (ros_topic_basename_ == "") {
+      ros_topic_basename_ = frame_id_;
     }
 
     constexpr const char *mount_point = "/image_rtsp";
@@ -371,7 +371,7 @@ public:
     RCLCPP_INFO(get_logger(), "RTSP Mount Point:   %s", mount_point);
     RCLCPP_INFO(get_logger(), "RTSP URL:           rtsp://%s:%ld%s", machine_ip,
                 port, mount_point);
-    RCLCPP_INFO(get_logger(), "ROS2 Image Topic:   %s", ros_topic_.c_str());
+    RCLCPP_INFO(get_logger(), "ROS2 Image Topic:   %s", ros_topic_basename_.c_str());
     RCLCPP_INFO(get_logger(), "Camera Info URL:    %s",
                 camera_info_url.empty() ? "(none)" : camera_info_url.c_str());
     RCLCPP_INFO(get_logger(),
@@ -383,13 +383,13 @@ public:
 
     // ── image_transport publisher ────────────────────────────────────────────
     image_transport::ImageTransport it(shared_from_this());
-    image_pub_ = it.advertise(ros_topic_, 1);
+    image_pub_ = it.advertise(ros_topic_basename_ + "/image", 1);
 
     // ── camera_info publisher ─────────────────────────────────────────────────
     // Published on <ros_topic>/camera_info to match the conventional
     // image_transport namespace (e.g. "camera/image_raw" → "camera/camera_info")
     camera_info_pub_ = create_publisher<sensor_msgs::msg::CameraInfo>(
-        ros_topic_ + "/camera_info", rclcpp::SensorDataQoS());
+        ros_topic_basename_ + "/camera_info", rclcpp::SensorDataQoS());
 
     // ── Build the shared pipeline string ────────────────────────────────────
     std::string gst_fmt = gst_caps_for_format(fmt);
@@ -780,7 +780,7 @@ private:
   rclcpp::Publisher<sensor_msgs::msg::CameraInfo>::SharedPtr camera_info_pub_;
   std::shared_ptr<camera_info_manager::CameraInfoManager> camera_info_manager_;
 
-  std::string ros_topic_;
+  std::string ros_topic_basename_;
   std::string frame_id_;
 };
 

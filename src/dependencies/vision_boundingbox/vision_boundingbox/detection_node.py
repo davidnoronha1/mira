@@ -5,7 +5,7 @@ import rclpy
 from rclpy.node import Node
 from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy
 from sensor_msgs.msg import Image
-from vision_msgs.msg import BoundingBox2D, BoundingBox2DArray
+from vision_msgs.msg import Detection2D, Detection2DArray, BoundingBox2D
 from std_srvs.srv import SetBool
 from cv_bridge import CvBridge
 import cv2
@@ -31,6 +31,7 @@ class VisionBoundingBoxNode(Node):
         # Declare parameters
         self.declare_parameter('webcam', False)
         self.declare_parameter('camera_index', 0)
+        self.declare_parameter('rtsp_url', '')
         self.declare_parameter('input_topic', '/camera/image_raw')
         self.declare_parameter('device', 'CPU')
         self.declare_parameter('input_height', 640)
@@ -44,6 +45,7 @@ class VisionBoundingBoxNode(Node):
         # Get parameters
         self.webcam = self.get_parameter('webcam').value
         self.camera_index = self.get_parameter('camera_index').value
+        self.rtsp_url = self.get_parameter('rtsp_url').value
         self.input_topic = self.get_parameter('input_topic').value
         self.device = self.get_parameter('device').value
         self.input_height = self.get_parameter('input_height').value
@@ -81,16 +83,16 @@ class VisionBoundingBoxNode(Node):
             raise
         
         # Publishers
-        self.bbox_pub = self.create_publisher(
-            BoundingBox2DArray,
-            '/vision/bounding_box',
+        self.detection_pub = self.create_publisher(
+            Detection2DArray,
+            '/vision/detections',
             10
         )
         
         if self.publish_image:
             self.image_pub = self.create_publisher(
                 Image,
-                '/vision/bounding_box/image',
+                '/vision/detections/image',
                 10
             )
         
@@ -106,6 +108,7 @@ class VisionBoundingBoxNode(Node):
         self.cap = None
         self.timer = None
         self.image_sub = None
+        self.using_video_capture = False  # True for webcam or RTSP
         
         # Processing queue
         self.frame_queue = Queue(maxsize=3)
@@ -140,8 +143,24 @@ class VisionBoundingBoxNode(Node):
         self.processing_thread = threading.Thread(target=self.process_loop, daemon=True)
         self.processing_thread.start()
         
-        if self.webcam:
+        # Check for RTSP stream first, then webcam, then topic
+        if self.rtsp_url:
+            # Open RTSP stream
+            self.get_logger().info(f'Opening RTSP stream: {self.rtsp_url}')
+            self.cap = cv2.VideoCapture(self.rtsp_url)
+            if not self.cap.isOpened():
+                self.get_logger().error(f'Failed to open RTSP stream: {self.rtsp_url}')
+                self.processing = False
+                return
+            
+            self.using_video_capture = True
+            # Create timer for reading frames
+            self.timer = self.create_timer(0.033, self.timer_callback)  # ~30 FPS
+            self.get_logger().info('RTSP stream opened successfully')
+            
+        elif self.webcam:
             # Open webcam
+            self.get_logger().info(f'Opening webcam at index {self.camera_index}')
             self.cap = cv2.VideoCapture(self.camera_index)
             if not self.cap.isOpened():
                 self.get_logger().error(f'Failed to open camera {self.camera_index}')
@@ -152,10 +171,14 @@ class VisionBoundingBoxNode(Node):
             self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
             self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
             
+            self.using_video_capture = True
             # Create timer for webcam reading
             self.timer = self.create_timer(0.033, self.timer_callback)  # ~30 FPS
+            self.get_logger().info('Webcam opened successfully')
+            
         else:
             # Subscribe to image topic
+            self.get_logger().info(f'Subscribing to image topic: {self.input_topic}')
             qos = QoSProfile(
                 reliability=ReliabilityPolicy.BEST_EFFORT,
                 history=HistoryPolicy.KEEP_LAST,
@@ -167,6 +190,7 @@ class VisionBoundingBoxNode(Node):
                 self.image_callback,
                 qos
             )
+            self.using_video_capture = False
         
         self.get_logger().info('Detection started successfully.')
     
@@ -180,11 +204,13 @@ class VisionBoundingBoxNode(Node):
         self.processing = False
         
         # Stop input sources
-        if self.webcam and self.cap is not None:
-            self.timer.cancel()
-            self.timer = None
+        if self.using_video_capture and self.cap is not None:
+            if self.timer is not None:
+                self.timer.cancel()
+                self.timer = None
             self.cap.release()
             self.cap = None
+            self.using_video_capture = False
         elif self.image_sub is not None:
             self.destroy_subscription(self.image_sub)
             self.image_sub = None
@@ -208,13 +234,13 @@ class VisionBoundingBoxNode(Node):
         self.get_logger().info('Detection stopped successfully.')
     
     def timer_callback(self):
-        """Timer callback for webcam."""
+        """Timer callback for webcam/RTSP stream."""
         if not self.processing or self.cap is None:
             return
         
         ret, frame = self.cap.read()
         if not ret:
-            self.get_logger().error('Failed to read frame from camera')
+            self.get_logger().error('Failed to read frame from video source')
             return
         
         self.process_frame(frame)
@@ -251,21 +277,23 @@ class VisionBoundingBoxNode(Node):
                 # Run detection
                 detections = self.detector.detect(frame)
                 
-                # Publish bounding boxes
-                bbox_msg = BoundingBox2DArray()
-                bbox_msg.header.stamp = self.get_clock().now().to_msg()
-                bbox_msg.header.frame_id = 'camera'
+                # Publish detections
+                detection_msg = Detection2DArray()
+                detection_msg.header.stamp = self.get_clock().now().to_msg()
+                detection_msg.header.frame_id = 'camera'
                 
                 for det in detections:
-                    bbox = BoundingBox2D()
+                    detection = Detection2D()
+                    detection.id = det.class_id
+                    detection.results.append(det.confidence)
                     x, y, w, h = det.box
-                    bbox.center.position.x = float(x + w / 2.0)
-                    bbox.center.position.y = float(y + h / 2.0)
-                    bbox.size_x = float(w)
-                    bbox.size_y = float(h)
-                    bbox_msg.boxes.append(bbox)
+                    detection.bbox.center.position.x = float(x + w / 2.0)
+                    detection.bbox.center.position.y = float(y + h / 2.0)
+                    detection.bbox.size_x = float(w)
+                    detection.bbox.size_y = float(h)
+                    detection_msg.detections.append(detection)
                 
-                self.bbox_pub.publish(bbox_msg)
+                self.detection_pub.publish(detection_msg)
                 
                 # Draw and publish/visualize if needed
                 if self.publish_image or self.visualize:
@@ -273,7 +301,7 @@ class VisionBoundingBoxNode(Node):
                     
                     if self.publish_image:
                         result_msg = self.bridge.cv2_to_imgmsg(result_img, 'bgr8')
-                        result_msg.header = bbox_msg.header
+                        result_msg.header = detection_msg.header
                         self.image_pub.publish(result_msg)
                     
                     if self.visualize:
