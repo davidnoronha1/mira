@@ -317,7 +317,7 @@ os.environ["MACHINE_NAME"] = MACHINE_NAME
 
 LINKER = "lld"
 # Get number of CPUs using Python instead of shell command
-NPROC  = str(os.cpu_count() or 4)
+NPROC  = str((os.cpu_count() or 4) -1)
 
 CMAKE_ARGS = " ".join([
 	"-DCMAKE_EXPORT_COMPILE_COMMANDS=ON",

@@ -6,6 +6,7 @@ find_package(ament_cmake REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
+find_package(geometry_msgs REQUIRED)
 
 ################################################
 ## Declare ROS messages, services, and actions #
@@ -13,6 +14,7 @@ find_package(std_msgs REQUIRED)
 
 # Generate messages in the 'msg' folder
 rosidl_generate_interfaces(${PROJECT_NAME}
+  "msg/Object2D.msg"
   "msg/Commands.msg"
   "msg/Telemetry.msg"
   "msg/EmergencyKill.msg"
@@ -20,13 +22,14 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/Heading.msg"
   "msg/ArucoPose.msg"
   "msg/ConfidenceLevel.msg"
-  DEPENDENCIES sensor_msgs std_msgs
+  DEPENDENCIES sensor_msgs std_msgs geometry_msgs
 )
 
 rosidl_get_typesupport_target(${PROJECT_NAME}_typesupport_c
   ${PROJECT_NAME}
   "msg/Commands"
   "msg/Telemetry"
+  "msg/Object2D"
   "msg/EmergencyKill.msg"
   "msg/Depth.msg"
   "msg/Heading.msg"
@@ -47,7 +50,7 @@ include_directories(
 
 
 # Export package
-ament_export_dependencies(rosidl_default_runtime sensor_msgs std_msgs)
+ament_export_dependencies(rosidl_default_runtime sensor_msgs std_msgs geometry_msgs)
 
 # Mark the package as an ament package
 ament_package()

@@ -1,15 +1,18 @@
 #include "behaviours.hpp"
 
-void DetectTargetPoint::point_callback(const geometry_msgs::msg::Point::SharedPtr msg)
+void DetectTargetPoint::object_callback(const custom_msgs::msg::Object2D::SharedPtr msg)
 {
-    (void)msg;  // Unused - we only care that a point was published
     rclcpp::Time now = ros_state_->node->now();
     last_detection_time_ = now;
     
     // If we require a specific color, check if it matches
-    if (!required_color_.empty() && !color_matches_) {
+    current_color_ = msg->id;
+    if (!required_color_.empty() && current_color_ != required_color_) {
+        color_matches_ = false;
         return;
     }
+    
+    color_matches_ = true;
     
     // Valid detection received
     detection_times_.push_back(now);
@@ -36,21 +39,6 @@ void DetectTargetPoint::point_callback(const geometry_msgs::msg::Point::SharedPt
     }
 }
 
-void DetectTargetPoint::color_callback(const std_msgs::msg::String::SharedPtr msg)
-{
-    current_color_ = msg->data;
-    
-    if (required_color_.empty()) {
-        color_matches_ = true;  // No color requirement
-    } else {
-        color_matches_ = (current_color_ == required_color_);
-        if (color_matches_) {
-            RCLCPP_DEBUG(ros_state_->node->get_logger(),
-                        "DetectTargetPoint: color matches '%s'", required_color_.c_str());
-        }
-    }
-}
-
 DetectTargetPoint::DetectTargetPoint(const std::string& name, 
                                      const BT::NodeConfiguration& config, 
                                      ROSState* ros_state)
@@ -67,9 +55,8 @@ DetectTargetPoint::DetectTargetPoint(const std::string& name,
 BT::PortsList DetectTargetPoint::providedPorts()
 {
     return {
-        BT::InputPort<std::string>("point_topic", "Topic publishing target point (geometry_msgs/Point)"),
-        BT::InputPort<std::string>("color_topic", "", "Optional topic publishing color (std_msgs/String)"),
-        BT::InputPort<std::string>("required_color", "", "Optional required color (e.g., 'blue', 'orange')"),
+        BT::InputPort<std::string>("object_topic", "Topic publishing target object (custom_msgs/Object2D)"),
+        BT::InputPort<std::string>("required_color", "", "Optional required color/id (e.g., 'blue', 'orange')"),
         BT::InputPort<double>("detection_duration", 1.0, "Required consistent detection duration (seconds)"),
         BT::InputPort<double>("timeout", 30.0, "Maximum time to wait for detection (seconds)")
     };
@@ -78,28 +65,26 @@ BT::PortsList DetectTargetPoint::providedPorts()
 BT::NodeStatus DetectTargetPoint::onStart()
 {
     // Read input parameters
-    auto point_topic = getInput<std::string>("point_topic");
-    if (!point_topic) {
-        throw BT::RuntimeError("Missing required input [point_topic]: ", point_topic.error());
+    auto object_topic = getInput<std::string>("object_topic");
+    if (!object_topic) {
+        throw BT::RuntimeError("Missing required input [object_topic]: ", object_topic.error());
     }
-    point_topic_ = point_topic.value();
+    point_topic_ = object_topic.value();
     
-    color_topic_ = getInput<std::string>("color_topic").value();
     required_color_ = getInput<std::string>("required_color").value();
     detection_duration_ = getInput<double>("detection_duration").value();
     timeout_ = getInput<double>("timeout").value();
     
-    // Create subscriptions
-    point_sub_ = ros_state_->node->create_subscription<geometry_msgs::msg::Point>(
+    // Create subscription
+    object_sub_ = ros_state_->node->create_subscription<custom_msgs::msg::Object2D>(
         point_topic_, 10,
-        std::bind(&DetectTargetPoint::point_callback, this, std::placeholders::_1));
+        std::bind(&DetectTargetPoint::object_callback, this, std::placeholders::_1));
     
-    if (!color_topic_.empty()) {
-        color_sub_ = ros_state_->node->create_subscription<std_msgs::msg::String>(
-            color_topic_, 10,
-            std::bind(&DetectTargetPoint::color_callback, this, std::placeholders::_1));
+    // If no color requirement, always match
+    if (required_color_.empty()) {
+        color_matches_ = true;
     } else {
-        color_matches_ = true;  // No color filtering
+        color_matches_ = false;
     }
     
     // Reset state

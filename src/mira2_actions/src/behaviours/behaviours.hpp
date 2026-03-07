@@ -4,8 +4,7 @@
 #include <behaviortree_cpp/bt_factory.h>
 #include <rclcpp/rclcpp.hpp>
 #include <vision_msgs/msg/bounding_box2_d_array.hpp>
-#include <geometry_msgs/msg/point.hpp>
-#include <std_msgs/msg/string.hpp>
+#include <custom_msgs/msg/object2_d.hpp>
 #include <string>
 #include <deque>
 #include "../common.hpp"
@@ -67,15 +66,12 @@ public:
     void onHalted() override;
 
 private:
-    void point_callback(const geometry_msgs::msg::Point::SharedPtr msg);
-    void color_callback(const std_msgs::msg::String::SharedPtr msg);
+    void object_callback(const custom_msgs::msg::Object2D::SharedPtr msg);
 
     ROSState* ros_state_;
-    rclcpp::Subscription<geometry_msgs::msg::Point>::SharedPtr point_sub_;
-    rclcpp::Subscription<std_msgs::msg::String>::SharedPtr color_sub_;
+    rclcpp::Subscription<custom_msgs::msg::Object2D>::SharedPtr object_sub_;
     
     std::string point_topic_;
-    std::string color_topic_;
     std::string required_color_;
     double detection_duration_;
     double timeout_;

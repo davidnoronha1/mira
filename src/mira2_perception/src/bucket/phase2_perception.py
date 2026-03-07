@@ -5,10 +5,9 @@ import cv2
 import numpy as np
 from collections import deque
 
-from geometry_msgs.msg import Point
-from std_msgs.msg import String
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge
+from custom_msgs.msg import _2DObject
 
 
 class PhaseTwoPerceptionNode(Node):
@@ -43,8 +42,7 @@ class PhaseTwoPerceptionNode(Node):
         self.kernel_large = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (13, 13))
 
         # Publishers
-        self.offset_pub = self.create_publisher(Point, '/bucket/p2offset', 10)
-        self.color_pub = self.create_publisher(String, '/bucket/p2color', 10)
+        self.object_pub = self.create_publisher(_2DObject, 'bucket_target_2d', 10)
 
         # Subscriber
         self.frame_sub = self.create_subscription(Image, '/camera/image_raw', self.frame_callback, 10)
@@ -171,16 +169,13 @@ class PhaseTwoPerceptionNode(Node):
 
         if norm_x is not None:
 
-            offset_msg = Point()
-            offset_msg.x = float(norm_x)
-            offset_msg.y = float(norm_y)
-            offset_msg.z = 1.0 if detected else 0.0
+            obj_msg = _2DObject()
+            obj_msg.point.x = float(norm_x)
+            obj_msg.point.y = float(norm_y)
+            obj_msg.point.z = 1.0 if detected else 0.0
+            obj_msg.id = detected_color
 
-            self.offset_pub.publish(offset_msg)
-
-            color_msg = String()
-            color_msg.data = detected_color
-            self.color_pub.publish(color_msg)
+            self.object_pub.publish(obj_msg)
 
             self.get_logger().info(f"Published -> Offset: ({norm_x:.2f},{norm_y:.2f}) Color: {detected_color}")
 
@@ -199,3 +194,6 @@ def main(args=None):
     node.destroy_node()
 
     rclpy.shutdown()
+
+if __name__ == '__main__':
+    main()

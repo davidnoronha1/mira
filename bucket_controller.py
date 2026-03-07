@@ -4,9 +4,8 @@ import rclpy
 from rclpy.node import Node
 import time
 
-from geometry_msgs.msg import Point
 from std_msgs.msg import String
-from custom_msgs.msg import Commands, Telemetry
+from custom_msgs.msg import Commands, Telemetry, _2DObject
 
 class Phase:
     SEARCH = 0
@@ -61,25 +60,24 @@ class BucketControls(Node):
         self.debug_pub = self.create_publisher(String, "bucket_debug", 10)
 
 
-        self.create_subscription(Point, "bucket_target_2d", self.camera_callback, 10)
+        self.create_subscription(_2DObject, "bucket_target_2d", self.target_callback, 10)
         self.create_subscription(Telemetry, "/master/telemetry", self.compass_callback, 10)
-        self.create_subscription(String, "bucket_clr", self.color_callback, 10)
 
         self.create_timer(0.05, self.think_and_act)
 
     def compass_callback(self, msg):
         self.current_heading = msg.heading
 
-    def camera_callback(self, msg):
+    def target_callback(self, msg):
         self.last_time_seen = time.time()
         self.bucket_visible = True
-        self.target_nx = msg.x
-        self.target_ny = msg.y
-        self.target_depth_proxy = msg.z
-
-    def color_callback(self, msg):
-        self.sees_blue = (msg.data == "blue")
-        self.sees_orange = (msg.data == "orange")
+        self.target_nx = msg.point.x
+        self.target_ny = msg.point.y
+        self.target_depth_proxy = msg.point.z
+        
+        # Update color detection
+        self.sees_blue = (msg.id == "blue")
+        self.sees_orange = (msg.id == "orange")
 
     def change_phase(self, new_phase, reason=""):
         if self.current_phase != new_phase:
