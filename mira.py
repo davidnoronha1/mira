@@ -316,7 +316,7 @@ CMAKE_ARGS = " ".join([
 	"--no-warn-unused-cli",
 ])
 
-SKIP_PACKAGES   = os.environ.get("SKIP_PACKAGES", "vision_boundingbox vision_depth")
+SKIP_PACKAGES   = os.environ.get("SKIP_PACKAGES", "")
 SKIP_FLAGS      = f"--packages-skip {SKIP_PACKAGES}" if SKIP_PACKAGES else ""
 
 COLCON_ARGS = (
@@ -568,10 +568,21 @@ def target_launch(launch_file: Optional[str] = None):
 	# Organize by package
 	launch_by_package = {}
 	for lf in launch_files:
-		# Try to determine the package name (typically the directory under src/)
-		parts = lf.parts
-		if len(parts) >= 2:
-			package = parts[1]  # src/package_name/...
+		# Find the actual ROS2 package by looking for package.xml
+		# Start from the launch file's parent and walk up until we find package.xml
+		package = None
+		current_dir = lf.parent
+		while current_dir != src_path and current_dir.parent != src_path.parent:
+			if (current_dir / "package.xml").exists():
+				package = current_dir.name
+				break
+			current_dir = current_dir.parent
+		
+		# Fallback: use the directory directly under src/ if no package.xml found
+		if not package and len(lf.parts) >= 2:
+			package = lf.parts[1]
+		
+		if package:
 			if package not in launch_by_package:
 				launch_by_package[package] = []
 			launch_by_package[package].append(lf)
@@ -583,8 +594,20 @@ def target_launch(launch_file: Optional[str] = None):
 		for package in sorted(launch_by_package.keys()):
 			print(f"{BOLD}{CYAN}{package}:{RESET}")
 			for lf in sorted(launch_by_package[package]):
+				# Find the package directory to show relative path properly
+				package_dir = None
+				current_dir = lf.parent
+				while current_dir != src_path and current_dir.parent != src_path.parent:
+					if (current_dir / "package.xml").exists():
+						package_dir = current_dir
+						break
+					current_dir = current_dir.parent
+				
 				# Show relative path from package
-				rel_path = lf.relative_to(src_path / package)
+				if package_dir:
+					rel_path = lf.relative_to(package_dir)
+				else:
+					rel_path = lf.relative_to(src_path / package)
 				print(f"  • {lf.name:<40} {YELLOW}({rel_path.parent}){RESET}")
 			print()
 		
@@ -609,13 +632,35 @@ def target_launch(launch_file: Optional[str] = None):
 		elif len(matching_files) > 1:
 			error(f"Multiple launch files named '{file_name}' found. Please specify package:")
 			for lf in matching_files:
-				package = lf.parts[1] if len(lf.parts) >= 2 else "unknown"
+				# Find the package name by looking for package.xml
+				package = None
+				current_dir = lf.parent
+				while current_dir != src_path and current_dir.parent != src_path.parent:
+					if (current_dir / "package.xml").exists():
+						package = current_dir.name
+						break
+					current_dir = current_dir.parent
+				
+				if not package and len(lf.parts) >= 2:
+					package = lf.parts[1]
+				
 				print(f"  • {package} {file_name}")
 			sys.exit(1)
 		
 		# Use the single match
 		launch_path = matching_files[0]
-		package_name = launch_path.parts[1] if len(launch_path.parts) >= 2 else None
+		# Find the package name by looking for package.xml
+		package_name = None
+		current_dir = launch_path.parent
+		while current_dir != src_path and current_dir.parent != src_path.parent:
+			if (current_dir / "package.xml").exists():
+				package_name = current_dir.name
+				break
+			current_dir = current_dir.parent
+		
+		# Fallback to directory under src/ if no package.xml found
+		if not package_name and len(launch_path.parts) >= 2:
+			package_name = launch_path.parts[1]
 	else:
 		error("Invalid --file format. Use: --file <package> <launch_file> or --file <launch_file>")
 		sys.exit(1)
