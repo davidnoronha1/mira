@@ -7,8 +7,7 @@ import rclpy
 from rclpy.node import Node
 from collections import deque
 
-from geometry_msgs.msg import Point
-from std_msgs.msg import String
+from custom_msgs.msg import _2DObject
 
 class RTSPCapture:
     def __init__(self, src):
@@ -36,8 +35,7 @@ class BucketPerception(Node):
     def __init__(self):
         super().__init__("bucket_perception_node")
 
-        self.target_pub = self.create_publisher(Point, "bucket_target_2d", 10)
-        self.color_pub = self.create_publisher(String, "bucket_clr", 10)
+        self.target_pub = self.create_publisher(_2DObject, "bucket_target_2d", 10)
 
         self.get_logger().info("Connecting to stream...")
         #self.camera = RTSPCapture("rtsp://192.168.2.6:8554/image_rtsp")
@@ -139,15 +137,12 @@ class BucketPerception(Node):
             depth_proxy = smooth_size / w
 
             if detected:
-                pt_msg = Point()
-                pt_msg.x = float(norm_x)
-                pt_msg.y = float(norm_y)
-                pt_msg.z = float(depth_proxy)
-                self.target_pub.publish(pt_msg)
-
-                clr_msg = String()
-                clr_msg.data = detected_color
-                self.color_pub.publish(clr_msg)
+                obj_msg = _2DObject()
+                obj_msg.point.x = float(norm_x)
+                obj_msg.point.y = float(norm_y)
+                obj_msg.point.z = float(depth_proxy)
+                obj_msg.id = detected_color
+                self.target_pub.publish(obj_msg)
 
             if ellipse is not None: 
                 color = (255, 0, 0) if detected_color == "blue" else (0, 165, 255)

@@ -1,0 +1,87 @@
+<?xml version="1.0"?>
+<root BTCPP_format="4">
+    <BehaviorTree ID="bucket_task">
+        <Sequence name="BucketTaskSequence">
+            
+            <!-- Phase 1: Search for colored target -->
+            <Fallback name="SearchForTarget">
+                <!-- Try to detect blue target -->
+                <Sequence name="DetectBlueTarget">
+                    <DetectTargetPoint 
+                        point_topic="bucket_target_2d"
+                        color_topic="bucket_clr"
+                        required_color="blue"
+                        detection_duration="1.0"
+                        timeout="30.0"/>
+                    <AlwaysSuccess/>
+                </Sequence>
+                
+                <!-- If orange detected, evade -->
+                <Sequence name="EvadeOrange">
+                    <DetectTargetPoint 
+                        point_topic="bucket_target_2d"
+                        color_topic="bucket_clr"
+                        required_color="orange"
+                        detection_duration="0.5"
+                        timeout="5.0"/>
+                    <LateralEvasion 
+                        amplitude="50.0"
+                        period="3.0"
+                        cycles="-1"
+                        timeout="0.0"/>
+                </Sequence>
+                
+                <!-- Default: keep searching forward -->
+                <Sequence name="SearchForward">
+                    <Delay delay_msec="100">
+                        <AlwaysSuccess/>
+                    </Delay>
+                </Sequence>
+            </Fallback>
+            
+            <!-- Phase 2: Align to target (XY centering) -->
+            <AlignXY 
+                point_topic="bucket_target_2d"
+                tolerance_x="0.15"
+                tolerance_y="0.15"
+                target_lost_timeout="1.0"
+                timeout="20.0"
+                flight_mode="ALT_HOLD"
+                lateral_pd_kp="300.0"
+                lateral_pd_kd="100.0"
+                lateral_pd_base_offset="1500.0"
+                forward_pd_kp="300.0"
+                forward_pd_kd="100.0"
+                forward_pd_base_offset="1500.0"
+                yaw_pd_kp="5.0"
+                yaw_pd_base_offset="1500.0"/>
+            
+            <!-- Phase 3: Approach while descending -->
+            <ApproachWithDepth 
+                point_topic="bucket_target_2d"
+                success_depth="0.75"
+                blind_lock_depth="0.4"
+                thrust_pwm_shallow="1430.0"
+                thrust_pwm_deep="1460.0"
+                depth_threshold="0.4"
+                target_lost_timeout="1.0"
+                timeout="30.0"
+                flight_mode="ALT_HOLD"
+                lateral_pd_kp="300.0"
+                lateral_pd_kd="100.0"
+                lateral_pd_base_offset="1500.0"
+                forward_pd_kp="300.0"
+                forward_pd_kd="100.0"
+                forward_pd_base_offset="1500.0"
+                yaw_pd_kp="5.0"
+                yaw_pd_base_offset="1500.0"/>
+            
+            <!-- Phase 4: Lock position -->
+            <HoldPosition 
+                duration="3.0"
+                flight_mode="ALT_HOLD"/>
+            
+            <AlwaysSuccess/>
+        </Sequence>
+    </BehaviorTree>
+</root>
