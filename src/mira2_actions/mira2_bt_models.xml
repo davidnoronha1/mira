@@ -1,0 +1,112 @@
+<root BTCPP_format="4">
+    <TreeNodesModel>
+        <Action ID="AlignXY">
+            <input_port name="yaw_pd_base_offset" type="double" default="1500.000000">Yaw PD base offset (neutral PWM)</input_port>
+            <input_port name="tolerance_y" type="double" default="0.150000">Y centering tolerance (normalized)</input_port>
+            <input_port name="forward_pd_kp" type="double" default="300.000000">Forward PD proportional gain</input_port>
+            <input_port name="target_lost_timeout" type="double" default="1.000000">Seconds before FAILURE if target lost</input_port>
+            <input_port name="timeout" type="double" default="20.000000">Maximum time for alignment (seconds)</input_port>
+            <input_port name="flight_mode" type="std::string" default="ALT_HOLD">Flight controller mode</input_port>
+            <input_port name="point_topic" type="std::string">Topic publishing target point (geometry_msgs/Point)</input_port>
+            <input_port name="lateral_pd_kp" type="double" default="300.000000">Lateral PD proportional gain</input_port>
+            <input_port name="forward_pd_base_offset" type="double" default="1500.000000">Forward PD base offset (neutral PWM)</input_port>
+            <input_port name="lateral_pd_kd" type="double" default="100.000000">Lateral PD derivative gain</input_port>
+            <input_port name="lateral_pd_base_offset" type="double" default="1500.000000">Lateral PD base offset (neutral PWM)</input_port>
+            <input_port name="forward_pd_kd" type="double" default="100.000000">Forward PD derivative gain</input_port>
+            <input_port name="tolerance_x" type="double" default="0.150000">X centering tolerance (normalized)</input_port>
+            <input_port name="yaw_pd_kp" type="double" default="5.000000">Yaw PD proportional gain</input_port>
+        </Action>
+        <Action ID="ApproachBoundingBox">
+            <input_port name="lateral_pid_base_offset" type="double" default="1500.000000">Lateral PID base offset (neutral PWM)</input_port>
+            <input_port name="lateral_pid_kp" type="double" default="1.000000">Lateral PID proportional gain</input_port>
+            <input_port name="object" type="std::string">Target Object label to approach </input_port>
+            <input_port name="frame_width" type="double" default="1.000000">Camera frame width in pixels (or 1.0 if normalized)</input_port>
+            <input_port name="frame_height" type="double" default="1.000000">Camera frame height in pixels (or 1.0 if normalized)</input_port>
+            <input_port name="success_area_ratio" type="double" default="0.700000">Succeed when BB area &gt;= this fraction of frame area (0.0-1.0). 0.70 means object fills 70% of screen → you are close enough.</input_port>
+            <input_port name="lateral_pid_kd" type="double" default="2.000000">Lateral PID derivative gain</input_port>
+            <input_port name="forward_pwm" type="double" default="1550.000000">PWM value for forward movement, default 1550</input_port>
+            <input_port name="yaw_pid_ki" type="double" default="0.005000">Yaw PID integral gain</input_port>
+            <input_port name="object_lost_timeout" type="double" default="3.000000">Seconds after which FAILURE is declared if BB disappears</input_port>
+            <input_port name="lateral_pid_ki" type="double" default="0.002000">Lateral PID integral gain</input_port>
+            <input_port name="x_center_tolerance" type="double" default="0.050000">Normalized horizontal tolerance to consider BB centered (0.05 = 5% of frame)</input_port>
+            <input_port name="flight_mode" type="std::string" default="ALT_HOLD">FC mode: ALT_HOLD (auto depth hold) or STABILIZE (manual thrust)</input_port>
+            <input_port name="timeout" type="double" default="60.000000">Maximum time for entire approach before FAILURE (seconds)</input_port>
+            <input_port name="yaw_pid_base_offset" type="double" default="1500.000000">Yaw PID base offset (neutral PWM)</input_port>
+            <input_port name="yaw_pid_kp" type="double" default="1.500000">Yaw PID proportional gain</input_port>
+            <input_port name="yaw_pid_kd" type="double" default="3.000000">Yaw PID derivative gain</input_port>
+        </Action>
+        <Action ID="ApproachWithDepth">
+            <input_port name="yaw_pd_base_offset" type="double" default="1500.000000">Yaw PD base offset (neutral PWM)</input_port>
+            <input_port name="yaw_pd_kp" type="double" default="5.000000">Yaw PD proportional gain</input_port>
+            <input_port name="success_depth" type="double" default="0.750000">Depth proxy value to succeed</input_port>
+            <input_port name="blind_lock_depth" type="double" default="0.400000">Depth at which we can lose visual</input_port>
+            <input_port name="thrust_pwm_shallow" type="double" default="1430.000000">Thrust PWM for shallow depth</input_port>
+            <input_port name="thrust_pwm_deep" type="double" default="1460.000000">Thrust PWM for deep depth</input_port>
+            <input_port name="timeout" type="double" default="30.000000">Maximum time for approach (seconds)</input_port>
+            <input_port name="depth_threshold" type="double" default="0.400000">Depth threshold to switch thrust</input_port>
+            <input_port name="flight_mode" type="std::string" default="ALT_HOLD">Flight controller mode</input_port>
+            <input_port name="point_topic" type="std::string">Topic publishing target point (geometry_msgs/Point)</input_port>
+            <input_port name="lateral_pd_kp" type="double" default="300.000000">Lateral PD proportional gain</input_port>
+            <input_port name="forward_pd_base_offset" type="double" default="1500.000000">Forward PD base offset (neutral PWM)</input_port>
+            <input_port name="lateral_pd_kd" type="double" default="100.000000">Lateral PD derivative gain</input_port>
+            <input_port name="forward_pd_kd" type="double" default="100.000000">Forward PD derivative gain</input_port>
+            <input_port name="lateral_pd_base_offset" type="double" default="1500.000000">Lateral PD base offset (neutral PWM)</input_port>
+            <input_port name="target_lost_timeout" type="double" default="1.000000">Seconds before aborting if target lost (when shallow)</input_port>
+            <input_port name="forward_pd_kp" type="double" default="300.000000">Forward PD proportional gain</input_port>
+        </Action>
+        <Action ID="DetectObjectBoundingBox">
+            <input_port name="timeout" type="double" default="30.000000">Maximum time to wait for detection (seconds)</input_port>
+            <input_port name="detection_duration" type="double" default="2.000000">Required consistent detection duration (seconds)</input_port>
+            <input_port name="object" type="std::string">Target object name/frame_id to detect</input_port>
+        </Action>
+        <Action ID="DetectTargetPoint">
+            <input_port name="timeout" type="double" default="30.000000">Maximum time to wait for detection (seconds)</input_port>
+            <input_port name="detection_duration" type="double" default="1.000000">Required consistent detection duration (seconds)</input_port>
+            <input_port name="required_color" type="std::string" default="">Optional required color/id (e.g., 'blue', 'orange')</input_port>
+            <input_port name="object_topic" type="std::string">Topic publishing target object (custom_msgs/Object2D)</input_port>
+        </Action>
+        <Action ID="HoldPosition">
+            <input_port name="flight_mode" type="std::string" default="ALT_HOLD">Flight controller mode</input_port>
+            <input_port name="duration" type="double" default="3.000000">Duration to hold position (seconds)</input_port>
+        </Action>
+        <Action ID="LateralEvasion">
+            <input_port name="flight_mode" type="std::string" default="ALT_HOLD">Flight controller mode</input_port>
+            <input_port name="direction" type="int" default="1">Initial direction: 1=right, -1=left</input_port>
+            <input_port name="oscillate" type="bool" default="true">If true, oscillates left/right; if false, goes one direction</input_port>
+            <input_port name="timeout" type="double" default="0.000000">Maximum time (0 for no timeout)</input_port>
+            <input_port name="cycles" type="int" default="-1">Number of complete cycles (-1 for infinite)</input_port>
+            <input_port name="period" type="double" default="3.000000">Time per direction (seconds, ignored if oscillate=false)</input_port>
+            <input_port name="amplitude" type="double" default="50.000000">Lateral PWM offset from neutral</input_port>
+        </Action>
+        <Action ID="RotateToTargetHeading">
+            <input_port name="timeout" type="double" default="30.000000">Maximum time to attempt rotation (seconds)</input_port>
+            <input_port name="tolerance" type="double" default="5.000000">Heading tolerance in degrees</input_port>
+            <input_port name="yaw_pid_base_offset" type="double" default="1500.000000">Yaw PID base offset</input_port>
+            <input_port name="yaw_pid_kd" type="double" default="7.200000">Yaw PID derivative gain</input_port>
+            <input_port name="yaw_pid_ki" type="double" default="0.010000">Yaw PID integral gain</input_port>
+            <input_port name="yaw_pid_kp" type="double" default="3.180000">Yaw PID proportional gain</input_port>
+            <input_port name="target_heading" type="double">Desired heading to rotate to (degrees)</input_port>
+        </Action>
+        <Action ID="YawSweep">
+            <input_port name="yaw_pid_base_offset" type="double" default="1500.000000">Yaw PID base offset</input_port>
+            <input_port name="yaw_pid_kd" type="double" default="7.200000">Yaw PID derivative gain</input_port>
+            <input_port name="yaw_pid_ki" type="double" default="0.010000">Yaw PID integral gain</input_port>
+            <input_port name="timeout" type="double" default="60.000000">Maximum time to attempt sweep (seconds)</input_port>
+            <input_port name="yaw_pid_kp" type="double" default="3.180000">Yaw PID proportional gain</input_port>
+            <input_port name="dwell_time" type="double" default="1.000000">Seconds to hold at each extreme</input_port>
+            <input_port name="cycles" type="int" default="1">Number of back-and-forth cycles to perform</input_port>
+            <input_port name="amplitude" type="double" default="30.000000">Amplitude from center to extreme (deg)</input_port>
+            <input_port name="tolerance" type="double" default="5.000000">Heading tolerance in degrees</input_port>
+            <input_port name="center_heading" type="double">Center heading for sweep (degrees)</input_port>
+        </Action>
+        <Action ID="YawToTargetHeading">
+            <input_port name="timeout" type="double" default="30.000000">Maximum time to attempt rotation (seconds)</input_port>
+            <input_port name="tolerance" type="double" default="5.000000">Heading tolerance in degrees</input_port>
+            <input_port name="yaw_pid_base_offset" type="double" default="1500.000000">Yaw PID base offset</input_port>
+            <input_port name="yaw_pid_kd" type="double" default="7.200000">Yaw PID derivative gain</input_port>
+            <input_port name="yaw_pid_ki" type="double" default="0.010000">Yaw PID integral gain</input_port>
+            <input_port name="yaw_pid_kp" type="double" default="3.180000">Yaw PID proportional gain</input_port>
+            <input_port name="target_heading" type="double">Desired heading to rotate to (degrees)</input_port>
+        </Action>
+    </TreeNodesModel>
+</root>
