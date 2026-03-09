@@ -60,7 +60,7 @@ class PixhawkMaster(Node):
         self.request_message_interval(mavutil.mavlink.MAVLINK_MSG_ID_HEARTBEAT, 100)
 
         self.sys_status_msg = ardupilotmega.MAVLink_sys_status_message
-        self.imu_msg = ardupilotmega.MAVLink_scaled_imu2_message
+       # self.imu_msg = ardupilotmega.MAVLink_scaled_imu2_message
         self.attitude_msg = ardupilotmega.MAVLink_attitude_quaternion_message
         self.vfr_hud_msg = ardupilotmega.MAVLink_vfr_hud_message
         self.depth_msg = ardupilotmega.MAVLink_scaled_pressure2_message
@@ -268,17 +268,17 @@ class PixhawkMaster(Node):
         
         self.telem_msg.heading = self.vfr_hud_msg.heading
         
-        self.telem_msg.imu_xacc = self.imu_msg.xacc
-        self.telem_msg.imu_yacc = self.imu_msg.yacc
-        self.telem_msg.imu_zacc = self.imu_msg.zacc
+        #self.telem_msg.imu_xacc = self.imu_msg.xacc
+        #self.telem_msg.imu_yacc = self.imu_msg.yacc
+        ##self.telem_msg.imu_zacc = self.imu_msg.zacc
 
-        self.telem_msg.imu_gyro_x = self.imu_msg.xgyro
+        '''self.telem_msg.imu_gyro_x = self.imu_msg.xgyro
         self.telem_msg.imu_gyro_y = self.imu_msg.ygyro
         self.telem_msg.imu_gyro_z = self.imu_msg.zgyro
-        
-        self.telem_msg.imu_gyro_compass_x = self.imu_msg.xmag
-        self.telem_msg.imu_gyro_compass_y = self.imu_msg.ymag
-        self.telem_msg.imu_gyro_compass_z = self.imu_msg.zmag
+        '''
+        #self.telem_msg.imu_gyro_compass_x = self.imu_msg.xmag
+        #self.telem_msg.imu_gyro_compass_y = self.imu_msg.ymag
+        #self.telem_msg.imu_gyro_compass_z = self.imu_msg.zmag
         
         self.telem_msg.q1 = self.attitude_msg.q1
         self.telem_msg.q2 = self.attitude_msg.q2
@@ -311,7 +311,7 @@ class PixhawkMaster(Node):
             pass
         self.telemetry_pub.publish(self.telem_msg)
 
-        self.publish_imu()
+        #self.publish_imu()
 
 
 def main(args=None):
@@ -347,8 +347,8 @@ def main(args=None):
     obj.request_message_interval(mavutil.mavlink.MAVLINK_MSG_ID_SCALED_PRESSURE2, 100)
     obj.get_logger().info("Requesting VFR_HUD")
     obj.request_message_interval(mavutil.mavlink.MAVLINK_MSG_ID_VFR_HUD, 100)
-    obj.get_logger().info("Requesting SCALED_IMU2")
-    obj.request_message_interval(mavutil.mavlink.MAVLINK_MSG_ID_SCALED_IMU2, 100)
+    #obj.get_logger().info("Requesting SCALED_IMU2")
+    #obj.request_message_interval(mavutil.mavlink.MAVLINK_MSG_ID_SCALED_IMU2, 100)
     obj.get_logger().info("Requesting SERVO_OUTPUT_RAW")
     obj.request_message_interval(mavutil.mavlink.MAVLINK_MSG_ID_SERVO_OUTPUT_RAW, 100)
     obj.get_logger().info("Requesting AHRS2")
@@ -360,14 +360,14 @@ def main(args=None):
         # Receive MAVLink messages
         obj.get_logger().info("Waiting for SYS_STATUS")
         obj.sys_status_msg = obj.master.recv_match(type="SYS_STATUS", blocking=True)
-        obj.get_logger().info("Waiting for SCALED_IMU2")
-        obj.imu_msg = obj.master.recv_match(type="SCALED_IMU2", blocking=True)
+        #obj.get_logger().info("Waiting for SCALED_IMU2")
+       # obj.imu_msg = obj.master.recv_match(type="SCALED_IMU2", blocking=True)
         obj.get_logger().info("Waiting for ATTITUDE_QUATERNION")
         obj.attitude_msg = obj.master.recv_match(type="ATTITUDE_QUATERNION", blocking=True)
         obj.get_logger().info("Waiting for VFR_HUD")
         obj.vfr_hud_msg = obj.master.recv_match(type="VFR_HUD", blocking=True)
         obj.get_logger().info("Waiting for SCALED_PRESSURE2")
-        obj.depth_msg = obj.master.recv_match(type="SCALED_PRESSURE2", blocking=True)
+        obj.depth_msg = obj.master.recv_match(type="SCALED_PRESSURE2", blocking=False)
         obj.get_logger().info("Waiting for SERVO_OUTPUT_RAW")
         obj.thruster_pwms_msg = obj.master.recv_match(type="SERVO_OUTPUT_RAW", blocking=True)
         obj.get_logger().info("Waiting for AHRS2")
@@ -384,10 +384,10 @@ def main(args=None):
             try:
                 # Receive MAVLink messages
                 obj.sys_status_msg = obj.master.recv_match(type="SYS_STATUS", blocking=True)
-                obj.imu_msg = obj.master.recv_match(type="SCALED_IMU2", blocking=True)
+          #      obj.imu_msg = obj.master.recv_match(type="SCALED_IMU2", blocking=True)
                 obj.attitude_msg = obj.master.recv_match(type="ATTITUDE_QUATERNION", blocking=True)
                 obj.vfr_hud_msg = obj.master.recv_match(type="VFR_HUD", blocking=True)
-                obj.depth_msg = obj.master.recv_match(type="SCALED_PRESSURE2", blocking=True)
+                obj.depth_msg = obj.master.recv_match(type="SCALED_PRESSURE2", blocking=False)
                 obj.thruster_pwms_msg = obj.master.recv_match(type="SERVO_OUTPUT_RAW", blocking=True)
             except Exception as e:
                 obj.get_logger().warn(f"Error receiving message: {e}")
