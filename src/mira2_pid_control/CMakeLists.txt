@@ -58,5 +58,15 @@ install(PROGRAMS
 	lib/${PROJECT_NAME}
 )
 
+install(
+  DIRECTORY src/resource
+  DESTINATION share/${PROJECT_NAME}
+)
+install(PROGRAMS
+  src/bucket_p1.py
+  DESTINATION lib/${PROJECT_NAME}
+)
+
+
 # Export package
 ament_package()
