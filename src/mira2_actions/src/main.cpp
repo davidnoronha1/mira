@@ -34,8 +34,7 @@ int main(int argc, char **argv) {
   factory.registerNodeType<ApproachWithDepth>("ApproachWithDepth", &state);
   factory.registerNodeType<HoldPosition>("HoldPosition", &state);
   factory.registerNodeType<LateralEvasion>("LateralEvasion", &state);
-  factory.registerNodeType<RotateToTargetHeading>("RotateToTargetHeading",
-                                                  &state);
+  factory.registerNodeType<RotateToTargetHeading>("RotateToTargetHeading", &state);
   factory.registerNodeType<YawSweep>("YawSweep", &state);
   factory.registerNodeType<RotateToTargetHeading>("YawToTargetHeading", &state);
 
