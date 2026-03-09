@@ -26,8 +26,7 @@ int main(int argc, char **argv) {
 
   ROSState state(node);
 
-  factory.registerNodeType<DetectObjectBoundingbox>("DetectObjectBoundingBox",
-                                                    &state);
+  factory.registerNodeType<DetectObjectBoundingbox>("DetectObjectBoundingBox", &state);
   factory.registerNodeType<DetectTargetPoint>("DetectTargetPoint", &state);
   factory.registerNodeType<ApproachBB>("ApproachBoundingBox", &state);
   factory.registerNodeType<AlignXY>("AlignXY", &state);
