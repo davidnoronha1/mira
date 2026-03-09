@@ -25,6 +25,24 @@ services:
             - driver: nvidia
               count: all
               capabilities: [gpu]
+  mira-nogpu:
+    image: mira
+    build:
+      context: .
+      dockerfile: Dockerfile
+    tty: true
+    volumes:
+      - .:/workspace
+      - /dev:/dev
+      - /run/udev:/run/udev
+      - /tmp/.X11-unix:/tmp/.X11-unix
+    privileged: true
+    user: "${_UID}:${_GID}"
+    network_mode: host
+    working_dir: /workspace
+    entrypoint: /bin/bash
+    environment:
+      - DISPLAY:"${DISPLAY}"
   zed:
       image: zed
       build:

@@ -1,19 +1,20 @@
-
 // camera_rtsp_streamer_v6.cpp
 //
 // Single-pipeline architecture:
 //
-//   v4l2src → decode → videoconvert → tee ┬→ queue → x264enc → rtph264pay (RTSP
-//   clients)
-//                                          └→ queue → videoconvert → RGB →
-//                                          appsink  (ROS2)
+//  For MJPEG / YUYV cameras:
+//   v4l2src → [jpegdec if MJPEG] → videoconvert → tee ┬→ queue → x264enc → rtph264pay (RTSP)
+//                                                      └→ queue → videoconvert → RGB → appsink (ROS2)
+//
+//  For H.264 cameras (passthrough — no decode/re-encode):
+//   v4l2src → h264parse → tee ┬→ queue → rtph264pay (RTSP)
+//                             └→ queue → avdec_h264 → videoconvert → RGB → appsink (ROS2)
 //
 // The RTSP media factory owns and runs the pipeline. We hook the factory's
 // "media-configure" signal to retrieve the appsink from inside that pipeline
 // and attach our ROS2 callback — so the camera is opened exactly once and
 // encoding happens exactly once regardless of the number of RTSP clients.
 
-#include "glib.h"
 #include "gst/gstdevicemonitor.h"
 #include "gst/gststructure.h"
 #include "gst/rtsp-server/rtsp-server-object.h"
@@ -23,12 +24,19 @@
 #include <gst/gstdevice.h>
 #include <gst/rtsp-server/rtsp-server.h>
 #include <image_transport/image_transport.hpp>
+#include <camera_info_manager/camera_info_manager.hpp>
 #include <rclcpp/logging.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/image.hpp>
+#include <sensor_msgs/msg/camera_info.hpp>
 #include <sstream>
 #include <string>
 #include <thread>
+
+const char *get_machine_ip() {
+  auto x = getenv("MACHINE_IP");
+  return x == nullptr ? "{MACHINE_IP}" : x;
+}
 
 class RTSPCameraStreamer : public rclcpp::Node {
 public:
@@ -42,6 +50,20 @@ public:
     std::string name;        // GStreamer element name
     std::string extra_props; // properties appended after bitrate
   };
+
+  static std::string caps_for_encoder(EncoderType t) {
+    switch (t) {
+    case EncoderType::X264:
+      return "video/x-raw,format=I420";
+    case EncoderType::QSV:
+      return "video/x-raw,format=NV12";
+    case EncoderType::NVENC:
+      return "video/x-raw,format=NV12";
+    case EncoderType::V4L2:
+      return "video/x-raw,format=NV12";
+    }
+    return "video/x-raw,format=I420";
+  }
 
   static bool gst_element_exists(const std::string &name) {
     GstElementFactory *f = gst_element_factory_find(name.c_str());
@@ -57,7 +79,7 @@ public:
       RCLCPP_INFO(get_logger(), "Encoder: Intel QSV (qsvh264enc)");
       return {EncoderType::QSV, "qsvh264enc",
               " bitrate=" + std::to_string(bitrate) +
-                  " target-usage=7" // 1=quality … 7=speed (lowest latency)
+                  " target-usage=7"
                   " gop-size=" +
                   std::to_string(framerate) +
                   " b-frames=0"
@@ -70,7 +92,7 @@ public:
       RCLCPP_INFO(get_logger(), "Encoder: NVIDIA NVENC (nvh264enc)");
       return {EncoderType::NVENC, "nvh264enc",
               " bitrate=" + std::to_string(bitrate) +
-                  " preset=low-latency-hp" // hp = high performance
+                  " preset=low-latency-hp"
                   " gop-size=" +
                   std::to_string(framerate) +
                   " bframes=0"
@@ -102,6 +124,80 @@ public:
                 " vbv-buf-capacity=0"};
   }
 
+  static bool usb_port_matches(const gchar *prop_value,
+                               const std::string &usb_port) {
+    if (!prop_value)
+      return false;
+    return std::string(prop_value).find(usb_port) != std::string::npos;
+  }
+
+  // Find a camera whose physical USB port matches `usb_port`.
+  GstDevice *find_camera_by_usb_port(const std::string &usb_port,
+                                     std::string &device_path) {
+    GList *devices = nullptr;
+    GstDeviceMonitor *monitor = gst_device_monitor_new();
+    gst_device_monitor_add_filter(monitor, "Video/Source", nullptr);
+    if (!monitor)
+      return nullptr;
+
+    GstDevice *result = nullptr;
+    devices = gst_device_monitor_get_devices(monitor);
+
+    for (GList *l = devices; l && !result; l = l->next) {
+      GstDevice *dev = GST_DEVICE(l->data);
+      GstStructure *props = gst_device_get_properties(dev);
+      if (!props)
+        continue;
+
+      {
+        gchar *props_str = gst_structure_to_string(props);
+        RCLCPP_DEBUG(get_logger(), "Device properties: %s", props_str);
+        g_free(props_str);
+      }
+
+      const gchar *bus_path =
+          gst_structure_get_string(props, "device.bus_path");
+      const gchar *sysfs = gst_structure_get_string(props, "sysfs.path");
+      const gchar *obj_path = gst_structure_get_string(props, "v4l2.device.bus_info");
+
+      bool matched = usb_port_matches(bus_path, usb_port) ||
+                     usb_port_matches(sysfs, usb_port) ||
+                     usb_port_matches(obj_path, usb_port);
+
+      if (matched) {
+        RCLCPP_INFO(get_logger(), "USB port match on device: %s  (bus_path=%s)",
+                    gst_device_get_display_name(dev),
+                    bus_path ? bus_path : "<none>");
+
+        const gchar *v4l2_path =
+            gst_structure_get_string(props, "api.v4l2.path");
+        if (!v4l2_path)
+          v4l2_path = gst_structure_get_string(props, "device.path");
+        if (v4l2_path && device_path.empty()) {
+          device_path = v4l2_path;
+          RCLCPP_INFO(get_logger(), "Resolved USB port %s → device path %s",
+                      usb_port.c_str(), device_path.c_str());
+        }
+
+        result = GST_DEVICE(gst_object_ref(dev));
+      }
+
+      gst_structure_free(props);
+    }
+
+    if (!result)
+      RCLCPP_WARN(get_logger(),
+                  "No device found at USB port '%s'. "
+                  "Run `gst-device-monitor-1.0 Video/Source` and look for "
+                  "device.bus_path or sysfs-path to find the correct value.",
+                  usb_port.c_str());
+
+    g_list_free_full(devices, gst_object_unref);
+    gst_device_monitor_stop(monitor);
+    gst_object_unref(monitor);
+    return result;
+  }
+
   // Called after make_shared() — safe to use shared_from_this() here.
   void initialize() {
     gst_init(nullptr, nullptr);
@@ -117,9 +213,12 @@ public:
     declare_parameter("port", 8554);
     declare_parameter("bitrate", 2000);
     declare_parameter("device_path", "");
-    declare_parameter("ros_topic", "camera/image_raw");
+    declare_parameter("ros_topic", "");
     declare_parameter("camera_frame_id", "camera");
+    declare_parameter("usb_port", "");
+    declare_parameter("camera_info_url", "");
 
+    std::string usb_port = get_parameter("usb_port").as_string();
     std::string device_path = get_parameter("device_path").as_string();
     long vendor = get_parameter("vendor_id").as_int();
     long product = get_parameter("product_id").as_int();
@@ -130,8 +229,13 @@ public:
     long framerate = get_parameter("framerate").as_int();
     long port = get_parameter("port").as_int();
     long bitrate = get_parameter("bitrate").as_int();
-    ros_topic_ = get_parameter("ros_topic").as_string();
+    std::string camera_info_url = get_parameter("camera_info_url").as_string();
+
     frame_id_ = get_parameter("camera_frame_id").as_string();
+    ros_topic_basename_ = get_parameter("ros_topic").as_string();
+    if (ros_topic_basename_ == "") {
+      ros_topic_basename_ = frame_id_;
+    }
 
     constexpr const char *mount_point = "/image_rtsp";
 
@@ -148,11 +252,18 @@ public:
     RCLCPP_INFO(get_logger(),
                 "Use `gst-device-monitor-1.0 Video/Source` to list all "
                 "compatible devices and their properties");
-    RCLCPP_INFO(
-        get_logger(),
-        "Trying to find camera by vendor (%x), product (%x), serial (%s)",
-        vendor, product, serial.c_str());
-    target_device = find_camera_by_id(vendor, product, serial);
+
+    RCLCPP_INFO(get_logger(), "Trying to find camera by USB port (%s)",
+                usb_port.c_str());
+    target_device = find_camera_by_usb_port(usb_port, device_path);
+
+    if (target_device == nullptr) {
+      RCLCPP_INFO(
+          get_logger(),
+          "Trying to find camera by vendor (%x), product (%x), serial (%s)",
+          vendor, product, serial.c_str());
+      target_device = find_camera_by_id(vendor, product, serial);
+    }
 
     if (target_device == nullptr) {
       RCLCPP_INFO(get_logger(),
@@ -185,7 +296,13 @@ public:
           break;
         }
       if (!found) {
-        fmt = *supported_formats.begin();
+        // Prefer H264 passthrough if available, then MJPEG, then whatever
+        if (supported_formats.count("H264"))
+          fmt = "H264";
+        else if (supported_formats.count("MJPEG"))
+          fmt = "MJPEG";
+        else
+          fmt = *supported_formats.begin();
         RCLCPP_WARN(get_logger(), "Requested format not supported, using '%s'",
                     fmt.c_str());
       }
@@ -218,6 +335,28 @@ public:
     }
 
     gst_object_unref(target_device);
+    auto *const machine_ip = get_machine_ip();
+
+    // ── CameraInfoManager ────────────────────────────────────────────────────
+    camera_info_manager_ =
+        std::make_shared<camera_info_manager::CameraInfoManager>(
+            this, frame_id_);
+
+    if (!camera_info_url.empty()) {
+      if (camera_info_manager_->validateURL(camera_info_url)) {
+        camera_info_manager_->loadCameraInfo(camera_info_url);
+        RCLCPP_INFO(get_logger(), "Camera info loaded from: %s",
+                    camera_info_url.c_str());
+      } else {
+        RCLCPP_WARN(get_logger(),
+                    "camera_info_url '%s' is invalid — publishing uncalibrated "
+                    "CameraInfo",
+                    camera_info_url.c_str());
+      }
+    } else {
+      RCLCPP_WARN(get_logger(),
+                  "No camera_info_url set — publishing uncalibrated CameraInfo");
+    }
 
     // ── Log configuration ────────────────────────────────────────────────────
     RCLCPP_INFO(get_logger(),
@@ -233,48 +372,29 @@ public:
     RCLCPP_INFO(get_logger(), "H.264 Bitrate:      %ld kbps", bitrate);
     RCLCPP_INFO(get_logger(), "RTSP Port:          %ld", port);
     RCLCPP_INFO(get_logger(), "RTSP Mount Point:   %s", mount_point);
-    RCLCPP_INFO(get_logger(), "RTSP URL:           rtsp://<host>:%ld%s", port,
-                mount_point);
-    RCLCPP_INFO(get_logger(), "ROS2 Image Topic:   %s", ros_topic_.c_str());
-    RCLCPP_INFO(get_logger(),
-                "Command to receive: ros2 run camera_driver camera_driver_recv "
-                "--ros-args -p rtsp_url:=rtsp://<host>:%ld%s",
+    RCLCPP_INFO(get_logger(), "RTSP URL:           rtsp://%s:%ld%s", machine_ip,
                 port, mount_point);
+    RCLCPP_INFO(get_logger(), "ROS2 Image Topic:   %s", ros_topic_basename_.c_str());
+    RCLCPP_INFO(get_logger(), "Camera Info URL:    %s",
+                camera_info_url.empty() ? "(none)" : camera_info_url.c_str());
+    RCLCPP_INFO(get_logger(),
+                "Command to receive: ffplay -fflags nobuffer -flags low_delay "
+                "-framedrop -vf 'setpts=0' rtsp://%s:%d/%s",
+                machine_ip, port, mount_point);
     RCLCPP_INFO(get_logger(),
                 "============================================================");
 
     // ── image_transport publisher ────────────────────────────────────────────
     image_transport::ImageTransport it(shared_from_this());
-    image_pub_ = it.advertise(ros_topic_, 1);
+    image_pub_ = it.advertise(ros_topic_basename_ + "/image", 1);
+
+    // ── camera_info publisher ─────────────────────────────────────────────────
+    camera_info_pub_ = create_publisher<sensor_msgs::msg::CameraInfo>(
+        ros_topic_basename_ + "/camera_info", rclcpp::SensorDataQoS());
 
     // ── Build the shared pipeline string ────────────────────────────────────
-    std::string gst_fmt = gst_caps_for_format(fmt);
-    std::ostringstream ss;
-    ss << "( " << " v4l2src device=" << device_path << " ! " << gst_fmt
-       << ",width=" << width << ",height=" << height
-       << ",framerate=" << framerate << "/1 ! ";
-
-    if (strcasecmp(fmt.c_str(), "MJPEG") == 0)
-      ss << "jpegdec ! ";
-
-    ss << "videoconvert ! video/x-raw,format=I420 ! tee name=t "
-
-       // Branch 1 – RTSP/H.264
-       << "t. ! queue leaky=downstream max-size-buffers=2 ! "
-       << "x264enc bitrate=" << bitrate
-       << " speed-preset=ultrafast tune=zerolatency"
-       << " key-int-max=" << framerate
-       << " bframes=0 sliced-threads=true rc-lookahead=0 sync-lookahead=0 "
-          "vbv-buf-capacity=0 ! "
-       << "rtph264pay name=pay0 pt=96 config-interval=1 "
-
-       // Branch 2 – ROS2 appsink (RGB, no extra encoding)
-       << "t. ! queue leaky=downstream max-size-buffers=2 ! "
-       << "videoconvert ! video/x-raw,format=RGB ! "
-       << "appsink name=ros_sink max-buffers=2 drop=true sync=false "
-       << ")";
-
-    std::string pipeline_str = ss.str();
+    std::string pipeline_str = build_pipeline(fmt, device_path, width, height,
+                                              framerate, bitrate);
     RCLCPP_INFO(get_logger(), "GStreamer pipeline: %s", pipeline_str.c_str());
     RCLCPP_INFO(get_logger(),
                 "============================================================");
@@ -295,8 +415,6 @@ public:
     g_object_unref(mounts);
 
     // ── GLib main loop ───────────────────────────────────────────────────────
-    // Use a dedicated context so we can guarantee the loop is running before
-    // calling attach() — otherwise attach() returns 0 on a quiet context.
     glib_context_ = g_main_context_new();
     loop_ = g_main_loop_new(glib_context_, FALSE);
 
@@ -315,7 +433,7 @@ public:
       g_source_unref(idle);
       g_main_loop_run(loop_);
     });
-    loop_ready_fut.wait(); // blocks until the loop is actually spinning
+    loop_ready_fut.wait();
 
     if (gst_rtsp_server_attach(server_, glib_context_) == 0)
       throw std::runtime_error("Failed to attach RTSP server");
@@ -329,6 +447,75 @@ public:
   ~RTSPCameraStreamer() { cleanup(); }
 
 private:
+  // ── Pipeline builder ─────────────────────────────────────────────────────
+  std::string build_pipeline(const std::string &fmt,
+                             const std::string &device_path,
+                             long width, long height,
+                             long framerate, long bitrate) {
+    std::string gst_fmt = gst_caps_for_format(fmt);
+    std::ostringstream ss;
+
+    if (strcasecmp(fmt.c_str(), "H264") == 0) {
+      // ── H.264 passthrough: camera already encodes, skip re-encode ─────────
+      // RTSP branch gets the raw H.264 bitstream directly.
+      // ROS2 branch decodes to RGB for image messages.
+      RCLCPP_INFO(get_logger(),
+                  "Pipeline mode: H.264 passthrough (no re-encode)");
+      ss << "( "
+         << "v4l2src device=" << device_path << " ! "
+         << gst_fmt << ",width=" << width << ",height=" << height
+         << ",framerate=" << framerate << "/1 ! "
+         << "h264parse ! "
+         << "tee name=t "
+
+         // Branch 1 – RTSP: pay the H.264 directly
+         << "t. ! queue leaky=downstream max-size-buffers=2 ! "
+         << "rtph264pay name=pay0 pt=96 config-interval=1 "
+
+         // Branch 2 – ROS2: decode → RGB appsink
+         << "t. ! queue leaky=downstream max-size-buffers=2 ! "
+         << "avdec_h264 ! "
+         << "videoconvert ! video/x-raw,format=RGB ! "
+         << "appsink name=ros_sink max-buffers=2 drop=true sync=false "
+         << ")";
+    } else {
+      // ── MJPEG / YUYV / raw: decode then encode to H.264 for RTSP ─────────
+      auto best_enc = detect_best_encoder(bitrate, framerate);
+
+      if (strcasecmp(fmt.c_str(), "MJPEG") == 0) {
+        RCLCPP_INFO(get_logger(), "Pipeline mode: MJPEG → decode → x264enc");
+      } else {
+        RCLCPP_INFO(get_logger(), "Pipeline mode: raw → videoconvert → x264enc");
+      }
+
+      ss << "( "
+         << "v4l2src device=" << device_path << " ! "
+         << gst_fmt << ",width=" << width << ",height=" << height
+         << ",framerate=" << framerate << "/1 ! ";
+
+      // Decode compressed input formats
+      if (strcasecmp(fmt.c_str(), "MJPEG") == 0)
+        ss << "jpegdec ! ";
+
+      ss << "videoconvert ! "
+         << "tee name=t "
+
+         // Branch 1 – RTSP/H.264
+         << "t. ! queue leaky=downstream max-size-buffers=2 ! "
+         << "videoconvert ! " << caps_for_encoder(best_enc.type) << " ! "
+         << best_enc.name << " " << best_enc.extra_props << " ! "
+         << "rtph264pay name=pay0 pt=96 config-interval=1 "
+
+         // Branch 2 – ROS2 appsink (RGB, no extra encoding)
+         << "t. ! queue leaky=downstream max-size-buffers=2 ! "
+         << "videoconvert ! video/x-raw,format=RGB ! "
+         << "appsink name=ros_sink max-buffers=2 drop=true sync=false "
+         << ")";
+    }
+
+    return ss.str();
+  }
+
   // ── media-configure signal ───────────────────────────────────────────────
   static void on_media_configure_static(GstRTSPMediaFactory * /*factory*/,
                                         GstRTSPMedia *media,
@@ -380,16 +567,29 @@ private:
 
     GstMapInfo map;
     if (gst_buffer_map(buffer, &map, GST_MAP_READ)) {
-      auto msg = std::make_shared<sensor_msgs::msg::Image>();
-      msg->header.stamp = now();
-      msg->header.frame_id = frame_id_;
-      msg->width = static_cast<uint32_t>(w);
-      msg->height = static_cast<uint32_t>(h);
-      msg->encoding = "rgb8";
-      msg->is_bigendian = 0;
-      msg->step = static_cast<uint32_t>(w * 3);
-      msg->data.assign(map.data, map.data + map.size);
-      image_pub_.publish(msg);
+      auto stamp = now();
+
+      // ── Image message ──────────────────────────────────────────────────
+      auto img_msg = std::make_shared<sensor_msgs::msg::Image>();
+      img_msg->header.stamp = stamp;
+      img_msg->header.frame_id = frame_id_;
+      img_msg->width = static_cast<uint32_t>(w);
+      img_msg->height = static_cast<uint32_t>(h);
+      img_msg->encoding = "rgb8";
+      img_msg->is_bigendian = 0;
+      img_msg->step = static_cast<uint32_t>(w * 3);
+      img_msg->data.assign(map.data, map.data + map.size);
+      image_pub_.publish(img_msg);
+
+      // ── CameraInfo message ─────────────────────────────────────────────
+      auto ci_msg = std::make_shared<sensor_msgs::msg::CameraInfo>(
+          camera_info_manager_->getCameraInfo());
+      ci_msg->header.stamp = stamp;
+      ci_msg->header.frame_id = frame_id_;
+      ci_msg->width = static_cast<uint32_t>(w);
+      ci_msg->height = static_cast<uint32_t>(h);
+      camera_info_pub_->publish(*ci_msg);
+
       gst_buffer_unmap(buffer, &map);
     }
 
@@ -542,6 +742,9 @@ private:
 
       if (g_strcmp0(mtype, "image/jpeg") == 0) {
         formats.insert("MJPEG");
+      } else if (g_strcmp0(mtype, "video/x-h264") == 0) {
+        // H.264 compressed output — passthrough capable
+        formats.insert("H264");
       } else if (g_strcmp0(mtype, "video/x-raw") == 0) {
         const gchar *f = gst_structure_get_string(s, "format");
         if (g_strcmp0(f, "YUY2") == 0)
@@ -582,13 +785,15 @@ private:
       return "image/jpeg";
     if (strcasecmp(fmt.c_str(), "YUYV") == 0)
       return "video/x-raw,format=YUY2";
+    if (strcasecmp(fmt.c_str(), "H264") == 0)
+      return "video/x-h264";
     if (strcasecmp(fmt.c_str(), "RGB") == 0)
       return "video/x-raw,format=RGB";
     if (strcasecmp(fmt.c_str(), "BGR") == 0)
       return "video/x-raw,format=BGR";
     if (strcasecmp(fmt.c_str(), "NV12") == 0)
       return "video/x-raw,format=NV12";
-    return "image/jpeg";
+    return "image/jpeg"; // default fallback
   }
 
   // ── Cleanup ───────────────────────────────────────────────────────────────
@@ -619,7 +824,10 @@ private:
   std::thread glib_thread_;
 
   image_transport::Publisher image_pub_;
-  std::string ros_topic_;
+  rclcpp::Publisher<sensor_msgs::msg::CameraInfo>::SharedPtr camera_info_pub_;
+  std::shared_ptr<camera_info_manager::CameraInfoManager> camera_info_manager_;
+
+  std::string ros_topic_basename_;
   std::string frame_id_;
 };
 

@@ -37,10 +37,8 @@ install(PROGRAMS
   DESTINATION lib/${PROJECT_NAME}
 )
 
-# Install the calibration file to the share directory
-install(FILES
-  optimized_calib.npz
-  DESTINATION share/${PROJECT_NAME}
+install(DIRECTORY config/
+  DESTINATION share/${PROJECT_NAME}/config
 )
-ament_python_install_package(${PROJECT_NAME})
+
 ament_package()
