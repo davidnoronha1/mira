@@ -264,7 +264,9 @@ class PixhawkMaster(Node):
         self.telem_msg.timestamp = float(self.get_clock().now().to_msg().sec)
         
         self.telem_msg.internal_pressure = self.vfr_hud_msg.alt
-        self.telem_msg.external_pressure = self.depth_msg.press_abs
+        if self.depth_msg is None:
+            print("Receieved depth_msg=None")
+        self.telem_msg.external_pressure = float(self.depth_msg.press_abs if self.depth_msg is not None else -1)
         
         self.telem_msg.heading = self.vfr_hud_msg.heading
         
@@ -367,7 +369,7 @@ def main(args=None):
         obj.get_logger().info("Waiting for VFR_HUD")
         obj.vfr_hud_msg = obj.master.recv_match(type="VFR_HUD", blocking=True)
         obj.get_logger().info("Waiting for SCALED_PRESSURE2")
-        obj.depth_msg = obj.master.recv_match(type="SCALED_PRESSURE2", blocking=False)
+        obj.depth_msg = obj.master.recv_match(type="SCALED_PRESSURE2", blocking=True)
         obj.get_logger().info("Waiting for SERVO_OUTPUT_RAW")
         obj.thruster_pwms_msg = obj.master.recv_match(type="SERVO_OUTPUT_RAW", blocking=True)
         obj.get_logger().info("Waiting for AHRS2")
@@ -387,7 +389,7 @@ def main(args=None):
           #      obj.imu_msg = obj.master.recv_match(type="SCALED_IMU2", blocking=True)
                 obj.attitude_msg = obj.master.recv_match(type="ATTITUDE_QUATERNION", blocking=True)
                 obj.vfr_hud_msg = obj.master.recv_match(type="VFR_HUD", blocking=True)
-                obj.depth_msg = obj.master.recv_match(type="SCALED_PRESSURE2", blocking=False)
+                obj.depth_msg = obj.master.recv_match(type="SCALED_PRESSURE2", blocking=True)
                 obj.thruster_pwms_msg = obj.master.recv_match(type="SERVO_OUTPUT_RAW", blocking=True)
             except Exception as e:
                 obj.get_logger().warn(f"Error receiving message: {e}")
