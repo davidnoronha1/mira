@@ -53,7 +53,7 @@ class PixhawkMaster(Node):
         self.get_logger().info(f"pixhawk_address='{self.pixhawk_port}', initial_mode='{self.mode}'")
 
         # Initialize MAVLink connection
-        self.master = mavutil.mavlink_connection(self.pixhawk_port, baud=115200)
+        self.master = mavutil.mavlink_connection(self.pixhawk_port, baud=57600) # 115200)
         self.get_logger().info("MAVLink connection established")
 
         self.get_logger().info("Requesting HEARTBEAT")
