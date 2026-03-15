@@ -1,0 +1,186 @@
+# =============================================================================
+#  gate_flare_timed_params.yaml
+#
+#  Gate + flare avoidance — timed version (no PID).
+#
+#  Depth strategy (from VideoSubmissionController reference):
+#    • Sink by driving thrust < 1500 in ALT_HOLD for a fixed duration.
+#    • Lock the depth by cycling:
+#        disarm → MANUAL → arm → disarm → ALT_HOLD
+#      This is the same handshake used in the reference code (stages 7-11).
+#    • All subsequent motion stages run in ALT_HOLD at that locked depth.
+#
+#  Gate + flare manoeuvre:
+#    forward_1  →  strafe_left (dodge flare)  →  forward_2  →  strafe_right
+#
+#  PWM reference:
+#    1500 = neutral
+#    thrust < 1500 = sink   (e.g. 1350)
+#    thrust > 1500 = rise   (e.g. 1550)
+#    forward > 1500 = forward thrust
+#    lateral < 1500 = strafe left   (e.g. 1380)
+#    lateral > 1500 = strafe right  (e.g. 1620)
+#
+#  Tune stage durations first, then PWM values.
+#  Mode-switch stages (2-6) use very short durations — do not increase them.
+# =============================================================================
+
+gate_flare_timed:
+  ros__parameters:
+
+    num_stages: 12
+
+    # ---- Stage 0 : Initial wait (disarmed) ----------------------------------
+    stage_0_name:      "initial_wait"
+    stage_0_duration:   5.0
+    stage_0_arm:        false
+    stage_0_mode:      "ALT_HOLD"
+    stage_0_forward:    1500
+    stage_0_lateral:    1500
+    stage_0_thrust:     1500
+    stage_0_yaw:        1500
+    stage_0_roll:       1500
+    stage_0_pitch:      1500
+
+    # ---- Stage 1 : Sinking --------------------------------------------------
+    # Drive thrust below neutral to descend to mission depth.
+    # Tune duration + thrust PWM until you reach your target depth.
+    stage_1_name:      "sinking"
+    stage_1_duration:   2.3          # seconds — tune for your target depth
+    stage_1_arm:        true
+    stage_1_mode:      "ALT_HOLD"
+    stage_1_forward:    1500
+    stage_1_lateral:    1500
+    stage_1_thrust:     1350         # below neutral → sink
+    stage_1_yaw:        1500
+    stage_1_roll:       1500
+    stage_1_pitch:      1500
+
+    # ---- Stages 2-6 : ALT_HOLD depth-lock handshake -------------------------
+    # This sequence is taken directly from the VideoSubmissionController
+    # reference (stages 7-11 in video.xml).  Do NOT change the arm/mode
+    # values here — they are what make the Pixhawk lock depth.
+    # The durations are minimal; increase only if your Pixhawk responds slowly.
+
+    # Stage 2 — disarm (mode cannot change while armed)
+    stage_2_name:      "althold_disarm"
+    stage_2_duration:   0.1
+    stage_2_arm:        false
+    stage_2_mode:      "ALT_HOLD"
+    stage_2_forward:    1500
+    stage_2_lateral:    1500
+    stage_2_thrust:     1500
+    stage_2_yaw:        1500
+    stage_2_roll:       1500
+    stage_2_pitch:      1500
+
+    # Stage 3 — switch to MANUAL (required intermediate step)
+    stage_3_name:      "althold_to_manual"
+    stage_3_duration:   0.1
+    stage_3_arm:        false
+    stage_3_mode:      "MANUAL"
+    stage_3_forward:    1500
+    stage_3_lateral:    1500
+    stage_3_thrust:     1500
+    stage_3_yaw:        1500
+    stage_3_roll:       1500
+    stage_3_pitch:      1500
+
+    # Stage 4 — arm in MANUAL
+    stage_4_name:      "althold_manual_arm"
+    stage_4_duration:   0.05
+    stage_4_arm:        true
+    stage_4_mode:      "MANUAL"
+    stage_4_forward:    1500
+    stage_4_lateral:    1500
+    stage_4_thrust:     1500
+    stage_4_yaw:        1500
+    stage_4_roll:       1500
+    stage_4_pitch:      1500
+
+    # Stage 5 — disarm again before switching back to ALT_HOLD
+    stage_5_name:      "althold_manual_disarm"
+    stage_5_duration:   0.05
+    stage_5_arm:        false
+    stage_5_mode:      "MANUAL"
+    stage_5_forward:    1500
+    stage_5_lateral:    1500
+    stage_5_thrust:     1500
+    stage_5_yaw:        1500
+    stage_5_roll:       1500
+    stage_5_pitch:      1500
+
+    # Stage 6 — switch back to ALT_HOLD (depth is now locked at sunk position)
+    stage_6_name:      "althold_set"
+    stage_6_duration:   0.05
+    stage_6_arm:        false
+    stage_6_mode:      "ALT_HOLD"
+    stage_6_forward:    1500
+    stage_6_lateral:    1500
+    stage_6_thrust:     1500
+    stage_6_yaw:        1500
+    stage_6_roll:       1500
+    stage_6_pitch:      1500
+
+    # ---- Stage 7 : Forward approach -----------------------------------------
+    # Drive toward the gate.
+    stage_7_name:      "forward_1"
+    stage_7_duration:   3.0          # tune to reach gate entrance
+    stage_7_arm:        true
+    stage_7_mode:      "ALT_HOLD"
+    stage_7_forward:    1600
+    stage_7_lateral:    1500
+    stage_7_thrust:     1500
+    stage_7_yaw:        1500
+    stage_7_roll:       1500
+    stage_7_pitch:      1500
+
+    # ---- Stage 8 : Strafe left — dodge flare --------------------------------
+    # Lateral < 1500 = left.  1 second default duration.
+    stage_8_name:      "strafe_left"
+    stage_8_duration:   1.0
+    stage_8_arm:        true
+    stage_8_mode:      "ALT_HOLD"
+    stage_8_forward:    1500         # pause forward during dodge
+    stage_8_lateral:    1380         # < 1500 = strafe left
+    stage_8_thrust:     1500
+    stage_8_yaw:        1500
+    stage_8_roll:       1500
+    stage_8_pitch:      1500
+
+    # ---- Stage 9 : Forward through gate -------------------------------------
+    stage_9_name:      "forward_2"
+    stage_9_duration:   3.0
+    stage_9_arm:        true
+    stage_9_mode:      "ALT_HOLD"
+    stage_9_forward:    1600
+    stage_9_lateral:    1500
+    stage_9_thrust:     1500
+    stage_9_yaw:        1500
+    stage_9_roll:       1500
+    stage_9_pitch:      1500
+
+    # ---- Stage 10 : Strafe right — re-centre --------------------------------
+    # Mirror of stage 8.  lateral > 1500 = right.
+    stage_10_name:      "strafe_right"
+    stage_10_duration:   1.0
+    stage_10_arm:        true
+    stage_10_mode:      "ALT_HOLD"
+    stage_10_forward:    1500
+    stage_10_lateral:    1620        # > 1500 = strafe right
+    stage_10_thrust:     1500
+    stage_10_yaw:        1500
+    stage_10_roll:       1500
+    stage_10_pitch:      1500
+
+    # ---- Stage 11 : Disarm / done -------------------------------------------
+    stage_11_name:      "disarm"
+    stage_11_duration:   0.1
+    stage_11_arm:        false
+    stage_11_mode:      "ALT_HOLD"
+    stage_11_forward:    1500
+    stage_11_lateral:    1500
+    stage_11_thrust:     1500
+    stage_11_yaw:        1500
+    stage_11_roll:       1500
+    stage_11_pitch:      1500
