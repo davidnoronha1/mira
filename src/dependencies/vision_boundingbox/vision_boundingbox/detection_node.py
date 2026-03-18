@@ -41,6 +41,8 @@ class VisionBoundingBoxNode(Node):
         self.declare_parameter('model_name', 'yolo11n.onnx')
         self.declare_parameter('conf_threshold', 0.5)
         self.declare_parameter('nms_threshold', 0.4)
+        self.declare_parameter('reject_reflections', True)
+        self.declare_parameter('reject_threshold', 0.5)
         
         # Get parameters
         self.webcam = self.get_parameter('webcam').value
@@ -55,6 +57,8 @@ class VisionBoundingBoxNode(Node):
         self.model_name = self.get_parameter('model_name').value
         self.conf_threshold = self.get_parameter('conf_threshold').value
         self.nms_threshold = self.get_parameter('nms_threshold').value
+        self.reject_reflections = self.get_parameter('reject_reflections').value
+        self.reject_threshold = self.get_parameter('reject_threshold').value
         
         self.get_logger().info(f'Device: {self.device}')
         self.get_logger().info(f'Input size: {self.input_width}x{self.input_height}')
@@ -264,6 +268,20 @@ class VisionBoundingBoxNode(Node):
             except:
                 pass
     
+    def _simple_reject_reflections(self, detections, threshold=0.5):
+        classes = dict()
+        for det in detections:
+            if det.class_id not in classes:
+                classes[det.class_id] = det
+            else:
+                x1, y1, w1, h1 = classes[det.class_id].box
+                x2, y2, w2, h2 = det.box
+                score = 0.8 * (y2-y1)/self.input_height + 0.2 * ((self.input_height/2)-y2)/self.input_height
+                #score = (det.confidence/classes[det.class_id].confidence) * score
+                if score > threshold:
+                    classes[det.class_id] = det
+        return list(classes.values())
+
     def process_loop(self):
         """Processing loop running in separate thread."""
         while not self.shutdown_event.is_set():
@@ -276,6 +294,8 @@ class VisionBoundingBoxNode(Node):
             try:
                 # Run detection
                 detections = self.detector.detect(frame)
+                if self.reject_reflections:
+                    detections = self._simple_reject_reflections(detections)
                 
                 # Publish detections
                 detection_msg = Detection2DArray()
