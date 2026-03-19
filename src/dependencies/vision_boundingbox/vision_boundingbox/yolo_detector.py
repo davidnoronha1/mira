@@ -95,7 +95,13 @@ class YOLODetector:
         
         # BGR to RGB
         rgb = cv2.cvtColor(resized, cv2.COLOR_BGR2RGB)
-        
+
+        r, g, b = cv2.split(rgb)
+        cv2.normalize(r, r, 1, 255, cv2.NORM_MINMAX) # cv2.normalize minmax sometimes produces
+        cv2.normalize(g, g, 1, 250, cv2.NORM_MINMAX) # values less than min scale specified,
+        cv2.normalize(b, b, 1, 250, cv2.NORM_MINMAX) # but since uint8 is used they all become 0
+        rgb = cv2.merge((r, g, b))
+
         # Normalize to [0, 1]
         normalized = rgb.astype(np.float32) / 255.0
         
