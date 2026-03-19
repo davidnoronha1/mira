@@ -83,7 +83,7 @@ class DepthYawVisionController(Node):
 
 
         #idk if this works. lets see..
-        self.current_depth = msg.depth
+        self.current_depth = 0.5
 
 
         self.current_yaw = msg.yaw

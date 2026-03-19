@@ -18,7 +18,8 @@ dependencies = [
     "textual-plotext>=1.0.1",
     "tk>=0.1.0",
     "opencv-contrib-python",
-    "onnxruntime>=1.24.3"
+    "onnxruntime>=1.24.3",
+    "mavproxy>=1.8.74",
 ]
 
 [tools.pyright]
