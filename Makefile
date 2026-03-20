@@ -200,17 +200,17 @@ validate-all:
 camera_bottomcam:
 	${WS} && \
 	${GSTREAMER_FIX} &&  \
-	ros2 launch mira2_perception camera_bottom.launch
+	ros2 launch mira2_perception camera_bottom.launch.py
 
 camera_auto:
 	${WS} && \
 	${GSTREAMER_FIX} && \
-	ros2 launch mira2_perception camera_auto.launch
+	ros2 launch mira2_perception camera_auto.launch.py
 
 camera_frontcam:
 	${WS} && \
 	${GSTREAMER_FIX} && \
-	ros2 launch mira2_perception camera_front.launch
+	ros2 launch mira2_perception camera_front.launch.py
 
 PIXHAWK_PORT ?= /dev/Pixhawk
 alt_master: check-ros
