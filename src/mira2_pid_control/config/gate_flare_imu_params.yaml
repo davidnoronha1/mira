@@ -1,0 +1,108 @@
+# =============================================================================
+#  gate_flare_imu_params.yaml
+#
+#  Gate + flare avoidance — IMU distance-gated version (no PID).
+#
+#  ── Depth strategy ───────────────────────────────────────────────────────────
+#  Sink in MANUAL (barometer does not resist the descent), then lock depth by:
+#    disarm  →  switch to ALT_HOLD (disarmed)  →  rearm
+#  The Pixhawk latches its barometer at the moment of re-arm.
+#  Only 3 mode-switch stages needed — no unnecessary cycling.
+#
+#  ── Manoeuvre ─────────────────────────────────────────────────────────────────
+#  The flare sits between the start line and the gate, roughly in the centre.
+#
+#     [start] ──forward_1──► [flare]
+#                                 ↓  strafe_left   (dodge left past flare)
+#                                 ↓  strafe_right  (come back right, align with gate)
+#                                 ↓  forward_2     (straight through gate)
+#
+#  ── Phase table ───────────────────────────────────────────────────────────────
+#   0  initial_wait   TIMED      disarmed MANUAL  (also IMU bias window)
+#   1  sinking        TIMED      armed MANUAL,  thrust < 1500
+#   2  sink_disarm    TIMED      disarm
+#   3  althold_set    TIMED      disarmed ALT_HOLD
+#   4  althold_arm    TIMED      arm in ALT_HOLD  ← depth locked here
+#   5  forward_1      IMU_FWD    forward_dist_1 m
+#   6  strafe_left    IMU_LAT    lateral_dist m
+#   7  strafe_right   IMU_LAT    lateral_dist m
+#   8  forward_2      IMU_FWD    forward_dist_2 m
+#   9  disarm         TIMED      done
+# =============================================================================
+
+gate_flare_imu:
+  ros__parameters:
+
+    # ----------------------------------------------------------
+    # IMU integration tuning
+    # ----------------------------------------------------------
+    # Accelerations below this value (m/s²) are zeroed out.
+    # Raise if the bot drifts at rest; lower if it seems unresponsive.
+    imu_accel_deadband:   0.05
+
+    # Per-tick velocity bleed factor (0–1).
+    # Counters integration drift.  Start at 0.98.
+    # → Undershooting distance? raise toward 0.99
+    # → Overshooting distance?  lower toward 0.95
+    velocity_decay:       0.98
+
+    # Must equal initial_wait_duration — the whole Phase 0 window is used
+    # to average the IMU bias while the bot is stationary.
+    bias_sample_duration: 5.0
+
+    # ----------------------------------------------------------
+    # Depth — open-loop sink in MANUAL
+    # ----------------------------------------------------------
+    # Descend for sink_duration seconds at sink_thrust PWM.
+    # Tune sink_duration until you reach your target competition depth,
+    # then leave it alone.
+    sink_duration:  2.3     # seconds
+    sink_thrust:    1350    # PWM — below 1500 = sink
+
+    # ----------------------------------------------------------
+    # Mode-switch timing
+    # These are very short.  Only increase if your Pixhawk is
+    # slow to acknowledge mode/arm changes.
+    # ----------------------------------------------------------
+    sink_disarm_duration: 0.1    # Phase 2: brief pause before switching mode
+    althold_set_duration: 0.1    # Phase 3: time sitting in disarmed ALT_HOLD
+    althold_arm_duration: 0.05   # Phase 4: arm settling time
+
+    # ----------------------------------------------------------
+    # Forward motion — Phase 5 (forward_1): approach
+    # ----------------------------------------------------------
+    # Drive forward until forward_dist_1 m, then start the dodge.
+    # Tune so the bot is just short of the flare when it strafes.
+    forward_dist_1:      1.0     # metres
+    forward_1_timeout:  15.0     # safety fallback (s) if IMU never reaches target
+
+    # ----------------------------------------------------------
+    # Lateral motion — Phase 6 (strafe_left) + Phase 7 (strafe_right)
+    # ----------------------------------------------------------
+    # Both phases use the same distance.
+    # lateral_dist should be enough to fully clear the flare with margin.
+    lateral_dist:         0.4    # metres
+    strafe_left_timeout:  8.0    # safety fallback (s)
+    strafe_right_timeout: 8.0    # safety fallback (s)
+
+    # ----------------------------------------------------------
+    # Forward motion — Phase 8 (forward_2): through gate
+    # ----------------------------------------------------------
+    # Drive forward until forward_dist_2 m to clear the gate frame.
+    forward_dist_2:      1.0     # metres
+    forward_2_timeout:  15.0     # safety fallback (s)
+
+    # ----------------------------------------------------------
+    # PWM drive values
+    # ----------------------------------------------------------
+    pwm_forward:    1600    # forward drive  (> 1500)
+    pwm_lateral_l:  1380    # strafe left    (< 1500)
+    pwm_lateral_r:  1620    # strafe right   (> 1500)
+    pwm_neutral:    1500
+
+    # ----------------------------------------------------------
+    # Initial wait (Phase 0)
+    # ----------------------------------------------------------
+    # Keep equal to bias_sample_duration.
+    # The bot must be stationary for the entire duration.
+    initial_wait_duration: 5.0

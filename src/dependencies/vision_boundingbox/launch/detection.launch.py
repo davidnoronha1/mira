@@ -70,6 +70,8 @@ def generate_launch_description():
             'webcam': False,
             'input_height': 640,
             'input_width': 640,
+            'reject_reflections': True,
+            'reject_threshold': 0.5
         }]
     )
     
