@@ -21,8 +21,8 @@ def generate_launch_description():
         output='screen',
         parameters=[
             {'port': port},
-            {'camera_frame_id': 'camera_auto'},
-            {'video_device': dev_path} 
+            {'camera_frame_id': 'camera_auto'}
+            # {'video_device': dev_path} 
         ]
     )
 
