@@ -22,7 +22,7 @@ WS := source .venv/bin/activate && source install/setup.bash
 UV_EXISTS := $(shell command -v uv 2>/dev/null)
 VENV_EXISTS := $(wildcard .venv)
 ROS_JAZZY_EXISTS := $(wildcard /opt/ros/jazzy)
-MAVPROXY_EXISTS := $(shell command -v mavproxy.py 2>/dev/null)$(shell command -v mavproxy 2>/dev/null)
+MAVPROXY_EXISTS := $(wildcard .venv/bin/mavproxy*) $(shell command -v mavproxy 2>/dev/null)
 
 all: build
 
@@ -160,7 +160,7 @@ endif
 ifndef MAVPROXY_EXISTS
 	$(error ❌ mavproxy not found in PATH. Install with 'make install-mavproxy' or run 'uv tool install mavproxy'.)
 endif
-	@uv run mavproxy.py --master=/dev/Pixhawk --baudrate 57600 --out udp:$(LAPTOP_IP):14550
+	@source .venv/bin/activate && mavproxy.py --default-modules="" --master=/dev/Pixhawk --baudrate 57600 --out udp:$(LAPTOP_IP):14550
 
 
 # Get submodules
@@ -200,17 +200,17 @@ validate-all:
 camera_bottomcam:
 	${WS} && \
 	${GSTREAMER_FIX} &&  \
-	ros2 launch mira2_perception camera_bottom.launch
+	ros2 launch mira2_perception camera_bottom.launch.py
 
 camera_auto:
 	${WS} && \
 	${GSTREAMER_FIX} && \
-	ros2 launch mira2_perception camera_auto.launch
+	ros2 launch mira2_perception camera_auto.launch.py
 
 camera_frontcam:
 	${WS} && \
 	${GSTREAMER_FIX} && \
-	ros2 launch mira2_perception camera_front.launch
+	ros2 launch mira2_perception camera_front.launch.py
 
 PIXHAWK_PORT ?= /dev/Pixhawk
 alt_master: check-ros
