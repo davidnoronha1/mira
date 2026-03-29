@@ -1,0 +1,100 @@
+<?xml version="1.0"?>
+<root BTCPP_format="4">
+    <BehaviorTree ID="docking_task">
+        <Sequence name="CompleteDockingSequence">
+            
+            <!-- ========================================================= -->
+            <!-- PHASE 1: Search & Approach (Front Camera)                 -->
+            <!-- ========================================================= -->
+            <Fallback name="SearchOrApproach">
+                <!-- Try to approach using YOLO -->
+                <ApproachBoundingBox 
+                    name="Phase1_YoloApproach"
+                    object="dock"   <!-- MAKE SURE THIS MATCHES YOUR class_names.txt -->
+                    frame_width="640.0" 
+                    frame_height="480.0" 
+                    success_area_ratio="0.6" 
+                    x_center_tolerance="0.1" 
+                    forward_pwm="1550.0" 
+                    lateral_pid_base_offset="1500.0"
+                    lateral_pid_kp="1.0" lateral_pid_kd="2.0" 
+                    yaw_pid_base_offset="1500.0"
+                    yaw_pid_kp="1.5" yaw_pid_kd="3.0" 
+                    flight_mode="ALT_HOLD" 
+                    timeout="60.0" object_lost_timeout="2.0"/>
+
+                <!-- If YOLO fails (not in frame), sweep to find it -->
+                <Sequence name="SearchRecovery">
+                    <YawSweep 
+                        center_heading="0.0" 
+                        amplitude="45.0" 
+                        cycles="1" 
+                        dwell_time="1.0" 
+                        tolerance="5.0" 
+                        timeout="20.0"
+                        yaw_pid_kp="3.18" yaw_pid_kd="7.2" yaw_pid_base_offset="1500.0"/>
+                    <AlwaysFailure/> <!-- Force fallback loop to re-evaluate Approach -->
+                </Sequence>
+            </Fallback>
+
+            <!-- ========================================================= -->
+            <!-- PHASE 1.5: Handover Surge (Front -> Bottom Cam)           -->
+            <!-- Surge forward blindly for 2s so the dock goes UNDER the AUV -->
+            <!-- ========================================================= -->
+            <HoldPosition 
+                name="Phase1.5_HandoverSurge"
+                duration="2.0" 
+                flight_mode="ALT_HOLD"/>
+            <!-- NOTE: To make HoldPosition surge, you either need to add a "forward_pwm" 
+                 input port to HoldPosition.cpp or use a custom TimedForward node. 
+                 Alternatively, use your GoDown.cpp logic modified for forward thrust. -->
+
+            <!-- ========================================================= -->
+            <!-- PHASE 2: ArUco Alignment (Bottom Camera)                  -->
+            <!-- ========================================================= -->
+            <AlignXY 
+                name="Phase2_ArUcoAlign"
+                point_topic="dock_pose" 
+                tolerance_x="0.1" 
+                tolerance_y="0.1" 
+                lateral_pd_base_offset="1500.0"
+                lateral_pd_kp="300.0" lateral_pd_kd="100.0" 
+                forward_pd_base_offset="1500.0"
+                forward_pd_kp="300.0" forward_pd_kd="100.0" 
+                yaw_pd_base_offset="1500.0" yaw_pd_kp="5.0" 
+                flight_mode="ALT_HOLD" 
+                target_lost_timeout="3.0" timeout="30.0"/>
+
+            <!-- ========================================================= -->
+            <!-- PHASE 3: Descent & Latch                                  -->
+            <!-- ========================================================= -->
+            <!-- NOTE: Since msg.z is now (1.0 / distance), success_depth=2.0 
+                 means success when distance is < 0.5m. blind_lock_depth=1.5 
+                 means blind lock engages at < 0.66m -->
+            <ApproachWithDepth 
+                name="Phase3_DescentAndBlindLatch"
+                point_topic="dock_pose" 
+                success_depth="2.0" 
+                blind_lock_depth="1.5" 
+                depth_threshold="1.0"
+                thrust_pwm_shallow="1430.0" 
+                thrust_pwm_deep="1350.0" <!-- More aggressive downward punch -->
+                lateral_pd_base_offset="1500.0"
+                lateral_pd_kp="300.0" lateral_pd_kd="100.0" 
+                forward_pd_base_offset="1500.0"
+                forward_pd_kp="300.0" forward_pd_kd="100.0" 
+                yaw_pd_base_offset="1500.0" yaw_pd_kp="5.0" 
+                flight_mode="ALT_HOLD" 
+                target_lost_timeout="2.0" timeout="45.0"/>
+
+            <!-- ========================================================= -->
+            <!-- PHASE 4: Settle                                           -->
+            <!-- ========================================================= -->
+            <HoldPosition 
+                name="Phase4_SettleOnDock"
+                duration="4.0" 
+                flight_mode="ALT_HOLD"/>
+
+        </Sequence>
+    </BehaviorTree>
+</root>
