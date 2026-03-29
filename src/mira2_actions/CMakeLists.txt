@@ -29,6 +29,7 @@ add_executable(mira2_actions_exe
   src/motions/AlignXY.cpp
   src/motions/ApproachWithDepth.cpp
   src/motions/HoldPosition.cpp
+  src/motions/TimedForward.cpp
   src/motions/LateralEvasion.cpp
   src/motions/RotateToTargetHeading.cpp
   src/motions/YawSweep.cpp)

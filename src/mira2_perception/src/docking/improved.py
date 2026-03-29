@@ -2,7 +2,7 @@
 import rclpy
 from rclpy.node import Node
 from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy, DurabilityPolicy
-from geometry_msgs.msg import PoseStamped
+from geometry_msgs.msg import Point
 import cv2
 import cv2.aruco as aruco
 import numpy as np
@@ -177,10 +177,12 @@ class UnderwaterDockingNode(Node):
 
                     if f_pos is not None:
                         # PUBLISH POSE
-                        msg = PoseStamped()
+                        msg = Point()
                         msg.header.stamp = self.get_clock().now().to_msg()
                         msg.header.frame_id = "camera_bottom"
-                        msg.pose.position.x, msg.pose.position.y, msg.pose.position.z, msg.pose.orientation.x, msg.pose.orientation.y, msg.pose.orientation.z, msg.pose.orientation.w = opencv_to_ros(f_pos, f_quat)
+                        msg.x = float(f_pos[0])
+                        msg.y = float(f_pos[1])
+                        msg.z = float(f_pos[1.0/f_pos[2]]) if f_pos[2] > 0 else 0.0 # Invert Z for better control response
                         self.publisher_.publish(msg)
 
                         if self.gui:
