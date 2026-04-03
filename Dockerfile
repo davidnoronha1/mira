@@ -48,7 +48,7 @@ RUN apt-get install --no-install-recommends -y \
     libgstreamer1.0-dev libgstreamer-plugins-good1.0-dev libgstreamer-plugins-bad1.0-dev \
     libgstrtspserver-1.0-dev \
     gstreamer1.0-tools \
-    ros-jazzy-behaviortree-cpp libboost-python1.74-dev \
+    ros-jazzy-behaviortree-cpp libboost-python1.74-dev ros-jazzy-camera-info-manager \
     vim
 
 # Build the workspace
