@@ -27,8 +27,7 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
     libgstrtspserver-1.0-dev \
     ros-jazzy-behaviortree-cpp \
     libboost-python1.74-dev \
-    vim \
- && rm -rf /var/lib/apt/lists/*
+    vim
 
 # Install uv (Python package manager)
 COPY --from=ghcr.io/astral-sh/uv:0.8.18 /uv /uvx /bin/
@@ -51,7 +50,7 @@ COPY . /workspace
 RUN /bin/bash -c "source /opt/ros/jazzy/setup.bash && make install-deps"
 
 # Clean previous build artifacts
-RUN rm -rf ./build ./log ./install
+RUN rm -rf ./build ./log ./install /var/lib/apt/lists/*
 
 # Build the workspace
 RUN /bin/bash -c "make build"
