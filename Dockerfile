@@ -43,9 +43,11 @@ WORKDIR /workspace
 COPY . /workspace
 
 # Install Python dependencies using uv
-RUN uv sync
+# RUN uv sync
 
 # Install ROS dependencies
+# Installs uv dependencies
+# Installs a few build dependencies
 RUN /bin/bash -c "source /opt/ros/jazzy/setup.bash && make install-deps"
 
 # Clean previous build artifacts
