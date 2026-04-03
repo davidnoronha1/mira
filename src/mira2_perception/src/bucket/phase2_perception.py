@@ -5,9 +5,10 @@ import cv2
 import numpy as np
 from collections import deque
 
+from geometry_msgs.msg import Point
+from std_msgs.msg import String
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge
-from custom_msgs.msg import _2DObject
 
 
 class PhaseTwoPerceptionNode(Node):
@@ -42,15 +43,14 @@ class PhaseTwoPerceptionNode(Node):
         self.kernel_large = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (13, 13))
 
         # Publishers
-        self.object_pub = self.create_publisher(_2DObject, 'bucket_target_2d', 10)
+        self.offset_pub = self.create_publisher(Point, '/bucket/p2offset', 10)
+        self.color_pub = self.create_publisher(String, '/bucket/p2color', 10)
 
         # Subscriber
-        self.frame_sub = self.create_subscription(Image, '/camera/image_raw', self.frame_callback, 10)
+        self.frame_sub = self.create_subscription(Image, '/bluerov2/camera_bottom/image_color', self.frame_callback, 10)
 
 
     def frame_callback(self, msg):
-
-        self.get_logger().info("Frame received")
 
         self.frame = self.bridge.imgmsg_to_cv2(msg, "bgr8")
 
@@ -63,6 +63,11 @@ class PhaseTwoPerceptionNode(Node):
 
     def detect_buckets(self):
 
+        # For Sim
+        self.frame = cv2.rotate(self.frame, cv2.ROTATE_90_COUNTERCLOCKWISE)
+
+        vis = self.frame.copy()
+
         h, w = self.frame.shape[:2]
         frame_cx, frame_cy = w // 2, h // 2
 
@@ -71,7 +76,7 @@ class PhaseTwoPerceptionNode(Node):
         # BLUE MASK
         blue_mask = cv2.inRange(frame_hsv, self.LOWER_BLUE, self.UPPER_BLUE)
 
-        # ORANGE MASK (two ranges)
+        # ORANGE MASK
         orange_mask1 = cv2.inRange(frame_hsv, self.LOWER_ORANGE_1, self.UPPER_ORANGE_1)
         orange_mask2 = cv2.inRange(frame_hsv, self.LOWER_ORANGE_2, self.UPPER_ORANGE_2)
 
@@ -84,23 +89,22 @@ class PhaseTwoPerceptionNode(Node):
         orange_mask = cv2.morphologyEx(orange_mask, cv2.MORPH_OPEN, self.kernel_small)
         orange_mask = cv2.morphologyEx(orange_mask, cv2.MORPH_CLOSE, self.kernel_large)
 
-        # Detect contours for both colors
+        # Contours
         blue_contours, _ = cv2.findContours(blue_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-
         orange_contours, _ = cv2.findContours(orange_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
         detected = False
         detected_color = "none"
         valid_contours = []
 
-        # Check blue first
+        # Blue first
         if blue_contours:
             valid_contours = [c for c in blue_contours if cv2.contourArea(c) > self.MIN_BUCKET_AREA]
 
             if valid_contours:
                 detected_color = "blue"
 
-        # If no blue, check orange
+        # Otherwise orange
         if not valid_contours and orange_contours:
             valid_contours = [c for c in orange_contours if cv2.contourArea(c) > self.MIN_BUCKET_AREA]
 
@@ -128,21 +132,90 @@ class PhaseTwoPerceptionNode(Node):
 
                     self.get_logger().info(f"{detected_color} bucket detected")
 
-
         if self.cx_history:
 
             smooth_cx = int(np.mean(self.cx_history))
             smooth_cy = int(np.mean(self.cy_history))
 
             offset_x = smooth_cx - frame_cx
-            offset_y = smooth_cy - frame_cy
+            offset_y = frame_cy - smooth_cy
 
             norm_x = offset_x / (w / 2)
             norm_y = offset_y / (h / 2)
 
-            return norm_x, norm_y, detected, detected_color
+            # Draw ellipse
+            if self.ellipse is not None:
+                color = (255, 0, 0) if detected else (0, 0, 255)
+                cv2.ellipse(vis, self.ellipse, color, 2)
 
-        return None, None, False, "none"
+            # Smoothed center
+            cv2.circle(vis, (smooth_cx, smooth_cy), 8, (0, 255, 0), -1)
+
+            # Frame center
+            cv2.drawMarker(
+                vis,
+                (frame_cx, frame_cy),
+                (255, 255, 255),
+                cv2.MARKER_CROSS,
+                20,
+                2
+            )
+
+            # Offset line
+            cv2.line(
+                vis,
+                (frame_cx, frame_cy),
+                (smooth_cx, smooth_cy),
+                (0, 255, 255),
+                2
+            )
+
+            status = "DETECTED" if detected else "LOST"
+            status_color = (0, 255, 0) if detected else (0, 165, 255)
+
+            cv2.putText(
+                vis,
+                status,
+                (10, 30),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.7,
+                status_color,
+                2
+            )
+
+            cv2.putText(
+                vis,
+                f"Offset norm: ({norm_x:+.2f},{norm_y:+.2f})",
+                (10, 60),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.6,
+                (255, 255, 255),
+                2
+            )
+
+            return norm_x, norm_y, detected, detected_color, vis, blue_mask
+
+        # If nothing detected yet
+        cv2.drawMarker(
+            vis,
+            (frame_cx, frame_cy),
+            (255, 255, 255),
+            cv2.MARKER_CROSS,
+            20,
+            2
+        )
+
+        cv2.putText(
+            vis,
+            "NO DETECTION",
+            (10, 30),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.7,
+            (0, 255, 0),
+            2
+        )
+
+        return None, None, False, "none", vis, blue_mask
 
 
     def is_valid_ellipse(self, ellipse, w, h):
@@ -165,22 +238,32 @@ class PhaseTwoPerceptionNode(Node):
 
     def buckets_main(self):
 
-        norm_x, norm_y, detected, detected_color = self.detect_buckets()
+        norm_x, norm_y, detected, detected_color, vis, blue_mask = self.detect_buckets()
 
         if norm_x is not None:
 
-            obj_msg = _2DObject()
-            obj_msg.point.x = float(norm_x)
-            obj_msg.point.y = float(norm_y)
-            obj_msg.point.z = 1.0 if detected else 0.0
-            obj_msg.id = detected_color
+            offset_msg = Point()    
+            offset_msg.x = float(norm_x)
+            offset_msg.y = float(norm_y)
+            offset_msg.z = 1.0 if detected else 0.0
 
-            self.object_pub.publish(obj_msg)
+            self.offset_pub.publish(offset_msg)
 
-            self.get_logger().info(f"Published -> Offset: ({norm_x:.2f},{norm_y:.2f}) Color: {detected_color}")
+            color_msg = String()
+            color_msg.data = detected_color
+            self.color_pub.publish(color_msg)
+
+            self.get_logger().info(
+                f"Published -> Offset: ({norm_x:.2f},{norm_y:.2f}) Color: {detected_color}"
+            )
 
         else:
             self.get_logger().warn("No bucket detected")
+
+        # Visualization
+        cv2.imshow("Bucket Detection", vis)
+        cv2.imshow("Blue Mask", blue_mask)
+        cv2.waitKey(1)
 
 
 def main(args=None):
@@ -195,5 +278,6 @@ def main(args=None):
 
     rclpy.shutdown()
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     main()
