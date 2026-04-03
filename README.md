@@ -74,10 +74,6 @@ source install/setup.bash
 ```
 make build
 ```
-or 
-```
-colcon build
-```
 
 If you encounter issues when building, make sure you have _sourced_ ROS2, By doing:
 ```
