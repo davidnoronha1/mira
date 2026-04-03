@@ -29,7 +29,7 @@ Packages to install:
 curl -LsSf https://astral.sh/uv/install.sh | less
 
 # Clone the repository
-git clone https://github.com/davidnoronha1/mira.git
+git clone https://github.com/Dreadnought-Robotics/mira.git
 cd mira
 
 # Install dependencies
