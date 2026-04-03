@@ -33,3 +33,6 @@ __pycache__/
 *$py.class
 
 
+.vscode/
+*.tlog
+*.tlog.raw
