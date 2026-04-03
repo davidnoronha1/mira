@@ -16,7 +16,11 @@ find_package(image_transport REQUIRED)
 # Find system libraries
 pkg_check_modules(GST REQUIRED gstreamer-1.0 gstreamer-app-1.0 gstreamer-rtsp-1.0 gstreamer-rtsp-server-1.0)
 
-add_executable(camera_driver_exe src/camera_driver_node.cpp)
+add_executable(camera_driver_exe 
+  src/camera_driver_node.cpp
+  src/device_finding.cpp
+  src/pipeline_creation.cpp
+)
 target_include_directories(camera_driver_exe PRIVATE
   ${GST_INCLUDE_DIRS}
 )
