@@ -43,27 +43,3 @@ services:
     entrypoint: /bin/bash
     environment:
       - DISPLAY:"${DISPLAY}"
-  zed:
-      image: zed
-      build:
-        context: .
-        dockerfile: ZED.Dockerfile
-      tty: true
-      volumes:
-        - $HOME/zed-ws:/workspace
-        - /tmp/.X11-unix:/tmp/.X11-unix
-      privileged: true
-      network_mode: host
-      working_dir: /workspace
-      entrypoint: /bin/bash
-      environment:
-        - DISPLAY:"${DISPLAY}"
-      runtime: nvidia
-      deploy:
-        resources:
-          reservations:
-            devices:
-              - driver: nvidia
-                count: all
-                capabilities: [gpu]
-

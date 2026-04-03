@@ -61,6 +61,11 @@ def step(msg: str):    print(f"   {CYAN}→{RESET} {msg}")
 DRY_RUN = False   # set via --dry-run flag; checked by run()
 RUN_IN_DOCKER = False  # set via --docker flag
 
+env_builtin = {
+    "_UID": str(os.getuid()),
+    "_GID": str(os.getgid())
+}
+
 def run(
 	cmd: str,
 	*,
@@ -92,8 +97,9 @@ def run(
 	if DRY_RUN:
 		print(f"   {YELLOW}[dry-run] skipping{RESET}")
 		return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
-
-	env = {**os.environ, **(env_extra or {})}
+    
+	global env_builtin
+	env = {**os.environ, **(env_extra or {}), **(env_builtin)}
 	result = subprocess.run(
 		cmd,
 		shell=True,
@@ -193,8 +199,8 @@ def run_task_in_docker(script_args: list[str]):
 	run("xhost +local:docker || true", hidden=True)
 	
 	# Get current user/group for proper file permissions (using Python instead of shell)
-	uid = os.getuid()
-	gid = os.getgid()
+	# uid = os.getuid()
+	# gid = os.getgid()
 	
 	# Determine which service to use
 	service = get_docker_service()
@@ -211,7 +217,7 @@ def run_task_in_docker(script_args: list[str]):
 		f'"cd /workspace && python3 mira.py {cmd_args}"'
 	)
 	
-	run(docker_cmd, env_extra={"_UID": str(uid), "_GID": str(gid)})
+	run(docker_cmd)
 
 
 def find_matching_ros_targets(name: str) -> dict:
@@ -366,8 +372,31 @@ def check_uv():
 		info(f"{name} → {path}")
 
 
+def check_git_branch():
+	"""Check if the git branch is master and if it's out of date."""
+	try:
+		# Get current branch name
+		branch = sh("git rev-parse --abbrev-ref HEAD")
+		
+		if branch != "master":
+			warn(f"Current branch is '{branch}', not 'master'")
+		
+		# Check if the branch is out of date
+		# Fetch remote without pulling to get latest remote info
+		run("git fetch origin", hidden=True, check=False)
+		local_commit = sh("git rev-parse HEAD")
+		remote_commit = sh("git rev-parse origin/master", check=False)
+		
+		if local_commit != remote_commit:
+			warn(f"Branch '{branch}' is out of date with remote")
+	except Exception as e:
+		# Silently fail if not a git repo or git commands fail
+		pass
+
+
 def check_ros():
 	check_uv()
+	check_git_branch()
 	if not Path("/opt/ros/jazzy").exists():
 		error("ROS Jazzy not found at /opt/ros/jazzy. Only ROS Jazzy is supported.")
 		sys.exit(1)
@@ -441,9 +470,6 @@ def validate_packages():
 def target_build(packages_select: Optional[str] = None):
 	"""Build the ROS workspace (or a single package with -p)."""
 	check_ros()
-	
-	# Validate all packages before building
-	validate_packages()
 	
 	warn("If you built in docker last — you'll need to clean and rebuild")
 	warn("If build fails due to CMakeCacheList issues, run: python dev.py clean")

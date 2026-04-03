@@ -27,15 +27,6 @@ endif()
 install(DIRECTORY launch/	
   DESTINATION share/${PROJECT_NAME}/launch
 )
-install(FILES
-  optimized_calib.npz
-  DESTINATION share/${PROJECT_NAME}
-)
-# Install the Python executable
-install(PROGRAMS
-  bp_ros2_node.py
-  DESTINATION lib/${PROJECT_NAME}
-)
 
 install(DIRECTORY config/
   DESTINATION share/${PROJECT_NAME}/config

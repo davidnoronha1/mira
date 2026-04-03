@@ -26,5 +26,5 @@
         <param name="framerate"     value="$(var framerate)"/>
         <param name="port" value="$(var port)"/>
     </node>
-      <executable cmd="sleep 2 ; gst-launch-1.0 rtspsrc location=rtsp://127.0.0.1:$(var port)/image_rtsp ! fakesink" cwd="/home" shell="true"/>
+      <executable cmd="sleep 5 ; gst-launch-1.0 rtspsrc location=rtsp://127.0.0.1:$(var port)/image_rtsp ! fakesink" cwd="/home" shell="true"/>
  </launch>

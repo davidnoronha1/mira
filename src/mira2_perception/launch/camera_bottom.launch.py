@@ -1,20 +1,35 @@
 import os
 from launch import LaunchDescription
 from launch_ros.actions import Node
+from launch.actions import ExecuteProcess
 
 def generate_launch_description():
     machine = os.environ.get('MACHINE_NAME', 'ORIN')
-    # Bottom camera USB paths (Assuming different ports)
-    usb_path = "usb-3610000.usb-2.2" if machine == 'RPI4' else "usb-xhci-hcd.1-2"
-
+    # Bottom camera USB paths
+    usb_port = "usb-3610000.usb-2.4" if machine == 'RPI4' else "usb-xhci-hcd.1-2"
+    
     return LaunchDescription([
         Node(
-            package='v4l2_camera',
-            executable='v4l2_camera_node',
-            name='camera_bottom',
+            package='camera_driver',
+            executable='camera_driver_exe',
+            name='camera_bottom_driver',
+            output='screen',
             parameters=[{
-                'video_device': f'/dev/v4l/by-path/platform-{usb_path}-video-index0',
-                'camera_frame_id': 'camera_bottom_link'
+                'vendor_id': '0x0c45',
+                'product_id': '0x6366',
+                'serial_no': 'SN0001',
+                'image_width': 1280,
+                'image_height': 720,
+                'frame_format': 'MJPEG',
+                'framerate': 30,
+                'port': 2000,
+                'usb_port': usb_port,
+                'camera_frame_id': 'camera_bottom',
+                'camera_info_url': 'package:///mira2_perception/config/camera_bottom.ini'
             }]
+        ),
+        ExecuteProcess(
+            cmd=['bash', '-c', 'sleep 5 ; gst-launch-1.0 rtspsrc location=rtsp://127.0.0.1:2000/image_rtsp ! fakesink'],
+            cwd='/home'
         )
     ])
