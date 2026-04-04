@@ -80,7 +80,7 @@ CMAKE_ARGS:= -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
 			 -DCMAKE_SHARED_LINKER_FLAGS=-fuse-ld=$(LINKER) \
 			 --no-warn-unused-cli
 
-SKIP_PACKAGES ?= vision_boundingbox vision_depth
+SKIP_PACKAGES ?=  vision_depth
 export COLCON_ARGS= --cmake-args $(CMAKE_ARGS) \
                           --parallel-workers 3 \
 			  --event-handlers console_cohesion+ \

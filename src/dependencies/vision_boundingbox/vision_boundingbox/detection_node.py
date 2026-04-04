@@ -43,6 +43,7 @@ class VisionBoundingBoxNode(Node):
         self.declare_parameter('nms_threshold', 0.4)
         self.declare_parameter('reject_reflections', True)
         self.declare_parameter('reject_threshold', 0.5)
+        self.declare_parameter('output_topic', '/vision/detections')
         
         # Get parameters
         self.webcam = self.get_parameter('webcam').value
@@ -59,6 +60,7 @@ class VisionBoundingBoxNode(Node):
         self.nms_threshold = self.get_parameter('nms_threshold').value
         self.reject_reflections = self.get_parameter('reject_reflections').value
         self.reject_threshold = self.get_parameter('reject_threshold').value
+        self.output_topic = self.get_parameter('output_topic').value
         
         self.get_logger().info(f'Device: {self.device}')
         self.get_logger().info(f'Input size: {self.input_width}x{self.input_height}')
@@ -89,7 +91,7 @@ class VisionBoundingBoxNode(Node):
         # Publishers
         self.detection_pub = self.create_publisher(
             Detection2DArray,
-            '/vision/detections',
+            self.output_topic,
             10
         )
         
