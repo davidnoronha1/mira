@@ -1,359 +1,298 @@
 #!/usr/bin/env python3
-"""ROS2 node for YOLO object detection."""
+"""
+vision_boundingbox_node.py
+ROS2 node for YOLOv8/YOLOv11 object detection using Ultralytics.
 
-import rclpy
-from rclpy.node import Node
-from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy
-from sensor_msgs.msg import Image
-from vision_msgs.msg import Detection2D, Detection2DArray, BoundingBox2D
-from std_srvs.srv import SetBool
-from cv_bridge import CvBridge
+Image sources (image_source parameter):
+  rtsp://host:port/path         - RTSP stream via OpenCV
+  rtsps://host:port/path        - RTSP-over-TLS stream via OpenCV
+  file:///abs/path/to/video.mp4 - Local video file via OpenCV
+  ros2://topic/name             - ROS2 sensor_msgs/Image topic
+  camera://0                    - Default webcam (index 0)
+
+Publishes:
+  ~/detections   (vision_msgs/Detection2DArray)
+  ~/image        (sensor_msgs/Image)  -- if publish_image=true
+"""
+
+import threading
+from pathlib import Path
+from typing import Optional
+
 import cv2
 import numpy as np
-from pathlib import Path
+import rclpy
+from rclpy.node import Node
+from rclpy.qos import QoSPresetProfiles
+from cv_bridge import CvBridge
 from ament_index_python.packages import get_package_share_directory
-import threading
-from queue import Queue
-import time
 
-from .yolo_detector import YOLODetector
+from sensor_msgs.msg import Image
+from vision_msgs.msg import (
+    Detection2DArray,
+    Detection2D,
+    ObjectHypothesisWithPose,
+    BoundingBox2D,
+    Pose2D,
+)
 
+try:
+    from ultralytics import YOLO
+except ImportError as e:
+    raise ImportError("ultralytics is required: pip install ultralytics") from e
+
+
+# ---------------------------------------------------------------------------
+# Utility helpers
+# ---------------------------------------------------------------------------
+
+def is_reflection(box: np.ndarray, threshold: float) -> bool:
+    """
+    Heuristic placeholder for reflection rejection.
+    box: [x1, y1, x2, y2, conf, cls_id]
+    """
+    return False
+
+
+# ---------------------------------------------------------------------------
+# Image source abstraction
+# ---------------------------------------------------------------------------
+
+class ImageSource:
+    def grab(self) -> Optional[np.ndarray]:
+        raise NotImplementedError
+
+    def release(self):
+        pass
+
+
+class OpenCVSource(ImageSource):
+    def __init__(self, uri: str, node_logger):
+        if uri.startswith("file://"):
+            path = uri[len("file://"):]
+            self._cap = cv2.VideoCapture(path)
+        else:
+            self._cap = cv2.VideoCapture(uri)
+
+        if not self._cap.isOpened():
+            node_logger.error(f"Cannot open video source: {uri}")
+        else:
+            node_logger.info(f"Opened video source: {uri}")
+
+    def grab(self) -> Optional[np.ndarray]:
+        ret, frame = self._cap.read()
+        return frame if ret else None
+
+    def release(self):
+        self._cap.release()
+
+
+class ROS2TopicSource(ImageSource):
+    def __init__(self, topic: str, node: "VisionBoundingBoxNode"):
+        self._bridge = CvBridge()
+        self._frame: Optional[np.ndarray] = None
+        self._lock = threading.Lock()
+        self._sub = node.create_subscription(
+            Image,
+            topic,
+            self._callback,
+            QoSPresetProfiles.SENSOR_DATA.value,
+        )
+        node.get_logger().info(f"Subscribed to ROS2 image topic: {topic}")
+
+    def _callback(self, msg: Image):
+        try:
+            frame = self._bridge.imgmsg_to_cv2(msg, desired_encoding="bgr8")
+            with self._lock:
+                self._frame = frame
+        except Exception:
+            pass
+
+    def grab(self) -> Optional[np.ndarray]:
+        with self._lock:
+            return self._frame.copy() if self._frame is not None else None
+
+
+# ---------------------------------------------------------------------------
+# Main ROS2 Node
+# ---------------------------------------------------------------------------
 
 class VisionBoundingBoxNode(Node):
-    """ROS2 node for YOLO-based object detection."""
-    
-    def __init__(self):
-        super().__init__('vision_boundingbox_node')
-        
-        self.get_logger().info('Vision Bounding Box Node starting up.')
-        self.get_logger().info('This node detects objects from a camera or image topic.')
-        
-        # Declare parameters
-        self.declare_parameter('webcam', False)
-        self.declare_parameter('camera_index', 0)
-        self.declare_parameter('rtsp_url', '')
-        self.declare_parameter('input_topic', '/camera/image_raw')
-        self.declare_parameter('device', 'CPU')
-        self.declare_parameter('input_height', 640)
-        self.declare_parameter('input_width', 640)
-        self.declare_parameter('visualize', False)
-        self.declare_parameter('publish_image', False)
-        self.declare_parameter('model_name', 'yolo11n.onnx')
-        self.declare_parameter('conf_threshold', 0.5)
-        self.declare_parameter('nms_threshold', 0.4)
-        self.declare_parameter('reject_reflections', True)
-        self.declare_parameter('reject_threshold', 0.5)
-        self.declare_parameter('output_topic', '/vision/detections')
-        
-        # Get parameters
-        self.webcam = self.get_parameter('webcam').value
-        self.camera_index = self.get_parameter('camera_index').value
-        self.rtsp_url = self.get_parameter('rtsp_url').value
-        self.input_topic = self.get_parameter('input_topic').value
-        self.device = self.get_parameter('device').value
-        self.input_height = self.get_parameter('input_height').value
-        self.input_width = self.get_parameter('input_width').value
-        self.visualize = self.get_parameter('visualize').value
-        self.publish_image = self.get_parameter('publish_image').value
-        self.model_name = self.get_parameter('model_name').value
-        self.conf_threshold = self.get_parameter('conf_threshold').value
-        self.nms_threshold = self.get_parameter('nms_threshold').value
-        self.reject_reflections = self.get_parameter('reject_reflections').value
-        self.reject_threshold = self.get_parameter('reject_threshold').value
-        self.output_topic = self.get_parameter('output_topic').value
-        
-        self.get_logger().info(f'Device: {self.device}')
-        self.get_logger().info(f'Input size: {self.input_width}x{self.input_height}')
-        self.get_logger().info(f'Model: {self.model_name}')
-        
-        # Initialize CV Bridge
-        self.bridge = CvBridge()
-        
-        # Load model
-        package_share_dir = get_package_share_directory('vision_boundingbox')
-        model_path = Path(package_share_dir) / 'models' / self.model_name
-        class_names_path = Path(package_share_dir) / 'models' / 'class_names.txt'
-        
-        try:
-            self.detector = YOLODetector(
-                str(model_path),
-                str(class_names_path) if class_names_path.exists() else None,
-                input_size=(self.input_height, self.input_width),
-                conf_threshold=self.conf_threshold,
-                nms_threshold=self.nms_threshold,
-                device=self.device
-            )
-            self.get_logger().info('YOLO detector initialized successfully')
-        except Exception as e:
-            self.get_logger().error(f'Failed to initialize YOLO detector: {e}')
-            raise
-        
-        # Publishers
-        self.detection_pub = self.create_publisher(
-            Detection2DArray,
-            self.output_topic,
-            10
-        )
-        
-        if self.publish_image:
-            self.image_pub = self.create_publisher(
-                Image,
-                '/vision/detections/image',
-                10
-            )
-        
-        # Service for start/stop
-        self.start_stop_srv = self.create_service(
-            SetBool,
-            '~/start_stop',
-            self.start_stop_callback
-        )
-        
-        # Processing state
-        self.processing = False
-        self.cap = None
-        self.timer = None
-        self.image_sub = None
-        self.using_video_capture = False  # True for webcam or RTSP
-        
-        # Processing queue
-        self.frame_queue = Queue(maxsize=3)
-        self.processing_thread = None
-        self.shutdown_event = threading.Event()
-        
-        # Start processing
-        self.start()
-    
-    def start_stop_callback(self, request, response):
-        """Service callback for start/stop."""
-        if request.data:
-            self.start()
-            response.message = "Detection started."
-        else:
-            self.stop()
-            response.message = "Detection stopped."
-        response.success = True
-        return response
-    
-    def start(self):
-        """Start detection."""
-        if self.processing:
-            self.get_logger().info('Detection is already running.')
-            return
-        
-        self.get_logger().info('Starting detection...')
-        self.processing = True
-        
-        # Start processing thread
-        self.shutdown_event.clear()
-        self.processing_thread = threading.Thread(target=self.process_loop, daemon=True)
-        self.processing_thread.start()
-        
-        # Check for RTSP stream first, then webcam, then topic
-        if self.rtsp_url:
-            # Open RTSP stream
-            self.get_logger().info(f'Opening RTSP stream: {self.rtsp_url}')
-            self.cap = cv2.VideoCapture(self.rtsp_url)
-            if not self.cap.isOpened():
-                self.get_logger().error(f'Failed to open RTSP stream: {self.rtsp_url}')
-                self.processing = False
-                return
-            
-            self.using_video_capture = True
-            # Create timer for reading frames
-            self.timer = self.create_timer(0.033, self.timer_callback)  # ~30 FPS
-            self.get_logger().info('RTSP stream opened successfully')
-            
-        elif self.webcam:
-            # Open webcam
-            self.get_logger().info(f'Opening webcam at index {self.camera_index}')
-            self.cap = cv2.VideoCapture(self.camera_index)
-            if not self.cap.isOpened():
-                self.get_logger().error(f'Failed to open camera {self.camera_index}')
-                self.processing = False
-                return
-            
-            # Set camera properties
-            self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-            self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
-            
-            self.using_video_capture = True
-            # Create timer for webcam reading
-            self.timer = self.create_timer(0.033, self.timer_callback)  # ~30 FPS
-            self.get_logger().info('Webcam opened successfully')
-            
-        else:
-            # Subscribe to image topic
-            self.get_logger().info(f'Subscribing to image topic: {self.input_topic}')
-            qos = QoSProfile(
-                reliability=ReliabilityPolicy.BEST_EFFORT,
-                history=HistoryPolicy.KEEP_LAST,
-                depth=1
-            )
-            self.image_sub = self.create_subscription(
-                Image,
-                self.input_topic,
-                self.image_callback,
-                qos
-            )
-            self.using_video_capture = False
-        
-        self.get_logger().info('Detection started successfully.')
-    
-    def stop(self):
-        """Stop detection."""
-        if not self.processing:
-            self.get_logger().info('Detection is already stopped.')
-            return
-        
-        self.get_logger().info('Stopping detection...')
-        self.processing = False
-        
-        # Stop input sources
-        if self.using_video_capture and self.cap is not None:
-            if self.timer is not None:
-                self.timer.cancel()
-                self.timer = None
-            self.cap.release()
-            self.cap = None
-            self.using_video_capture = False
-        elif self.image_sub is not None:
-            self.destroy_subscription(self.image_sub)
-            self.image_sub = None
-        
-        # Stop processing thread
-        self.shutdown_event.set()
-        if self.processing_thread is not None:
-            self.processing_thread.join(timeout=2.0)
-            self.processing_thread = None
-        
-        # Clear queue
-        while not self.frame_queue.empty():
-            try:
-                self.frame_queue.get_nowait()
-            except:
-                break
-        
-        if self.visualize:
-            cv2.destroyAllWindows()
-        
-        self.get_logger().info('Detection stopped successfully.')
-    
-    def timer_callback(self):
-        """Timer callback for webcam/RTSP stream."""
-        if not self.processing or self.cap is None:
-            return
-        
-        ret, frame = self.cap.read()
-        if not ret:
-            self.get_logger().error('Failed to read frame from video source')
-            return
-        
-        self.process_frame(frame)
-    
-    def image_callback(self, msg):
-        """Image topic callback."""
-        if not self.processing:
-            return
-        
-        try:
-            frame = self.bridge.imgmsg_to_cv2(msg, 'bgr8')
-            self.process_frame(frame)
-        except Exception as e:
-            self.get_logger().error(f'cv_bridge exception: {e}')
-    
-    def process_frame(self, frame):
-        """Add frame to processing queue."""
-        if not self.frame_queue.full():
-            try:
-                self.frame_queue.put_nowait(frame.copy())
-            except:
-                pass
-    
-    def _simple_reject_reflections(self, detections, threshold=0.5):
-        classes = dict()
-        for det in detections:
-            if det.class_id not in classes:
-                classes[det.class_id] = det
-            else:
-                x1, y1, w1, h1 = classes[det.class_id].box
-                x2, y2, w2, h2 = det.box
-                score = 0.8 * (y2-y1)/self.input_height + 0.2 * ((self.input_height/2)-y2)/self.input_height
-                #score = (det.confidence/classes[det.class_id].confidence) * score
-                if score > threshold:
-                    classes[det.class_id] = det
-        return list(classes.values())
 
-    def process_loop(self):
-        """Processing loop running in separate thread."""
-        while not self.shutdown_event.is_set():
-            try:
-                # Get frame from queue with timeout
-                frame = self.frame_queue.get(timeout=0.1)
-            except:
-                continue
+    def __init__(self):
+        super().__init__("vision_boundingbox_node")
+        self._declare_params()
+        self._bridge = CvBridge()
+
+        # Load model using Ultralytics
+        model_path = self._resolve_model()
+        self.get_logger().info(f"Loading Ultralytics model: {model_path}")
+        
+        # device: 'cpu', 0 (for cuda:0), or 'mps'
+        device_str = self.get_parameter("device").value.lower()
+        if device_str == "gpu":
+            device_str = "0"
+
+        self._model = YOLO(model_path)
+        # self._model.to(device_str)
+
+        # Image source
+        self._source = self._build_source()
+
+        # Publishers
+        self._det_pub = self.create_publisher(Detection2DArray, "~/detections", 10)
+        self._img_pub = (
+            self.create_publisher(Image, "~/image", 10)
+            if self.get_parameter("publish_image").value
+            else None
+        )
+
+        # Run at 30Hz
+        self._timer = self.create_timer(1.0 / 30.0, self._process)
+        self.get_logger().info("vision_boundingbox_node (Ultralytics) ready.")
+
+    def _declare_params(self):
+        self.declare_parameter("image_source", "rtsp://192.168.2.6:2001/image_rtsp")
+        self.declare_parameter("model_name", "docking.pt")  # Ultralytics prefers .pt or .onnx
+        self.declare_parameter("device", "CPU")
+        self.declare_parameter("conf_threshold", 0.5)
+        self.declare_parameter("nms_threshold", 0.4)
+        self.declare_parameter("publish_image", True)
+        self.declare_parameter("visualize", False)
+        self.declare_parameter("input_height", 640)
+        self.declare_parameter("input_width", 640)
+        self.declare_parameter("reject_reflections", True)
+        self.declare_parameter("reject_threshold", 0.5)
+
+    def _resolve_model(self) -> str:
+        model_name = self.get_parameter("model_name").value
+        p = Path(model_name)
+
+        if p.is_absolute():
+            return str(p)
+
+        try:
+            pkg_share = Path(get_package_share_directory("vision_boundingbox"))
+            model_path = pkg_share / "models" / model_name
+            if model_path.exists():
+                return str(model_path)
+        except Exception:
+            pass
+
+        return model_name  # Relative fallback
+
+    def _build_source(self) -> ImageSource:
+        uri: str = self.get_parameter("image_source").value
+
+        if uri.startswith("camera://"):
+            idx = uri[len("camera://"):]
+            return OpenCVSource(idx if idx.isdigit() else "0", self.get_logger())
+
+        if uri.startswith("ros2://"):
+            topic = uri[len("ros2://"):]
+            if not topic.startswith("/"): topic = "/" + topic
+            return ROS2TopicSource(topic, self)
+
+        if any(uri.startswith(s) for s in ["file://", "rtsp://", "rtsps://"]):
+            return OpenCVSource(uri, self.get_logger())
+
+        return OpenCVSource(uri, self.get_logger())
+
+    def _process(self):
+        frame = self._source.grab()
+        if frame is None:
+            return
+
+        stamp = self.get_clock().now().to_msg()
+
+        # Inference
+        # Ultralytics handles resizing, NMS, and scaling back to original size automatically
+        results = self._model.predict(
+            source=frame,
+            conf=self.get_parameter("conf_threshold").value,
+            iou=self.get_parameter("nms_threshold").value,
+            imgsz=(self.get_parameter("input_height").value, self.get_parameter("input_width").value),
+            device=self._model.device,
+            verbose=False
+        )
+
+        if not results:
+            return
+
+        result = results[0]
+        # boxes format: [x1, y1, x2, y2, conf, cls]
+        detections = result.boxes.data.cpu().numpy()
+
+        # Optional reflection rejection
+        if self.get_parameter("reject_reflections").value and len(detections) > 0:
+            rt = self.get_parameter("reject_threshold").value
+            detections = detections[~np.array([is_reflection(d, rt) for d in detections])]
+
+        # Publish detections
+        det_array = self._build_detection_msg(detections, result.names, stamp)
+        self._det_pub.publish(det_array)
+
+        # Publish / visualize image
+        if self._img_pub is not None or self.get_parameter("visualize").value:
+            # result.plot() returns BGR image with boxes drawn
+            vis = result.plot()
             
-            try:
-                # Run detection
-                detections = self.detector.detect(frame)
-                if self.reject_reflections:
-                    detections = self._simple_reject_reflections(detections)
-                
-                # Publish detections
-                detection_msg = Detection2DArray()
-                detection_msg.header.stamp = self.get_clock().now().to_msg()
-                detection_msg.header.frame_id = 'camera'
-                
-                for det in detections:
-                    detection = Detection2D()
-                    detection.id = det.class_id
-                    detection.results.append(det.confidence)
-                    x, y, w, h = det.box
-                    detection.bbox.center.position.x = float(x + w / 2.0)
-                    detection.bbox.center.position.y = float(y + h / 2.0)
-                    detection.bbox.size_x = float(w)
-                    detection.bbox.size_y = float(h)
-                    detection_msg.detections.append(detection)
-                
-                self.detection_pub.publish(detection_msg)
-                
-                # Draw and publish/visualize if needed
-                if self.publish_image or self.visualize:
-                    result_img = self.detector.draw_detections(frame, detections)
-                    
-                    if self.publish_image:
-                        result_msg = self.bridge.cv2_to_imgmsg(result_img, 'bgr8')
-                        result_msg.header = detection_msg.header
-                        self.image_pub.publish(result_msg)
-                    
-                    if self.visualize:
-                        cv2.imshow('YOLO Detections', result_img)
-                        cv2.waitKey(1)
-                
-            except Exception as e:
-                self.get_logger().error(f'Error processing frame: {e}')
-    
+            if self._img_pub is not None:
+                img_msg = self._bridge.cv2_to_imgmsg(vis, encoding="bgr8")
+                img_msg.header.stamp = stamp
+                img_msg.header.frame_id = "camera"
+                self._img_pub.publish(img_msg)
+
+            if self.get_parameter("visualize").value:
+                cv2.imshow("vision_boundingbox", vis)
+                cv2.waitKey(1)
+
+    def _build_detection_msg(
+        self, detections: np.ndarray, names: dict, stamp
+    ) -> Detection2DArray:
+        msg = Detection2DArray()
+        msg.header.stamp = stamp
+        msg.header.frame_id = "camera"
+
+        for det in detections:
+            x1, y1, x2, y2, conf, cls_id = det
+            
+            d = Detection2D()
+            d.header = msg.header
+
+            bb = BoundingBox2D()
+            bb.center = Pose2D(x=(x1 + x2) / 2.0, y=(y1 + y2) / 2.0, theta=0.0)
+            bb.size_x = float(x2 - x1)
+            bb.size_y = float(y2 - y1)
+            d.bbox = bb
+
+            hyp = ObjectHypothesisWithPose()
+            cls_int = int(cls_id)
+            hyp.hypothesis.class_id = names.get(cls_int, str(cls_int))
+            hyp.hypothesis.score = float(conf)
+            d.results.append(hyp)
+
+            msg.detections.append(d)
+
+        return msg
+
     def destroy_node(self):
-        """Cleanup on shutdown."""
-        self.stop()
+        self._source.release()
+        cv2.destroyAllWindows()
         super().destroy_node()
 
 
 def main(args=None):
-    """Main entry point."""
     rclpy.init(args=args)
-    
+    node = VisionBoundingBoxNode()
     try:
-        node = VisionBoundingBoxNode()
         rclpy.spin(node)
     except KeyboardInterrupt:
         pass
-    except Exception as e:
-        print(f'Error: {e}')
     finally:
-        if rclpy.ok():
-            rclpy.shutdown()
+        node.destroy_node()
+        rclpy.shutdown()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

@@ -27,3 +27,6 @@ stubPath = "./misc/stubs"
 
 [tool.mypy]
 mypy_path = "./misc/stubs"
+
+[tool.uv]
+torch-backend = "auto"

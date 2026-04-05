@@ -11,8 +11,8 @@ def generate_launch_description():
     """Generate launch description for vision_boundingbox."""
     
     # Declare launch arguments
-    rtsp_url_arg = DeclareLaunchArgument(
-        'rtsp_url',
+    image_source_arg = DeclareLaunchArgument(
+        'image_source',
         default_value='rtsp://192.168.2.6:2001/image_rtsp',
         description='Input RTSP URL'
     )
@@ -31,16 +31,11 @@ def generate_launch_description():
     
     conf_threshold_arg = DeclareLaunchArgument(
         'conf_threshold',
-        default_value='0.5',
+        default_value='0.25',
         description='Confidence threshold for detections'
     )
     
-    nms_threshold_arg = DeclareLaunchArgument(
-        'nms_threshold',
-        default_value='0.4',
-        description='NMS threshold for detections'
-    )
-    
+   
     publish_image_arg = DeclareLaunchArgument(
         'publish_image',
         default_value='true',
@@ -63,24 +58,17 @@ def generate_launch_description():
             'model_name': LaunchConfiguration('model_name'),
             'device': LaunchConfiguration('device'),
             'conf_threshold': LaunchConfiguration('conf_threshold'),
-            'nms_threshold': LaunchConfiguration('nms_threshold'),
             'publish_image': LaunchConfiguration('publish_image'),
             'visualize': LaunchConfiguration('visualize'),
-            'rtsp_url': LaunchConfiguration('rtsp_url'),
-            'webcam': False,
-            'input_height': 640,
-            'input_width': 640,
-            'reject_reflections': True,
-            'reject_threshold': 0.5
+            'image_source': LaunchConfiguration('image_source'),
         }]
     )
     
     return LaunchDescription([
-        rtsp_url_arg,
+        image_source_arg,
         model_name_arg,
         device_arg,
         conf_threshold_arg,
-        nms_threshold_arg,
         publish_image_arg,
         visualize_arg,
         vision_node,
