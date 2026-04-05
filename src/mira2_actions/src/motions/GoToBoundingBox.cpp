@@ -35,13 +35,12 @@ ApproachBB::ApproachBB(const std::string& name,
            ROSState* ros_state)
     : BT::StatefulActionNode(name, config),
     ros_state_(ros_state),
-    yaw_pid("yaw",ros_state->node),
     lateral_pid("lateral",ros_state->node),
+    depth_pid("depth",ros_state->node),
     forward_pwm_(1550.0),
     frame_width_(1.0),
     frame_height_(1.0),
     success_bb_area_(0.70),
-    x_tolerance_(0.05),
     bb_lost_timeout_(1.0),
     timeout_(20.0),
     flight_mode_("ALT_HOLD"),
@@ -84,12 +83,6 @@ BT::PortsList ApproachBB::providedPorts()
             BT::InputPort<std::string>("flight_mode", "ALT_HOLD",
                 "FC mode: ALT_HOLD (auto depth hold) or STABILIZE (manual thrust)"),
 
-            // Yaw PID — rotates the vehicle to center BB horizontally
-            BT::InputPort<double>("yaw_pid_kp",          1.5,    "Yaw PID proportional gain"),
-            BT::InputPort<double>("yaw_pid_ki",          0.005,  "Yaw PID integral gain"),
-            BT::InputPort<double>("yaw_pid_kd",          3.0,    "Yaw PID derivative gain"),
-            BT::InputPort<double>("yaw_pid_base_offset", 1500.0, "Yaw PID base offset (neutral PWM)"),
-
             // Lateral PID — strafes the vehicle to center BB horizontally
             BT::InputPort<double>("lateral_pid_kp",          1.0,    "Lateral PID proportional gain"),
             BT::InputPort<double>("lateral_pid_ki",          0.002,  "Lateral PID integral gain"),
@@ -116,12 +109,6 @@ BT::NodeStatus ApproachBB::onStart()
     flight_mode_ = getInput<std::string>("flight_mode").value();
 
     // Configure PIDs
-    yaw_pid.kp = getInput<double>("yaw_pid_kp").value();
-    yaw_pid.ki = getInput<double>("yaw_pid_ki").value();
-    yaw_pid.kd = getInput<double>("yaw_pid_kd").value();
-    yaw_pid.base_offset = getInput<double>("yaw_pid_base_offset").value();
-    yaw_pid.emptyError();
-
     lateral_pid.kp = getInput<double>("lateral_pid_kp").value();
     lateral_pid.ki = getInput<double>("lateral_pid_ki").value();
     lateral_pid.kd = getInput<double>("lateral_pid_kd").value();
@@ -201,11 +188,8 @@ BT::NodeStatus ApproachBB::onRunning()
         //   error < 0 → BB is left of center  → yaw left,  strafe left
         double x_error = bb_x_center_norm_ - 0.5;
 
-        // ── 6. PID outputs ────────────────────────────────────────────────────
-        // Both PIDs get the SAME x_error but control different actuators.
-        // Yaw:     rotates the whole vehicle — good for large errors
-        // Lateral: strafes sideways — good for fine centering while surging
-        float yaw_pwm     = yaw_pid.pid_control(x_error, elapsed, false);
+        // ── 6. PID output ─────────────────────────────────────────────────────
+        // Lateral PID strafes the vehicle to center the BB horizontally.
         float lateral_pwm = lateral_pid.pid_control(x_error, elapsed, false);
 
         // ── 7. Determine forward PWM ──────────────────────────────────────────
@@ -229,7 +213,7 @@ BT::NodeStatus ApproachBB::onRunning()
         cmd.forward = static_cast<int>(effective_forward);
         cmd.lateral = static_cast<int>(lateral_pwm);
         cmd.thrust  = 1500;           // neutral — ALT_HOLD ignores this anyway
-        cmd.yaw     = static_cast<int>(yaw_pwm);
+        cmd.yaw     = 1500;           // neutral — yaw not controlled here
         ros_state_->cmd_publisher->publish(cmd);
 
         RCLCPP_DEBUG(ros_state_->node->get_logger(),
