@@ -210,7 +210,7 @@ if (software_arm_flag_) {
   if (elapsed < 2.8) {
     cmd_pwm_.forward = 1500;
     cmd_pwm_.lateral = 1500;
-    cmd_pwm_.thrust = 150 0;
+    cmd_pwm_.thrust = 1500;
     cmd_pwm_.yaw = 1500;
 
     RCLCPP_INFO_THROTTLE(node_->get_logger(), *node_->get_clock(), 1000,
