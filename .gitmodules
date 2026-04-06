@@ -1,0 +1,3 @@
+[submodule "src/dependencies/camera_driver"]
+	path = src/dependencies/camera_driver
+	url = git@github.com:davidnoronha1/camera_driver.git

@@ -11,9 +11,9 @@ def generate_launch_description():
     """Generate launch description for vision_boundingbox."""
     
     # Declare launch arguments
-    image_topic_arg = DeclareLaunchArgument(
-        'image_topic',
-        default_value='/camera_front/image_raw',
+    image_source_arg = DeclareLaunchArgument(
+        'image_source',
+        default_value='ros2:///camera_front/image_raw',
         description='Input image topic'
     )
     
@@ -60,14 +60,13 @@ def generate_launch_description():
         name='vision_boundingbox_node',
         output='screen',
         parameters=[{
-            'input_topic': LaunchConfiguration('image_topic'),
+            'image_source': LaunchConfiguration('image_source'),
             'model_name': LaunchConfiguration('model_name'),
             'device': LaunchConfiguration('device'),
             'conf_threshold': LaunchConfiguration('conf_threshold'),
             'nms_threshold': LaunchConfiguration('nms_threshold'),
             'publish_image': LaunchConfiguration('publish_image'),
             'visualize': LaunchConfiguration('visualize'),
-            'webcam': False,
             'input_height': 640,
             'input_width': 640,
             'reject_reflections': True,
@@ -76,7 +75,7 @@ def generate_launch_description():
     )
     
     return LaunchDescription([
-        image_topic_arg,
+        image_source_arg,
         model_name_arg,
         device_arg,
         conf_threshold_arg,
