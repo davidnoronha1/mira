@@ -53,7 +53,7 @@ public:
     ki = node->get_parameter(name + "_pid_ki").as_double();
     base_offset = node->get_parameter(name + "_pid_base_offset").as_double();
 
-    param_callback_handle = node->add_post_set_parameters_callback([=](const std::vector<
+    param_callback_handle = node->add_post_set_parameters_callback([this, kp_param_name, kd_param_name, ki_param_name, base_offset_param_name](const std::vector<
                                              rclcpp::Parameter> &parameters) {
       rcl_interfaces::msg::SetParametersResult result;
       result.successful = true;
