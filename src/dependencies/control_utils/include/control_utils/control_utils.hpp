@@ -20,6 +20,9 @@ public:
   PID_Controller(const std::string &name, rclcpp::Node::SharedPtr _node)
       : node(std::move(_node)) {
 
+    // std::srand(static_cast<unsigned int>(std::time(nullptr))); // Seed random generator
+    // int random_no = std::rand() % 1000; // For unique parameter names if multiple PID controllers are used
+
     const auto kp_param_name = name + "_pid_kp";
     const auto kd_param_name = name + "_pid_kd";
     const auto ki_param_name = name + "_pid_ki";
@@ -50,7 +53,7 @@ public:
     ki = node->get_parameter(name + "_pid_ki").as_double();
     base_offset = node->get_parameter(name + "_pid_base_offset").as_double();
 
-    param_callback_handle = node->add_post_set_parameters_callback([=](const std::vector<
+    param_callback_handle = node->add_post_set_parameters_callback([this, kp_param_name, kd_param_name, ki_param_name, base_offset_param_name](const std::vector<
                                              rclcpp::Parameter> &parameters) {
       rcl_interfaces::msg::SetParametersResult result;
       result.successful = true;
