@@ -1,0 +1,9 @@
+<?xml version="1.0"?>
+  <root BTCPP_format="4">
+      <BehaviorTree ID="test_detect">
+          <DetectObjectBoundingBox
+              object="dock"
+              detection_duration="2.0"
+              timeout="30.0"/>
+      </BehaviorTree>
+  </root>

@@ -196,6 +196,10 @@ fix-vscode:
 validate-all:
 	find ./src -type f -name "package.xml" -exec uv run ./util/package-utils/validate_package.py {} \;
 
+camera_zed:
+	${WS} && \
+	${GSTREAMER_FIX} && \
+	ros2 launch mira2_perception camera_zed.launch
 
 camera_bottomcam:
 	${WS} && \

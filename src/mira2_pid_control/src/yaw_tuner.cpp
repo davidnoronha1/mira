@@ -19,7 +19,6 @@ YawTunerController(rclcpp::Node::SharedPtr node)
 depth_controller_("depth", node),
 yaw_controller_("yaw", node) {
 
-```
 RCLCPP_INFO(node_->get_logger(), "[INIT] Starting controller");
 
 // Initialize PID gains
@@ -71,7 +70,6 @@ RCLCPP_INFO(node_->get_logger(), "[INIT] Control loop started");
 RCLCPP_INFO(node_->get_logger(), "[INIT] Initialization COMPLETE");
 
 printPIDParameters();
-```
 
 }
 
@@ -83,14 +81,11 @@ yaw_controller_.kp = 3.18;
 yaw_controller_.ki = 0.01;
 yaw_controller_.kd = 7.2;
 yaw_controller_.base_offset = 1500;
-
-```
 // Depth PID currently unused
 depth_controller_.kp = 0.0;
 depth_controller_.ki = 0.0;
 depth_controller_.kd = 0.0;
 depth_controller_.base_offset = 1500;
-```
 
 }
 
@@ -104,7 +99,6 @@ yaw_controller_.kp, yaw_controller_.ki, yaw_controller_.kd);
 void keysCallback(const std_msgs::msg::Char::SharedPtr msg) {
 char key = msg->data;
 
-```
 // Debug: log every key press
 RCLCPP_INFO(node_->get_logger(), "[KEY] Pressed: %c", key);
 
@@ -136,14 +130,12 @@ switch (key) {
   default:
     break;
 }
-```
 
 }
 
 // Telemetry callback: updates yaw error from sensor data
 void telemetryCallback(const custom_msgs::msg::Telemetry::SharedPtr msg) {
 
-```
 // Debug: confirm telemetry is being received
 if (!telemetry_received_) {
   RCLCPP_INFO(node_->get_logger(), "[TELEMETRY] First message received");
@@ -158,7 +150,6 @@ double error = yaw_setpoint_ - yaw_heading;
 error = std::fmod(error + 180.0, 360.0);
 if (error < 0) error += 360.0;
 yaw_error_ = static_cast<int>(error - 180.0);
-```
 
 }
 
@@ -166,7 +157,6 @@ yaw_error_ = static_cast<int>(error - 180.0);
 void controlLoop() {
 rclcpp::Time time_now = node_->now();
 
-```
 // Detect if loop stalls (timing gap too large)
 double gap = (time_now - last_loop_time_).seconds();
 if (gap > 0.2) {
@@ -246,7 +236,6 @@ else {
 
 // Publish commands every cycle
 pwm_publisher_->publish(cmd_pwm_);
-```
 
 }
 
