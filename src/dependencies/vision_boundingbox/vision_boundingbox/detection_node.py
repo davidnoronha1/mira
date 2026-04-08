@@ -140,9 +140,9 @@ class VisionBoundingBoxNode(Node):
         self._source = self._build_source()
 
         # Publishers
-        self._det_pub = self.create_publisher(Detection2DArray, "~/detections", 10)
+        self._det_pub = self.create_publisher(Detection2DArray, "/vision/detections", 10)
         self._img_pub = (
-            self.create_publisher(Image, "~/image", 10)
+            self.create_publisher(Image, "/vision/detections/image", 10)
             if self.get_parameter("publish_image").value
             else None
         )
@@ -266,9 +266,14 @@ class VisionBoundingBoxNode(Node):
             bb.size_y = float(y2 - y1)
             d.bbox = bb
 
-            hyp = ObjectHypothesisWithPose()
             cls_int = int(cls_id)
-            hyp.hypothesis.class_id = names.get(cls_int, str(cls_int))
+            class_name = names.get(cls_int, str(cls_int))
+
+            # Populate id so BT nodes can match by object name
+            d.id = class_name
+
+            hyp = ObjectHypothesisWithPose()
+            hyp.hypothesis.class_id = class_name
             hyp.hypothesis.score = float(conf)
             d.results.append(hyp)
 
