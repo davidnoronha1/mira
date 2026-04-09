@@ -78,13 +78,16 @@ CMAKE_ARGS:= -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
 			 -DCMAKE_EXE_LINKER_FLAGS=-fuse-ld=$(LINKER) \
 			 -DCMAKE_MODULE_LINKER_FLAGS=-fuse-ld=$(LINKER) \
 			 -DCMAKE_SHARED_LINKER_FLAGS=-fuse-ld=$(LINKER) \
+			 -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+			 -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
 			 --no-warn-unused-cli
 
 SKIP_PACKAGES ?=  vision_depth
 export COLCON_ARGS= --cmake-args $(CMAKE_ARGS) \
                           --parallel-workers 3 \
 			  --event-handlers console_cohesion+ \
-			  --packages-skip $(SKIP_PACKAGES)
+			  --packages-skip $(SKIP_PACKAGES) \
+				--continue-on-error
 			  # --merge-install
 			  # --symlink-install
 

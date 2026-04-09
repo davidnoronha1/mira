@@ -14,6 +14,7 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
     lld \
     ninja-build \
     pkg-config \
+    ccache \
     python3-pip \
     usbutils \
     gstreamer1.0-plugins-good \
@@ -27,6 +28,7 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
     libgstrtspserver-1.0-dev \
     ros-jazzy-behaviortree-cpp \
     ros-jazzy-camera-info-manager \
+    ros-jazzy-foxglove-bridge \
     libboost-python1.74-dev \
     vim
 
