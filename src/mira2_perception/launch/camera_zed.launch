@@ -20,8 +20,8 @@
         <param name="image_height"  value="$(var image_height)"/>
         <param name="frame_format"  value="$(var frame_format)"/>
         <param name="framerate"     value="$(var framerate)" />
-        <param name="port" value="2001"/>
-        <param name="usb_port" value="usb-3610000.usb-1.3" />
+        <param name="port" value="2002"/>
+        <param name="usb_port" value="usb-3610000.usb-1.4" />
 		<param name="camera_frame_id" value="$(var camera_frame_id)"/>
     </node>
       <executable cmd="sleep 2 ; gst-launch-1.0 rtspsrc location=rtsp://127.0.0.1:$(var port)/image_rtsp ! fakesink" cwd="/home" shell="true"/>

@@ -8,20 +8,21 @@
             <!-- ========================================================= -->
             <Fallback name="SearchOrApproach">
                 <!-- Try to approach using YOLO -->
-                <ApproachBoundingBox 
+                <ApproachBoundingBox
                     name="Phase1_YoloApproach"
-                    object="dock"   <!-- MAKE SURE THIS MATCHES YOUR class_names.txt -->
-                    frame_width="640.0" 
-                    frame_height="480.0" 
-                    success_area_ratio="0.6" 
-                    x_center_tolerance="0.1" 
-                    forward_pwm="1550.0" 
-                    lateral_pid_base_offset="1500.0"
-                    lateral_pid_kp="1.0" lateral_pid_kd="2.0" 
-                    yaw_pid_base_offset="1500.0"
-                    yaw_pid_kp="1.5" yaw_pid_kd="3.0" 
-                    flight_mode="ALT_HOLD" 
-                    timeout="60.0" object_lost_timeout="2.0"/>
+                    object="dock"
+                    frame_width="640.0"
+                    frame_height="480.0"
+                    success_area_ratio="0.6"
+                    forward_pwm="1550.0"
+                    flight_mode="ALT_HOLD"
+                    timeout="60.0"
+                    object_lost_timeout="2.0"
+                    depth_setpoint="101325.0"
+                    depth_visual_gain="10.0"
+                    depth_pid_kp="0.05" depth_pid_ki="0.005" depth_pid_kd="20.20" depth_pid_base_offset="1580.0"
+                    lateral_pid_kp="1.0" lateral_pid_ki="0.002" lateral_pid_kd="2.0" lateral_pid_base_offset="1500.0"
+                    yaw_pid_kp="1.5" yaw_pid_ki="0.005" yaw_pid_kd="3.0" yaw_pid_base_offset="1500.0"/>
 
                 <!-- If YOLO fails (not in frame), sweep to find it -->
                 <Sequence name="SearchRecovery">
@@ -78,7 +79,7 @@
                 blind_lock_depth="1.5" 
                 depth_threshold="1.0"
                 thrust_pwm_shallow="1430.0" 
-                thrust_pwm_deep="1350.0" <!-- More aggressive downward punch -->
+                thrust_pwm_deep="1350.0" 
                 lateral_pd_base_offset="1500.0"
                 lateral_pd_kp="300.0" lateral_pd_kd="100.0" 
                 forward_pd_base_offset="1500.0"

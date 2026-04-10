@@ -42,8 +42,9 @@ private:
     rclcpp::Subscription<vision_msgs::msg::Detection2DArray>::SharedPtr bb_sub_;
 
     // PID Controllers
-    PID_Controller yaw_pid;
     PID_Controller lateral_pid;
+    PID_Controller depth_pid;
+    PID_Controller yaw_pid;
 
     // Parameters
     std::string target_object_;
@@ -51,7 +52,6 @@ private:
     double frame_width_;
     double frame_height_;
     double success_bb_area_;
-    double x_tolerance_;
     double bb_lost_timeout_;
     double timeout_;
     std::string flight_mode_;
@@ -63,7 +63,15 @@ private:
     // Latest bounding box info
     bool bb_found_;
     double bb_x_center_norm_;
+    double bb_y_center_norm_;
     double bb_area_norm_;
+
+    // Depth control
+    double depth_setpoint_base_;
+    double depth_visual_gain_;
+
+    // Yaw lock
+    double locked_heading_;
 };
 
 /**
