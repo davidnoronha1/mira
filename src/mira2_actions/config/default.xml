@@ -1,26 +1,7 @@
 <root>
 <BehaviorTree ID="gate_p1">
     <Sequence>
-      <ApproachBoundingBox lateral_pid_base_offset="1500.000000"
-                           lateral_pid_kp="1.000000"
-                           object=""
-                           frame_width="1.000000"
-                           frame_height="1.000000"
-                           success_area_ratio="0.700000"
-                           lateral_pid_kd="2.000000"
-                           forward_pwm="1550.000000"
-                           yaw_pid_ki="0.005000"
-                           object_lost_timeout="3.000000"
-                           lateral_pid_ki="0.002000"
-                           x_center_tolerance="0.050000"
-                           flight_mode="ALT_HOLD"
-                           timeout="60.000000"
-                           yaw_pid_base_offset="1500.000000"
-                           yaw_pid_kp="1.500000"
-                           yaw_pid_kd="3.000000"/>
-      <DetectObjectBoundingBox timeout="30.000000"
-                               detection_duration="2.000000"
-                               object=""/>
+      <ApproachBoundingBox object="dock" />
       <AlwaysSuccess/>
     </Sequence>
   </BehaviorTree>

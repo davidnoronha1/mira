@@ -140,9 +140,9 @@ class VisionBoundingBoxNode(Node):
         self._source = self._build_source()
 
         # Publishers
-        self._det_pub = self.create_publisher(Detection2DArray, "~/detections", 10)
+        self._det_pub = self.create_publisher(Detection2DArray, "/vision/detections", 10)
         self._img_pub = (
-            self.create_publisher(Image, "~/image", 10)
+            self.create_publisher(Image, "/vision/image", 10)
             if self.get_parameter("publish_image").value
             else None
         )

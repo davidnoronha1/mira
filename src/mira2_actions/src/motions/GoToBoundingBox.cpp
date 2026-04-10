@@ -6,11 +6,10 @@ void ApproachBB::bbox_callback(const vision_msgs::msg::Detection2DArray::SharedP
     bb_found_ = false;
     bb_area_norm_ = 0.0;
     bb_x_center_norm_ = 0.5;
+    std::cout << "Got Bounding box";
     for (const auto& detection : msg->detections)
     {
-        if(detection.id != target_object_)
-            continue;
-
+	std::cout << "GOT DOCK";
         auto bbox = detection.bbox;
 
         double x_center_norm = bbox.center.position.x / frame_width_;
@@ -66,8 +65,8 @@ BT::PortsList ApproachBB::providedPorts()
         BT::InputPort<double>("forward_pwm",1550.0,"PWM value for forward movement, default 1550"),
         // Frame resolution — set these if your vision node gives raw pixels.
             // Leave at 1.0 if it already gives normalized [0,1] coordinates.
-            BT::InputPort<double>("frame_width",  1.0, "Camera frame width in pixels (or 1.0 if normalized)"),
-            BT::InputPort<double>("frame_height", 1.0, "Camera frame height in pixels (or 1.0 if normalized)"),
+            BT::InputPort<double>("frame_width",  832.0, "Camera frame width in pixels (or 1.0 if normalized)"),
+            BT::InputPort<double>("frame_height", 464.0, "Camera frame height in pixels (or 1.0 if normalized)"),
 
             // Success condition
             BT::InputPort<double>("success_area_ratio", 0.70,
@@ -166,51 +165,7 @@ BT::NodeStatus ApproachBB::onRunning()
 {
     rclcpp::Time now = ros_state_->node->now();
     double elapsed = (now - start_time_).seconds();
-
-    // ── 1. Hard timeout check ─────────────────────────────────────────────
-        if (elapsed > timeout_) {
-            RCLCPP_WARN(ros_state_->node->get_logger(),
-                "ApproachBoundingBox: hard timeout after %.1f s", elapsed);
-            publish_neutral();
-            return BT::NodeStatus::FAILURE;
-        }
-
-    // ── 2. Object lost timeout ────────────────────────────────────────────
-        // If the BB hasn't been seen for object_lost_timeout_ seconds → FAILURE.
-        // This handles: object moved out of frame, vision node crashed, etc.
-        double time_since_detection = (now - last_detection_time_).seconds();
-        if (elapsed > 1.0 && time_since_detection > bb_lost_timeout_) {
-            // The elapsed > 1.0 guard avoids false triggers right at startup
-            // before the first detection has had a chance to arrive.
-            RCLCPP_WARN(ros_state_->node->get_logger(),
-                "ApproachBoundingBox: object '%s' lost for %.1f s → FAILURE",
-                target_object_.c_str(), time_since_detection);
-            publish_neutral();
-            return BT::NodeStatus::FAILURE;
-        }
-    
-
-     // ── 3. BB not visible in latest frame → hold and wait ────────────────
-        if (!bb_found_) {
-            RCLCPP_DEBUG(ros_state_->node->get_logger(),
-                "ApproachBoundingBox: no detection this frame, waiting (%.1f s since last seen)",
-                time_since_detection);
-            publish_neutral();
-            return BT::NodeStatus::RUNNING;
-        }
-    // ── 4. Success condition ──────────────────────────────────────────────
-        // BB area as fraction of frame area >= threshold means we are close enough.
-        // e.g. success_bb_area_ = 0.70 → BB fills 70% of screen → SUCCESS.
-        if (bb_area_norm_ >= success_bb_area_) {
-            RCLCPP_INFO(ros_state_->node->get_logger(),
-                "ApproachBoundingBox: reached '%s' (bb_area=%.1f%% >= %.1f%%)",
-                target_object_.c_str(),
-                bb_area_norm_ * 100.0,
-                success_bb_area_ * 100.0);
-            publish_neutral();
-            return BT::NodeStatus::SUCCESS;
-        }
-    
+   
     // ── 5. Compute horizontal centering error ─────────────────────────────
         // x_error is positive when BB center is to the RIGHT of screen center.
         // x_error is negative when BB center is to the LEFT of screen center.
@@ -261,7 +216,7 @@ BT::NodeStatus ApproachBB::onRunning()
         cmd.yaw     = static_cast<int>(yaw_pwm);
         ros_state_->cmd_publisher->publish(cmd);
 
-        RCLCPP_DEBUG(ros_state_->node->get_logger(),
+        RCLCPP_INFO(ros_state_->node->get_logger(),
             "ApproachBoundingBox: bb_area=%.1f%% x_err=%.3f y_err=%.3f depth_sp=%.2f "
             "fwd=%d lat=%d thr=%d yaw=%d",
             bb_area_norm_ * 100.0, x_error, y_error, adjusted_depth_setpoint,
