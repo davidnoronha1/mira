@@ -34,6 +34,7 @@ from vision_msgs.msg import (
     ObjectHypothesisWithPose,
     BoundingBox2D,
     Pose2D,
+    Point2D,
 )
 
 try:
@@ -261,7 +262,9 @@ class VisionBoundingBoxNode(Node):
             d.header = msg.header
 
             bb = BoundingBox2D()
-            bb.center = Pose2D(x=(x1 + x2) / 2.0, y=(y1 + y2) / 2.0, theta=0.0)
+            bb.center.position.x = float((x1 + x2) / 2.0)
+            bb.center.position.y = float((y1 + y2) / 2.0)
+            bb.center.theta = 0.0
             bb.size_x = float(x2 - x1)
             bb.size_y = float(y2 - y1)
             d.bbox = bb
