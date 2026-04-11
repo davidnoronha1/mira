@@ -5,26 +5,39 @@ void ApproachBB::bbox_callback(
     const vision_msgs::msg::Detection2DArray::SharedPtr msg) {
   bb_found_ = false;
   bb_area_norm_ = 0.0;
-  bb_x_center_norm_ = 0.5;
-  std::cout << "Got Bounding box";
+  bool found_this_frame = false;
   for (const auto &detection : msg->detections) {
-    std::cout << "GOT DOCK";
+    if (detection.id != target_object_)
+      continue;
+
+    found_this_frame = true;
     auto bbox = detection.bbox;
 
-    double x_center_norm = bbox.center.x / frame_width_;
-    double y_center_norm = bbox.center.y / frame_height_;
+    double x_center_norm = bbox.center.position.x / frame_width_;
+    double y_center_norm = bbox.center.position.y / frame_height_;
 
     double bb_area_pixels = bbox.size_x * bbox.size_y;
     double frame_area = frame_width_ * frame_height_;
     double bb_area = bb_area_pixels / frame_area;
 
-    bb_found_ = true;
-    bb_x_center_norm_ = x_center_norm;
-    bb_y_center_norm_ = y_center_norm;
-    bb_area_norm_ = bb_area;
+    if (!bb_found_ || bb_area > bb_area_norm_) {
+      bb_found_ = true;
+      bb_x_center_norm_ = x_center_norm;
+      bb_y_center_norm_ = y_center_norm;
+      bb_area_norm_ = bb_area;
+    }
   }
-  if (bb_found_)
+
+  if (found_this_frame) {
     last_detection_time_ = ros_state_->node->now();
+    RCLCPP_INFO_THROTTLE(ros_state_->node->get_logger(), *ros_state_->node->get_clock(), 1000,
+        "ApproachBB: Found '%s' (area=%.1f%%, x=%.2f, y=%.2f)",
+        target_object_.c_str(), bb_area_norm_ * 100.0, bb_x_center_norm_, bb_y_center_norm_);
+  } else if (!msg->detections.empty()) {
+     RCLCPP_WARN_THROTTLE(ros_state_->node->get_logger(), *ros_state_->node->get_clock(), 2000,
+        "ApproachBB: Received %zu detections, but none match '%s'",
+        msg->detections.size(), target_object_.c_str());
+  }
 }
 
 ApproachBB::ApproachBB(const std::string &name,
@@ -38,16 +51,13 @@ ApproachBB::ApproachBB(const std::string &name,
       bb_found_(false), bb_x_center_norm_(0.5), bb_y_center_norm_(0.8),
       bb_area_norm_(0.0), depth_setpoint_base_(0.0), depth_visual_gain_(10.0),
       locked_heading_(0.0) {
-  bb_sub_ =
-      ros_state_->node->create_subscription<vision_msgs::msg::Detection2DArray>(
-          "/vision/detections", 10,
-          std::bind(&ApproachBB::bbox_callback, this, std::placeholders::_1));
+  // Subscription is now created in onStart() to ensure parameters are ready.
 }
 
 BT::PortsList ApproachBB::providedPorts() {
   return {
       BT::InputPort<std::string>("object", "Target Object label to approach "),
-      BT::InputPort<double>("forward_pwm", 1550.0,
+      BT::InputPort<double>("forward_pwm", 1500.0,
                             "PWM value for forward movement, default 1550"),
       // Frame resolution — set these if your vision node gives raw pixels.
       // Leave at 1.0 if it already gives normalized [0,1] coordinates.
@@ -129,6 +139,19 @@ BT::NodeStatus ApproachBB::onStart() {
   timeout_ = getInput<double>("timeout").value();
   flight_mode_ = getInput<std::string>("flight_mode").value();
 
+  if (frame_width_ <= 0.0) {
+    throw BT::RuntimeError("ApproachBB requires [frame_width] > 0, got ",
+                           frame_width_);
+  }
+  if (frame_height_ <= 0.0) {
+    throw BT::RuntimeError("ApproachBB requires [frame_height] > 0, got ",
+                           frame_height_);
+  }
+  if (success_bb_area_ <= 0.0) {
+    throw BT::RuntimeError(
+        "ApproachBB requires [success_area_ratio] > 0, got ",
+        success_bb_area_);
+  }
   // Lock heading at start
   locked_heading_ = ros_state_->telemetry.yaw;
 
@@ -161,9 +184,15 @@ BT::NodeStatus ApproachBB::onStart() {
 
   RCLCPP_INFO(ros_state_->node->get_logger(),
               "ApproachBB: starting to approach to '%s' "
-              "(success at bb_area=%.0f%%, flight_mode=%s)",
+              "(success at bb_area=%.0f%%, resolution=%.0fx%.0f, flight_mode=%s)",
               target_object_.c_str(), success_bb_area_ * 100.0,
+              frame_width_, frame_height_,
               flight_mode_.c_str());
+
+  bb_sub_ =
+      ros_state_->node->create_subscription<vision_msgs::msg::Detection2DArray>(
+          "/vision/detections", 10,
+          std::bind(&ApproachBB::bbox_callback, this, std::placeholders::_1));
 
   return BT::NodeStatus::RUNNING;
 }
@@ -171,6 +200,48 @@ BT::NodeStatus ApproachBB::onStart() {
 BT::NodeStatus ApproachBB::onRunning() {
   rclcpp::Time now = ros_state_->node->now();
   double elapsed = (now - start_time_).seconds();
+
+  // ── 1. Hard timeout check ─────────────────────────────────────────────
+  if (elapsed > timeout_) {
+    RCLCPP_WARN(ros_state_->node->get_logger(),
+                "ApproachBoundingBox: hard timeout after %.1f s", elapsed);
+    publish_neutral();
+    return BT::NodeStatus::FAILURE;
+  }
+
+  // ── 2. Object lost timeout ────────────────────────────────────────────
+  // If the BB hasn't been seen for object_lost_timeout_ seconds → FAILURE.
+  // This handles: object moved out of frame, vision node crashed, etc.
+  double time_since_detection = (now - last_detection_time_).seconds();
+  if (elapsed > 1.0 && time_since_detection > bb_lost_timeout_) {
+    // The elapsed > 1.0 guard avoids false triggers right at startup
+    // before the first detection has had a chance to arrive.
+    RCLCPP_WARN(ros_state_->node->get_logger(),
+                "ApproachBoundingBox: object '%s' lost for %.1f s → FAILURE",
+                target_object_.c_str(), time_since_detection);
+    publish_neutral();
+    return BT::NodeStatus::FAILURE;
+  }
+
+  // ── 3. BB not visible in latest frame → hold and wait ────────────────
+  if (!bb_found_) {
+    RCLCPP_INFO_THROTTLE(ros_state_->node->get_logger(), *ros_state_->node->get_clock(), 1000,
+                 "ApproachBoundingBox: [WAITING] no '%s' detected (%.1f s since last seen)",
+                 target_object_.c_str(), time_since_detection);
+    publish_neutral();
+    return BT::NodeStatus::RUNNING;
+  }
+  // ── 4. Success condition ──────────────────────────────────────────────
+  // BB area as fraction of frame area >= threshold means we are close enough.
+  // e.g. success_bb_area_ = 0.70 → BB fills 70% of screen → SUCCESS.
+  if (bb_area_norm_ >= success_bb_area_) {
+    RCLCPP_INFO(ros_state_->node->get_logger(),
+                "ApproachBoundingBox: reached '%s' (bb_area=%.1f%% >= %.1f%%)",
+                target_object_.c_str(), bb_area_norm_ * 100.0,
+                success_bb_area_ * 100.0);
+    publish_neutral();
+    return BT::NodeStatus::SUCCESS;
+  }
 
   // ── 5. Compute horizontal centering error ─────────────────────────────
   // x_error is positive when BB center is to the RIGHT of screen center.
@@ -226,12 +297,11 @@ BT::NodeStatus ApproachBB::onRunning() {
   cmd.yaw = static_cast<int>(yaw_pwm);
   ros_state_->cmd_publisher->publish(cmd);
 
-  RCLCPP_INFO(
-      ros_state_->node->get_logger(),
-      "ApproachBoundingBox: bb_area=%.1f%% x_err=%.3f y_err=%.3f depth_sp=%.2f "
-      "fwd=%d lat=%d thr=%d yaw=%d, bb_centre_x_norm=%.2f",
-      bb_area_norm_ * 100.0, x_error, y_error, adjusted_depth_setpoint,
-      cmd.forward, cmd.lateral, cmd.thrust, cmd.yaw, bb_x_center_norm_);
+  RCLCPP_INFO_THROTTLE(
+      ros_state_->node->get_logger(), *ros_state_->node->get_clock(), 1000,
+      "ApproachBB: Found '%s' (area=%.1f%%, x_err=%.3f, y_err=%.3f) -> Fwd: %d, Lat: %d, Thr: %d, Yaw: %d",
+      target_object_.c_str(), bb_area_norm_ * 100.0, x_error, y_error,
+      cmd.forward, cmd.lateral, cmd.thrust, cmd.yaw);
 
   return BT::NodeStatus::RUNNING;
 }

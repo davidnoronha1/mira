@@ -10,9 +10,13 @@ Image sources (image_source parameter):
   ros2://topic/name             - ROS2 sensor_msgs/Image topic
   camera://0                    - Default webcam (index 0)
 
+Parameters:
+  detections_topic  (string, default "/vision/detections") - topic for Detection2DArray output
+  image_topic       (string, default "/vision/image")      - topic for annotated image output
+
 Publishes:
-  ~/detections   (vision_msgs/Detection2DArray)
-  ~/image        (sensor_msgs/Image)  -- if publish_image=true
+  <detections_topic>  (vision_msgs/Detection2DArray)
+  <image_topic>       (sensor_msgs/Image)  -- if publish_image=true
 """
 
 import threading
@@ -141,9 +145,11 @@ class VisionBoundingBoxNode(Node):
         self._source = self._build_source()
 
         # Publishers
-        self._det_pub = self.create_publisher(Detection2DArray, "/vision/detections", 10)
+        det_topic = self.get_parameter("detections_topic").value
+        img_topic = self.get_parameter("image_topic").value
+        self._det_pub = self.create_publisher(Detection2DArray, det_topic, 10)
         self._img_pub = (
-            self.create_publisher(Image, "/vision/image", 10)
+            self.create_publisher(Image, img_topic, 10)
             if self.get_parameter("publish_image").value
             else None
         )
@@ -189,6 +195,9 @@ class VisionBoundingBoxNode(Node):
         self.declare_parameter("imu_topic", "/master/imu")  # sensor_msgs/Imu topic for BB estimation
         self.declare_parameter("hfov_deg", 90.0)  # Camera horizontal field of view (degrees)
         self.declare_parameter("vfov_deg", 60.0)  # Camera vertical field of view (degrees)
+        self.declare_parameter("detections_topic", "/vision/detections")
+        self.declare_parameter("image_topic", "/vision/image")
+
 
     def _resolve_model(self) -> str:
         model_name = self.get_parameter("model_name").value
@@ -390,14 +399,21 @@ class VisionBoundingBoxNode(Node):
             d.header = msg.header
 
             bb = BoundingBox2D()
-            bb.center = Pose2D(x=(x1 + x2) / 2.0, y=(y1 + y2) / 2.0, theta=0.0)
+            bb.center.position.x = float((x1 + x2) / 2.0)
+            bb.center.position.y = float((y1 + y2) / 2.0)
+            bb.center.theta = 0.0
             bb.size_x = float(x2 - x1)
             bb.size_y = float(y2 - y1)
             d.bbox = bb
 
-            hyp = ObjectHypothesisWithPose()
             cls_int = int(cls_id)
-            hyp.hypothesis.class_id = names.get(cls_int, str(cls_int))
+            class_name = names.get(cls_int, str(cls_int))
+
+            # Populate id so BT nodes can match by object name
+            d.id = class_name
+
+            hyp = ObjectHypothesisWithPose()
+            hyp.hypothesis.class_id = class_name
             hyp.hypothesis.score = float(conf)
             d.results.append(hyp)
 
