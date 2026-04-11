@@ -1,9 +1,14 @@
 <?xml version="1.0"?>
   <root BTCPP_format="4">
       <BehaviorTree ID="test_detect">
-          <DetectObjectBoundingBox
+          <ApproachBoundingBox
               object="dock"
-              detection_duration="2.0"
-              timeout="30.0"/>
+              frame_width="832.0"
+              frame_height="464.0"
+              forward_pwm="1650.0" 
+              lateral_pid_kp="300.0"
+              lateral_pid_kd="50.0"
+              yaw_pid_kp="400.0"
+              />
       </BehaviorTree>
   </root>

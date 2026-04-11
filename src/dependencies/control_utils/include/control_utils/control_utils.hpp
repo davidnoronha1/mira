@@ -74,7 +74,7 @@ public:
           base_offset = param.get_value<float>();
           ss << "base_offset=" << base_offset << " ";
         } else {
-          RCLCPP_INFO(node->get_logger(), "Unknown parameter: '%s'. Only known parameters are: '%s', '%s', '%s', '%s'",
+          RCLCPP_DEBUG(node->get_logger(), "Unknown parameter: '%s'. Only known parameters are: '%s', '%s', '%s', '%s'",
                       name.c_str(), kp_param_name.c_str(), kd_param_name.c_str(),
                       ki_param_name.c_str(), base_offset_param_name.c_str());
         }
