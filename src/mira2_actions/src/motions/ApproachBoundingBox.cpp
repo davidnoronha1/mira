@@ -139,6 +139,19 @@ BT::NodeStatus ApproachBB::onStart() {
   timeout_ = getInput<double>("timeout").value();
   flight_mode_ = getInput<std::string>("flight_mode").value();
 
+  if (frame_width_ <= 0.0) {
+    throw BT::RuntimeError("ApproachBB requires [frame_width] > 0, got ",
+                           frame_width_);
+  }
+  if (frame_height_ <= 0.0) {
+    throw BT::RuntimeError("ApproachBB requires [frame_height] > 0, got ",
+                           frame_height_);
+  }
+  if (success_bb_area_ <= 0.0) {
+    throw BT::RuntimeError(
+        "ApproachBB requires [success_area_ratio] > 0, got ",
+        success_bb_area_);
+  }
   // Lock heading at start
   locked_heading_ = ros_state_->telemetry.yaw;
 
