@@ -30,11 +30,14 @@ void ApproachBB::bbox_callback(
 
   if (found_this_frame) {
     last_detection_time_ = ros_state_->node->now();
-    RCLCPP_INFO_THROTTLE(ros_state_->node->get_logger(), *ros_state_->node->get_clock(), 1000,
-        "ApproachBB: Found '%s' (area=%.1f%%, x=%.2f, y=%.2f)",
-        target_object_.c_str(), bb_area_norm_ * 100.0, bb_x_center_norm_, bb_y_center_norm_);
+    RCLCPP_INFO_THROTTLE(ros_state_->node->get_logger(),
+                         *ros_state_->node->get_clock(), 1000,
+                         "ApproachBB: Found '%s' (area=%.1f%%, x=%.2f, y=%.2f)",
+                         target_object_.c_str(), bb_area_norm_ * 100.0,
+                         bb_x_center_norm_, bb_y_center_norm_);
   } else if (!msg->detections.empty()) {
-     RCLCPP_WARN_THROTTLE(ros_state_->node->get_logger(), *ros_state_->node->get_clock(), 2000,
+    RCLCPP_WARN_THROTTLE(
+        ros_state_->node->get_logger(), *ros_state_->node->get_clock(), 2000,
         "ApproachBB: Received %zu detections, but none match '%s'",
         msg->detections.size(), target_object_.c_str());
   }
@@ -47,7 +50,7 @@ ApproachBB::ApproachBB(const std::string &name,
       depth_pid("depth_gtbb", ros_state->node),
       yaw_pid("yaw_lock_gtbb", ros_state->node), forward_pwm_(1550.0),
       frame_width_(1.0), frame_height_(1.0), success_bb_area_(0.70),
-      bb_lost_timeout_(1.0), timeout_(20.0), flight_mode_("MANUAL"),
+      bb_lost_timeout_(1.0), timeout_(20.0), flight_mode_("STABILIZE"),
       bb_found_(false), bb_x_center_norm_(0.5), bb_y_center_norm_(0.8),
       bb_area_norm_(0.0), depth_setpoint_base_(0.0), depth_visual_gain_(10.0),
       locked_heading_(0.0) {
@@ -182,12 +185,12 @@ BT::NodeStatus ApproachBB::onStart() {
   bb_found_ = false;
   bb_area_norm_ = 0.0;
 
-  RCLCPP_INFO(ros_state_->node->get_logger(),
-              "ApproachBB: starting to approach to '%s' "
-              "(success at bb_area=%.0f%%, resolution=%.0fx%.0f, flight_mode=%s)",
-              target_object_.c_str(), success_bb_area_ * 100.0,
-              frame_width_, frame_height_,
-              flight_mode_.c_str());
+  RCLCPP_INFO(
+      ros_state_->node->get_logger(),
+      "ApproachBB: starting to approach to '%s' "
+      "(success at bb_area=%.0f%%, resolution=%.0fx%.0f, flight_mode=%s)",
+      target_object_.c_str(), success_bb_area_ * 100.0, frame_width_,
+      frame_height_, flight_mode_.c_str());
 
   bb_sub_ =
       ros_state_->node->create_subscription<vision_msgs::msg::Detection2DArray>(
@@ -225,9 +228,11 @@ BT::NodeStatus ApproachBB::onRunning() {
 
   // ── 3. BB not visible in latest frame → hold and wait ────────────────
   if (!bb_found_) {
-    RCLCPP_INFO_THROTTLE(ros_state_->node->get_logger(), *ros_state_->node->get_clock(), 1000,
-                 "ApproachBoundingBox: [WAITING] no '%s' detected (%.1f s since last seen)",
-                 target_object_.c_str(), time_since_detection);
+    RCLCPP_INFO_THROTTLE(ros_state_->node->get_logger(),
+                         *ros_state_->node->get_clock(), 1000,
+                         "ApproachBoundingBox: [WAITING] no '%s' detected "
+                         "(%.1f s since last seen)",
+                         target_object_.c_str(), time_since_detection);
     publish_neutral();
     return BT::NodeStatus::RUNNING;
   }
@@ -297,11 +302,12 @@ BT::NodeStatus ApproachBB::onRunning() {
   cmd.yaw = static_cast<int>(yaw_pwm);
   ros_state_->cmd_publisher->publish(cmd);
 
-  RCLCPP_INFO_THROTTLE(
-      ros_state_->node->get_logger(), *ros_state_->node->get_clock(), 1000,
-      "ApproachBB: Found '%s' (area=%.1f%%, x_err=%.3f, y_err=%.3f) -> Fwd: %d, Lat: %d, Thr: %d, Yaw: %d",
-      target_object_.c_str(), bb_area_norm_ * 100.0, x_error, y_error,
-      cmd.forward, cmd.lateral, cmd.thrust, cmd.yaw);
+  RCLCPP_INFO_THROTTLE(ros_state_->node->get_logger(),
+                       *ros_state_->node->get_clock(), 1000,
+                       "ApproachBB: Found '%s' (area=%.1f%%, x_err=%.3f, "
+                       "y_err=%.3f) -> Fwd: %d, Lat: %d, Thr: %d, Yaw: %d",
+                       target_object_.c_str(), bb_area_norm_ * 100.0, x_error,
+                       y_error, cmd.forward, cmd.lateral, cmd.thrust, cmd.yaw);
 
   return BT::NodeStatus::RUNNING;
 }
