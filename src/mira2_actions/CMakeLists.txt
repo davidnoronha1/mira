@@ -25,7 +25,7 @@ add_executable(mira2_actions_exe
   src/main.cpp 
   src/behaviours/DetectObjectBoundingbox.cpp
   src/behaviours/DetectTargetPoint.cpp
-  src/motions/GoToBoundingBox.cpp
+  src/motions/ApproachBoundingBox.cpp
   src/motions/AlignXY.cpp
   src/motions/ApproachWithDepth.cpp
   src/motions/HoldPosition.cpp
