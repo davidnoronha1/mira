@@ -10,9 +10,13 @@ Image sources (image_source parameter):
   ros2://topic/name             - ROS2 sensor_msgs/Image topic
   camera://0                    - Default webcam (index 0)
 
+Parameters:
+  detections_topic  (string, default "/vision/detections") - topic for Detection2DArray output
+  image_topic       (string, default "/vision/image")      - topic for annotated image output
+
 Publishes:
-  ~/detections   (vision_msgs/Detection2DArray)
-  ~/image        (sensor_msgs/Image)  -- if publish_image=true
+  <detections_topic>  (vision_msgs/Detection2DArray)
+  <image_topic>       (sensor_msgs/Image)  -- if publish_image=true
 """
 
 import threading
@@ -34,7 +38,6 @@ from vision_msgs.msg import (
     ObjectHypothesisWithPose,
     BoundingBox2D,
     Pose2D,
-    Point2D,
 )
 
 try:
@@ -141,9 +144,11 @@ class VisionBoundingBoxNode(Node):
         self._source = self._build_source()
 
         # Publishers
-        self._det_pub = self.create_publisher(Detection2DArray, "/vision/detections", 10)
+        det_topic = self.get_parameter("detections_topic").value
+        img_topic = self.get_parameter("image_topic").value
+        self._det_pub = self.create_publisher(Detection2DArray, det_topic, 10)
         self._img_pub = (
-            self.create_publisher(Image, "/vision/image", 10)
+            self.create_publisher(Image, img_topic, 10)
             if self.get_parameter("publish_image").value
             else None
         )
@@ -164,6 +169,8 @@ class VisionBoundingBoxNode(Node):
         self.declare_parameter("input_width", 640)
         self.declare_parameter("reject_reflections", True)
         self.declare_parameter("reject_threshold", 0.5)
+        self.declare_parameter("detections_topic", "/vision/detections")
+        self.declare_parameter("image_topic", "/vision/image")
 
     def _resolve_model(self) -> str:
         model_name = self.get_parameter("model_name").value
