@@ -228,16 +228,11 @@ class VisionBoundingBoxNode(Node):
             return
 
         result = results[0]
-        # boxes format: [x1, y1, x2, y2, conf, cls]
-        detections = result.boxes.data.cpu().numpy()
 
-        # Optional reflection rejection
-        if self.get_parameter("reject_reflections").value and len(detections) > 0:
-            rt = self.get_parameter("reject_threshold").value
-            detections = detections[~np.array([is_reflection(d, rt) for d in detections])]
-
-        # Publish detections
-        det_array = self._build_detection_msg(detections, result.names, stamp)
+        # Use xyxyn — Ultralytics normalises to [0,1] and handles letterbox
+        # removal internally, so coordinates are always correct regardless of
+        # model export format or input resolution.
+        det_array = self._build_detection_msg(result, stamp)
         self._det_pub.publish(det_array)
 
         # Publish / visualize image
@@ -255,36 +250,41 @@ class VisionBoundingBoxNode(Node):
                 cv2.imshow("vision_boundingbox", vis)
                 cv2.waitKey(1)
 
-    def _build_detection_msg(
-        self, detections: np.ndarray, names: dict, stamp
-    ) -> Detection2DArray:
+    def _build_detection_msg(self, result, stamp) -> Detection2DArray:
         msg = Detection2DArray()
         msg.header.stamp = stamp
         msg.header.frame_id = "camera"
 
-        for det in detections:
-            x1, y1, x2, y2, conf, cls_id = det
-            
+        boxes = result.boxes
+        if boxes is None or len(boxes) == 0:
+            return msg
+
+        # xyxyn: [x1, y1, x2, y2] normalised to [0,1] by Ultralytics,
+        # letterbox padding already removed — works for any model format.
+        xyxyn = boxes.xyxyn.cpu().numpy()
+        confs  = boxes.conf.cpu().numpy()
+        cls_ids = boxes.cls.cpu().numpy().astype(int)
+
+        for i in range(len(boxes)):
+            x1n, y1n, x2n, y2n = xyxyn[i]
+
             d = Detection2D()
             d.header = msg.header
 
             bb = BoundingBox2D()
-            bb.center.position.x = float((x1 + x2) / 2.0)
-            bb.center.position.y = float((y1 + y2) / 2.0)
+            bb.center.position.x = float((x1n + x2n) / 2.0)
+            bb.center.position.y = float((y1n + y2n) / 2.0)
             bb.center.theta = 0.0
-            bb.size_x = float(x2 - x1)
-            bb.size_y = float(y2 - y1)
+            bb.size_x = float(x2n - x1n)
+            bb.size_y = float(y2n - y1n)
             d.bbox = bb
 
-            cls_int = int(cls_id)
-            class_name = names.get(cls_int, str(cls_int))
-
-            # Populate id so BT nodes can match by object name
+            class_name = result.names.get(cls_ids[i], str(cls_ids[i]))
             d.id = class_name
 
             hyp = ObjectHypothesisWithPose()
             hyp.hypothesis.class_id = class_name
-            hyp.hypothesis.score = float(conf)
+            hyp.hypothesis.score = float(confs[i])
             d.results.append(hyp)
 
             msg.detections.append(d)
