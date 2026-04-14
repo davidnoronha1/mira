@@ -1,5 +1,6 @@
 #include "motions.hpp"
 #include "vision_msgs/msg/detection2_d_array.hpp"
+#include <behaviortree_cpp/exceptions.h>
 
 void ApproachBB::bbox_callback(
     const vision_msgs::msg::Detection2DArray::SharedPtr msg) {
@@ -144,7 +145,8 @@ BT::PortsList ApproachBB::providedPorts() {
 BT::NodeStatus ApproachBB::onStart() {
   auto object = getInput<std::string>("object");
   if (!object) {
-    throw BT::RuntimeError("Mission required input [object]: ", object.error());
+    RCLCPP_ERROR(ros_state_->node->get_logger(), "Mission required input [object], None given");
+    throw BT::RuntimeError("No object argument given");
   }
 
   target_object_ = object.value();
@@ -157,18 +159,18 @@ BT::NodeStatus ApproachBB::onStart() {
   timeout_ = getInput<double>("timeout").value();
   flight_mode_ = getInput<std::string>("flight_mode").value();
 
+  // TODO: This shouldnt throw an error.
   if (frame_width_ <= 0.0) {
-    throw BT::RuntimeError("ApproachBB requires [frame_width] > 0, got ",
-                           frame_width_);
+    RCLCPP_ERROR(ros_state_->node->get_logger(), "ApproachBB requires [frame_width] > 0, got %f", frame_width_);
+    throw BT::RuntimeError("ApproachBB requires [frame_width] > 0, got < 0");
   }
   if (frame_height_ <= 0.0) {
-    throw BT::RuntimeError("ApproachBB requires [frame_height] > 0, got ",
-                           frame_height_);
+    RCLCPP_ERROR(ros_state_->node->get_logger(), "ApproachBB requires frame_height > 0, got %f", frame_height_);
+    throw BT::RuntimeError("ApproachBB requires [frame_height] > 0, got < 0");
   }
   if (success_bb_area_ <= 0.0) {
-    throw BT::RuntimeError(
-        "ApproachBB requires [success_area_ratio] > 0, got ",
-        success_bb_area_);
+    RCLCPP_ERROR(ros_state_->node->get_logger(), "ApproachBB requires [success_area_ratio] > 0, got %f", success_bb_area_);
+    throw BT::RuntimeError("ApproachBB requires [success_area_ratio] > 0, got < 0");
   }
   // Lock heading at start
   locked_heading_ = ros_state_->telemetry.yaw;
