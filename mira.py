@@ -61,10 +61,22 @@ def step(msg: str):    print(f"   {CYAN}→{RESET} {msg}")
 DRY_RUN = False   # set via --dry-run flag; checked by run()
 RUN_IN_DOCKER = False  # set via --docker flag
 
-env_builtin = {
-    "_UID": str(os.getuid()),
-    "_GID": str(os.getgid())
-}
+def _build_subprocess_env() -> dict:
+	"""Base environment for subprocesses: os.environ with the active venv stripped out.
+	Commands that need the venv source it themselves (via WS_SOURCE / ROS_SOURCE)."""
+	env = dict(os.environ)
+	venv = env.pop("VIRTUAL_ENV", None)
+	if venv:
+		env["PATH"] = ":".join(
+			p for p in env.get("PATH", "").split(":") if not p.startswith(venv + "/")
+		)
+		# Also clear the prompt decoration left by activate
+		env.pop("PS1", None)
+	env["_UID"] = str(os.getuid())
+	env["_GID"] = str(os.getgid())
+	return env
+
+env_builtin = _build_subprocess_env()
 
 def run(
 	cmd: str,
@@ -99,7 +111,7 @@ def run(
 		return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
     
 	global env_builtin
-	env = {**os.environ, **(env_extra or {}), **(env_builtin)}
+	env = {**env_builtin, **(env_extra or {})}
 	result = subprocess.run(
 		cmd,
 		shell=True,
@@ -261,6 +273,186 @@ def find_matching_ros_targets(name: str) -> dict:
 
 
 # ─────────────────────────────────────────────
+# TUI helpers
+# ─────────────────────────────────────────────
+
+def tui_select(items: list, title: str = "Select", format_fn=None) -> Optional[any]:
+	"""
+	Interactive arrow-key + type-to-filter picker.
+	Returns the selected item, or None if cancelled (Esc / q / Ctrl-C).
+	Falls back to None silently if not running in a terminal.
+	"""
+	if not items:
+		return None
+	if not sys.stdout.isatty():
+		return None
+	if format_fn is None:
+		format_fn = str
+
+	import curses
+
+	chosen = [None]
+
+	def _run(stdscr):
+		try:
+			curses.curs_set(0)
+		except curses.error:
+			pass
+		curses.use_default_colors()
+		try:
+			curses.init_pair(1, curses.COLOR_CYAN,  -1)               # title bar
+			curses.init_pair(2, curses.COLOR_BLACK, curses.COLOR_CYAN) # selected row
+			curses.init_pair(3, curses.COLOR_YELLOW, -1)               # filter line
+		except curses.error:
+			pass
+
+		query  = ""
+		cursor = 0
+		offset = 0
+
+		while True:
+			stdscr.erase()
+			h, w = stdscr.getmaxyx()
+
+			filtered = [it for it in items
+			            if not query or query.lower() in format_fn(it).lower()]
+
+			cursor = min(cursor, max(0, len(filtered) - 1))
+
+			# ── title
+			try:
+				stdscr.addstr(0, 0, f" {title} "[:w],
+				              curses.color_pair(1) | curses.A_BOLD)
+			except curses.error:
+				pass
+
+			# ── filter line
+			try:
+				stdscr.addstr(1, 0, f" /{query}"[:w], curses.color_pair(3))
+			except curses.error:
+				pass
+
+			# ── separator
+			try:
+				stdscr.addstr(2, 0, ("─" * w)[:w])
+			except curses.error:
+				pass
+
+			# ── list
+			list_h = max(1, h - 5)
+			if cursor < offset:
+				offset = cursor
+			elif cursor >= offset + list_h:
+				offset = cursor - list_h + 1
+
+			for i in range(list_h):
+				idx = i + offset
+				if idx >= len(filtered):
+					break
+				label = " " + format_fn(filtered[idx])
+				try:
+					if idx == cursor:
+						stdscr.addstr(3 + i, 0, ("▶" + label)[:w],
+						              curses.color_pair(2) | curses.A_BOLD)
+					else:
+						stdscr.addstr(3 + i, 0, (" " + label)[:w])
+				except curses.error:
+					pass
+
+			# ── bottom hint
+			hint = " ↑↓ navigate  Enter select  Esc/q cancel  type to filter"
+			try:
+				stdscr.addstr(h - 2, 0, ("─" * w)[:w])
+				stdscr.addstr(h - 1, 0, hint[:w])
+			except curses.error:
+				pass
+
+			stdscr.refresh()
+
+			try:
+				key = stdscr.get_wch()
+			except curses.error:
+				continue
+
+			if key == curses.KEY_UP:
+				cursor = max(0, cursor - 1)
+			elif key == curses.KEY_DOWN:
+				cursor = min(len(filtered) - 1, cursor + 1)
+			elif key in ("\n", "\r", curses.KEY_ENTER):
+				if filtered:
+					chosen[0] = filtered[cursor]
+				break
+			elif key == "\x1b":          # Esc
+				break
+			elif key in ("\x7f", curses.KEY_BACKSPACE, "\x08"):
+				query  = query[:-1]
+				cursor = 0
+				offset = 0
+			elif key == "q" and not query:
+				break
+			elif isinstance(key, str) and key.isprintable():
+				query += key
+				cursor = 0
+				offset = 0
+
+	try:
+		curses.wrapper(_run)
+	except KeyboardInterrupt:
+		pass
+
+	return chosen[0]
+
+
+def _find_all_launch_files() -> list[tuple[str, str]]:
+	"""Return [(package, filename), ...] for every launch file under src/."""
+	src_path = Path("src")
+	if not src_path.exists():
+		return []
+
+	result: list[tuple[str, str]] = []
+	seen: set[tuple[str, str]] = set()
+
+	for pattern in ["**/*.launch", "**/*.launch.py", "**/*.launch.xml"]:
+		for lf in sorted(src_path.glob(pattern)):
+			package = None
+			cur = lf.parent
+			while cur != src_path and cur != cur.parent:
+				if (cur / "package.xml").exists():
+					package = cur.name
+					break
+				cur = cur.parent
+			if not package and len(lf.parts) >= 2:
+				package = lf.parts[1]
+			if package:
+				key = (package, lf.name)
+				if key not in seen:
+					seen.add(key)
+					result.append(key)
+	return result
+
+
+def _find_all_executables() -> list[tuple[str, str]]:
+	"""Return [(package, executable), ...] from install/*/lib/*/."""
+	install_path = Path("install")
+	if not install_path.exists():
+		return []
+
+	result: list[tuple[str, str]] = []
+	for pkg_dir in sorted(install_path.iterdir()):
+		if not pkg_dir.is_dir() or pkg_dir.name in {"_local_setup_util_sh.py", "COLCON_IGNORE"}:
+			continue
+		lib_dir = pkg_dir / "lib" / pkg_dir.name
+		if lib_dir.exists():
+			for item in sorted(lib_dir.iterdir()):
+				if (item.is_file()
+						and os.access(item, os.X_OK)
+						and item.suffix not in {".so", ".a", ".py"}
+						and not item.name.startswith("lib")):
+					result.append((pkg_dir.name, item.name))
+	return result
+
+
+# ─────────────────────────────────────────────
 # Task registration decorator
 # ─────────────────────────────────────────────
 
@@ -342,6 +534,8 @@ COLCON_ARGS = (
 	f"--cmake-args {CMAKE_ARGS} "
 	f"--parallel-workers {NPROC} "
 	f"--event-handlers console_cohesion+ "
+	f"--continue-on-error "
+	f"--symlink-install "
 	f"{SKIP_FLAGS}"
 )
 
@@ -354,6 +548,15 @@ ROS_SOURCE    = "source /opt/ros/jazzy/setup.bash"
 # Pre-flight checks  (reusable functions)
 # ─────────────────────────────────────────────
 
+def _path_without_venv() -> str:
+	"""Return PATH with any active virtualenv bin directory removed."""
+	venv = os.environ.get("VIRTUAL_ENV", "")
+	parts = os.environ.get("PATH", "").split(":")
+	if venv:
+		parts = [p for p in parts if not p.startswith(venv + "/")]
+	return ":".join(parts)
+
+
 def check_uv():
 	if not exists("uv"):
 		error("uv is not installed. Install with: curl -LsSf https://astral.sh/uv/install.sh | sh")
@@ -363,8 +566,14 @@ def check_uv():
 	else:
 		info("Virtual environment found at .venv.")
 
+	# When mira.py itself is run inside the venv (e.g. `python3 mira.py`) the
+	# venv's bin/ sits at the front of PATH, making `which python3` point there
+	# instead of /usr/bin.  Strip the venv from PATH for this check only.
+	in_venv = bool(os.environ.get("VIRTUAL_ENV"))
+	sys_path = _path_without_venv() if in_venv else os.environ.get("PATH", "")
+
 	for name, expected in [("python3", "/usr/bin/python3"), ("python3.12", "/usr/bin/python3.12")]:
-		path = which_or_empty(name)
+		path = shutil.which(name, path=sys_path) or ""
 		if not path:
 			error(f"{name} not found in PATH"); sys.exit(1)
 		if path != expected:
@@ -372,31 +581,8 @@ def check_uv():
 		info(f"{name} → {path}")
 
 
-def check_git_branch():
-	"""Check if the git branch is master and if it's out of date."""
-	try:
-		# Get current branch name
-		branch = sh("git rev-parse --abbrev-ref HEAD")
-		
-		if branch != "master":
-			warn(f"Current branch is '{branch}', not 'master'")
-		
-		# Check if the branch is out of date
-		# Fetch remote without pulling to get latest remote info
-		run("git fetch origin", hidden=True, check=False)
-		local_commit = sh("git rev-parse HEAD")
-		remote_commit = sh("git rev-parse origin/master", check=False)
-		
-		if local_commit != remote_commit:
-			warn(f"Branch '{branch}' is out of date with remote")
-	except Exception as e:
-		# Silently fail if not a git repo or git commands fail
-		pass
-
-
 def check_ros():
 	check_uv()
-	check_git_branch()
 	if not Path("/opt/ros/jazzy").exists():
 		error("ROS Jazzy not found at /opt/ros/jazzy. Only ROS Jazzy is supported.")
 		sys.exit(1)
@@ -640,14 +826,27 @@ def target_proxy_pixhawk(laptop_ip: str):
 @task("Open an interactive bash shell with workspace sourced")
 def target_shell():
 	"""Open an interactive bash shell with workspace sourced."""
-	header("Opening workspace shell...")
-	rcfile = (
-		f"cd {Path('.').resolve()} && "
-		f"source $HOME/.bashrc && "
-		f"source {Path('.').resolve()}/.venv/bin/activate && "
-		f"source {Path('.').resolve()}/install/setup.bash"
-	)
-	os.execlp("bash", "bash", "--rcfile", f"<(echo '{rcfile}')")
+	import tempfile
+
+	ws         = Path(".").resolve()
+	prompt_py  = Path(__file__).resolve().parent / "misc" / "prompt.py"
+
+	# Write an rc file to a temp path; bash reads it on startup.
+	# We use delete=False because os.execlp() replaces this process — we can't
+	# clean up ourselves, but /tmp is ephemeral so that's fine.
+	with tempfile.NamedTemporaryFile(mode="w", suffix=".sh", delete=False, prefix="mira_rc_") as f:
+		f.write(f"""\
+# mira shell rc — auto-generated by mira.py shell
+cd {ws}
+[ -f "$HOME/.bashrc" ] && source "$HOME/.bashrc"
+source {ws}/.venv/bin/activate
+source {ws}/install/setup.bash
+export PS1='$(python3 {prompt_py})'
+""")
+		rc_path = f.name
+
+	header("Opening workspace shell  (exit to return)")
+	os.execlp("bash", "bash", "--rcfile", rc_path)
 
 
 @task("View an RTSP stream using ffplay (requires --rtsp-url)")
@@ -668,24 +867,26 @@ def target_view_rtsp_stream(rtsp_url: Optional[str] = None):
 	run(f'ffplay -fflags nobuffer -flags low_delay -framedrop -vf "setpts=0" {rtsp_url}')
 
 
-@task("Launch a camera node (--name bottomcam|frontcam|auto)")
-def target_camera(name: str):
-	"""Launch a camera node. name = bottomcam | frontcam | auto"""
+CAMERA_OPTIONS = ["bottomcam", "frontcam", "auto", "zed"]
+
+@task("Launch a camera node (bottomcam | frontcam | auto | zed) — TUI if no arg")
+def target_camera(name: Optional[str] = None):
+	"""Launch a camera node.  name = bottomcam | frontcam | auto | zed"""
 	check_ros()
+	if not name:
+		name = tui_select(CAMERA_OPTIONS, title="Select Camera")
+		if name is None:
+			return
 	if name == "auto":
-		run(f"{WS_SOURCE} && {GSTREAMER_FIX} && ros2 launch mira2_perception camera_auto.launch")
+		run(f"{WS_SOURCE} && {GSTREAMER_FIX} && ros2 launch mira2_perception camera_auto.launch.py")
 	elif name == "bottomcam":
-		run(
-			f"{WS_SOURCE} && {GSTREAMER_FIX} && "
-			f"ros2 launch mira2_perception camera_bottom.launch"
-		)
+		run(f"{WS_SOURCE} && {GSTREAMER_FIX} && ros2 launch mira2_perception camera_bottom.launch.py")
 	elif name == "frontcam":
-		run(
-			f"{WS_SOURCE} && {GSTREAMER_FIX} && "
-			f"ros2 launch mira2_perception camera_front.launch"
-		)
+		run(f"{WS_SOURCE} && {GSTREAMER_FIX} && ros2 launch mira2_perception camera_front.launch.py")
+	elif name == "zed":
+		run(f"{WS_SOURCE} && {GSTREAMER_FIX} && ros2 launch mira2_perception camera_zed.launch")
 	else:
-		error(f"Unknown camera name: {name}. Valid options: bottomcam, frontcam, auto")
+		error(f"Unknown camera: '{name}'. Valid options: {', '.join(CAMERA_OPTIONS)}")
 
 
 @task("Launch alternative master control")
@@ -701,237 +902,183 @@ def target_teleop():
 	run(f"{WS_SOURCE} && ros2 launch mira2_rov teleop.launch")
 
 
-@task("Find and run ROS2 launch files from workspace (--file to specify)")
-def target_launch(launch_file: Optional[str] = None):
-	"""Find and run ROS2 launch files from the workspace."""
+@task("Launch a ROS2 launch file — TUI picker if no args given", aliases=["l"])
+def target_launch(*args):
+	"""ros2 launch with TUI selection when no file is specified.
+
+	Usage:
+	    mira.py launch                        # interactive TUI picker
+	    mira.py l <file>                      # search all packages for <file>
+	    mira.py launch <package> <file>       # explicit package + file
+	"""
 	check_ros()
-	
-	# Find all launch files in the src directory
-	src_path = Path("src")
-	if not src_path.exists():
-		error("src/ directory not found. Are you in the workspace root?")
-		sys.exit(1)
-	
-	# Find all .launch, .launch.py, and .launch.xml files
-	launch_files = []
-	for pattern in ["**/*.launch", "**/*.launch.py", "**/*.launch.xml"]:
-		launch_files.extend(src_path.glob(pattern))
-	
+
+	launch_files = _find_all_launch_files()
 	if not launch_files:
-		warn("No launch files found in src/")
+		warn("No launch files found in src/. Have you built the workspace?")
 		return
-	
-	# Organize by package
-	launch_by_package = {}
-	for lf in launch_files:
-		# Find the actual ROS2 package by looking for package.xml
-		# Start from the launch file's parent and walk up until we find package.xml
-		package = None
-		current_dir = lf.parent
-		while current_dir != src_path and current_dir.parent != src_path.parent:
-			if (current_dir / "package.xml").exists():
-				package = current_dir.name
-				break
-			current_dir = current_dir.parent
-		
-		# Fallback: use the directory directly under src/ if no package.xml found
-		if not package and len(lf.parts) >= 2:
-			package = lf.parts[1]
-		
-		if package:
-			if package not in launch_by_package:
-				launch_by_package[package] = []
-			launch_by_package[package].append(lf)
-	
-	# If no launch file specified, list all available
-	if not launch_file:
-		header("Available launch files:")
-		print()
-		for package in sorted(launch_by_package.keys()):
-			print(f"{BOLD}{CYAN}{package}:{RESET}")
-			for lf in sorted(launch_by_package[package]):
-				# Find the package directory to show relative path properly
-				package_dir = None
-				current_dir = lf.parent
-				while current_dir != src_path and current_dir.parent != src_path.parent:
-					if (current_dir / "package.xml").exists():
-						package_dir = current_dir
-						break
-					current_dir = current_dir.parent
-				
-				# Show relative path from package
-				if package_dir:
-					rel_path = lf.relative_to(package_dir)
-				else:
-					rel_path = lf.relative_to(src_path / package)
-				print(f"  • {lf.name:<40} {YELLOW}({rel_path.parent}){RESET}")
-			print()
-		
-		print(f"\n{BOLD}Usage:{RESET}")
-		print(f"  python mira.py launch --file <package> <launch_file>")
-		print(f"  python mira.py launch --file mira2_perception camera_auto.launch")
-		print()
-		return
-	
-	# Parse the launch file argument (format: "package launch_file" or just "launch_file")
-	parts = launch_file.split()
-	if len(parts) == 2:
-		package_name, file_name = parts
-	elif len(parts) == 1:
-		# Try to find the file in any package
-		file_name = parts[0]
-		matching_files = [lf for lf in launch_files if lf.name == file_name]
-		
-		if not matching_files:
-			error(f"Launch file '{file_name}' not found in workspace")
+
+	fmt = lambda x: f"{x[0]:<32} {x[1]}"
+
+	if len(args) == 0:
+		# Interactive TUI
+		item = tui_select(launch_files, title="Select Launch File", format_fn=fmt)
+		if item is None:
+			return
+		package_name, file_name = item
+
+	elif len(args) == 1:
+		query = args[0]
+		matches = [(p, f) for p, f in launch_files
+		           if f == query or query in f]
+		if not matches:
+			error(f"No launch file matching '{query}' found in workspace")
 			sys.exit(1)
-		elif len(matching_files) > 1:
-			error(f"Multiple launch files named '{file_name}' found. Please specify package:")
-			for lf in matching_files:
-				# Find the package name by looking for package.xml
-				package = None
-				current_dir = lf.parent
-				while current_dir != src_path and current_dir.parent != src_path.parent:
-					if (current_dir / "package.xml").exists():
-						package = current_dir.name
-						break
-					current_dir = current_dir.parent
-				
-				if not package and len(lf.parts) >= 2:
-					package = lf.parts[1]
-				
-				print(f"  • {package} {file_name}")
-			sys.exit(1)
-		
-		# Use the single match
-		launch_path = matching_files[0]
-		# Find the package name by looking for package.xml
-		package_name = None
-		current_dir = launch_path.parent
-		while current_dir != src_path and current_dir.parent != src_path.parent:
-			if (current_dir / "package.xml").exists():
-				package_name = current_dir.name
-				break
-			current_dir = current_dir.parent
-		
-		# Fallback to directory under src/ if no package.xml found
-		if not package_name and len(launch_path.parts) >= 2:
-			package_name = launch_path.parts[1]
+		if len(matches) == 1:
+			package_name, file_name = matches[0]
+		else:
+			item = tui_select(matches, title=f"Matches for '{query}'", format_fn=fmt)
+			if item is None:
+				return
+			package_name, file_name = item
+
+	elif len(args) == 2:
+		package_name, file_name = args[0], args[1]
+		# Accept partial filename match within the given package
+		if (package_name, file_name) not in launch_files:
+			candidates = [(p, f) for p, f in launch_files
+			              if p == package_name and (f == file_name or f.startswith(file_name))]
+			if not candidates:
+				error(f"Launch file '{file_name}' not found in package '{package_name}'")
+				sys.exit(1)
+			package_name, file_name = candidates[0]
+
 	else:
-		error("Invalid --file format. Use: --file <package> <launch_file> or --file <launch_file>")
+		error("Usage: mira.py launch [package] [file]")
 		sys.exit(1)
-	
-	# Find the exact launch file
-	if len(parts) == 2:
-		if package_name not in launch_by_package:
-			error(f"Package '{package_name}' not found or has no launch files")
-			sys.exit(1)
-		
-		matching = [lf for lf in launch_by_package[package_name] if lf.name == file_name]
-		if not matching:
-			error(f"Launch file '{file_name}' not found in package '{package_name}'")
-			sys.exit(1)
-		
-		launch_path = matching[0]
-	
-	# Run the launch file
+
 	header(f"Launching {package_name}/{file_name}...")
 	run(f"{WS_SOURCE} && ros2 launch {package_name} {file_name}")
 
 
-@task("Find and run ROS2 nodes from workspace (--node to specify)")
-def target_run(node_spec: Optional[str] = None):
-	"""Find and run ROS2 executable nodes from the workspace."""
+@task("Run a ROS2 node — TUI picker if no args given", aliases=["r"])
+def target_run(*args):
+	"""ros2 run with TUI selection when no node is specified.
+
+	Usage:
+	    mira.py run                           # interactive TUI picker
+	    mira.py r <executable>               # search all packages for <executable>
+	    mira.py run <package> <executable>   # explicit package + executable
+	"""
 	check_ros()
-	
-	# Check if install directory exists
-	install_path = Path("install")
-	if not install_path.exists():
-		error("install/ directory not found. Build the workspace first with: python mira.py build")
-		sys.exit(1)
-	
-	# Find all executables in install/*/lib/*/
-	executables_by_package = {}
-	
-	for package_dir in install_path.iterdir():
-		if not package_dir.is_dir() or package_dir.name in ["_local_setup_util_sh.py", "COLCON_IGNORE"]:
-			continue
-		
-		lib_dir = package_dir / "lib" / package_dir.name
-		if lib_dir.exists() and lib_dir.is_dir():
-			executables = []
-			for item in lib_dir.iterdir():
-				# Check if it's an executable file (not a directory, not a .so/.a library)
-				if (item.is_file() and 
-					os.access(item, os.X_OK) and 
-					not item.suffix in ['.so', '.a', '.py'] and
-					not item.name.startswith('lib')):
-					executables.append(item.name)
-			
-			if executables:
-				executables_by_package[package_dir.name] = sorted(executables)
-	
-	if not executables_by_package:
-		warn("No executable nodes found in install/")
-		info("Make sure you've built the workspace with: python mira.py build")
+
+	executables = _find_all_executables()
+	if not executables:
+		warn("No executables found in install/. Build the workspace first.")
 		return
-	
-	# If no node specified, list all available
-	if not node_spec:
-		header("Available ROS2 nodes:")
-		print()
-		for package in sorted(executables_by_package.keys()):
-			print(f"{BOLD}{CYAN}{package}:{RESET}")
-			for exe in executables_by_package[package]:
-				print(f"  • {exe}")
-			print()
-		
-		print(f"\n{BOLD}Usage:{RESET}")
-		print(f"  python mira.py run --node <package> <executable>")
-		print(f"  python mira.py run --node mira2_control_master alt_master")
-		print(f"  python mira.py run --node <executable>  # if name is unique")
-		print()
-		return
-	
-	# Parse the node specification (format: "package executable" or just "executable")
-	parts = node_spec.split()
-	if len(parts) == 2:
-		package_name, executable_name = parts
-	elif len(parts) == 1:
-		# Try to find the executable in any package
-		executable_name = parts[0]
-		matching_packages = [pkg for pkg, exes in executables_by_package.items() if executable_name in exes]
-		
-		if not matching_packages:
-			error(f"Executable '{executable_name}' not found in workspace")
+
+	fmt = lambda x: f"{x[0]:<32} {x[1]}"
+
+	if len(args) == 0:
+		item = tui_select(executables, title="Select ROS2 Executable", format_fn=fmt)
+		if item is None:
+			return
+		package_name, exe_name = item
+
+	elif len(args) == 1:
+		query = args[0]
+		matches = [(p, e) for p, e in executables if e == query or query in e]
+		if not matches:
+			error(f"No executable matching '{query}' found in workspace")
 			sys.exit(1)
-		elif len(matching_packages) > 1:
-			error(f"Multiple packages have an executable named '{executable_name}'. Please specify package:")
-			for pkg in matching_packages:
-				print(f"  • {pkg} {executable_name}")
-			sys.exit(1)
-		
-		# Use the single match
-		package_name = matching_packages[0]
+		if len(matches) == 1:
+			package_name, exe_name = matches[0]
+		else:
+			item = tui_select(matches, title=f"Matches for '{query}'", format_fn=fmt)
+			if item is None:
+				return
+			package_name, exe_name = item
+
+	elif len(args) == 2:
+		package_name, exe_name = args[0], args[1]
+
 	else:
-		error("Invalid --node format. Use: --node <package> <executable> or --node <executable>")
+		error("Usage: mira.py run [package] [executable]")
 		sys.exit(1)
-	
-	# Verify the package and executable exist
-	if package_name not in executables_by_package:
-		error(f"Package '{package_name}' not found or has no executables")
+
+	header(f"Running {package_name}/{exe_name}...")
+	run(f"{WS_SOURCE} && ros2 run {package_name} {exe_name}")
+
+
+@task("Call a running ROS2 service — TUI picker if no args given", aliases=["svc"])
+def target_service(*args):
+	"""Discover live ROS2 services and call them with TUI selection.
+
+	Usage:
+	    mira.py svc                               # TUI picker from live services
+	    mira.py svc <service>                     # call named service (auto-fill payload)
+	    mira.py svc <service> <yaml_payload>      # call with explicit YAML payload
+	"""
+	check_ros()
+
+	# Discover live services — needs a running ROS daemon
+	result = run(f"{WS_SOURCE} && ros2 service list", capture=True, check=False, hidden=True)
+	if result.returncode != 0 or not result.stdout.strip():
+		warn("No services found. Is a ROS2 system running?")
+		return
+
+	services = sorted(s.strip() for s in result.stdout.strip().splitlines() if s.strip())
+
+	if len(args) == 0:
+		service_name = tui_select(services, title="Select ROS2 Service")
+		if service_name is None:
+			return
+	elif len(args) >= 1:
+		service_name = args[0]
+	else:
+		error("Usage: mira.py svc [service_name] [yaml_payload]")
 		sys.exit(1)
-	
-	if executable_name not in executables_by_package[package_name]:
-		error(f"Executable '{executable_name}' not found in package '{package_name}'")
-		print(f"Available executables in {package_name}:")
-		for exe in executables_by_package[package_name]:
-			print(f"  • {exe}")
+
+	# Get the service type
+	type_result = run(
+		f"{WS_SOURCE} && ros2 service type {service_name}",
+		capture=True, check=False, hidden=True,
+	)
+	if type_result.returncode != 0:
+		error(f"Could not determine type for service: {service_name}")
 		sys.exit(1)
-	
-	# Run the node
-	header(f"Running {package_name}/{executable_name}...")
-	run(f"{WS_SOURCE} && ros2 run {package_name} {executable_name}")
+	service_type = type_result.stdout.strip()
+
+	# Determine payload
+	if len(args) >= 2:
+		payload = args[1]
+	else:
+		# Auto-fill for common simple types
+		SIMPLE = {
+			"std_srvs/srv/Trigger": "{}",
+			"std_srvs/srv/Empty":   "{}",
+		}
+		if service_type in SIMPLE:
+			payload = SIMPLE[service_type]
+			info(f"Type: {service_type}  →  payload: {payload}")
+		elif service_type == "std_srvs/srv/SetBool":
+			raw = input(f"  {CYAN}SetBool data{RESET} [true/false]: ").strip().lower()
+			payload = f"{{data: {'true' if raw in ('t', 'true', '1', 'y', 'yes') else 'false'}}}"
+		else:
+			info(f"Service type: {service_type}")
+			run(f"ros2 interface show {service_type}", check=False)
+			payload = input(f"  {CYAN}Request payload{RESET} (YAML, e.g. {{}}): ").strip() or "{}"
+
+	header(f"Calling {service_name}...")
+	run(f"{WS_SOURCE} && ros2 service call {service_name} {service_type} '{payload}'")
+
+
+@task("Launch alt_master connected to ArduPilot SITL on localhost:5760")
+def target_alt_master_sitl():
+	"""Launch alt_master in SITL mode (ArduPilot SITL assumed on same host, port 5760)."""
+	check_ros()
+	run(f"{WS_SOURCE} && ros2 run mira2_control_master alt_master "
+	    f"--ros-args -p pixhawk_address:=tcp:127.0.0.1:5760")
 
 
 @task("Open a root shell inside the mira Docker container")
@@ -959,130 +1106,151 @@ def target_setup():
 # CLI
 # ─────────────────────────────────────────────
 
+def _print_targets():
+	print(f"\n{BOLD}Available targets:{RESET}\n")
+	seen: set = set()
+	for name, task_info in sorted(TASKS.items()):
+		fn = task_info["fn"]
+		if fn in seen:
+			continue
+		seen.add(fn)
+		aliases = task_info.get("aliases", [])
+		alias_str = f"  ({', '.join(aliases)})" if aliases else ""
+		print(f"  {CYAN}{name:<26}{RESET}{alias_str:<14} {task_info['label']}")
+	print()
+	print(f"  {BOLD}Global flags:{RESET}  --dry-run   --docker   --list")
+	print()
+
+
 def main():
 	global DRY_RUN, RUN_IN_DOCKER
 
-	parser = argparse.ArgumentParser(
-		description="MIRA workspace build tool",
-		formatter_class=argparse.RawDescriptionHelpFormatter,
-	)
-	parser.add_argument("target", nargs="?", help="Target to run")
-	parser.add_argument("--list",       action="store_true",  help="List all targets")
-	parser.add_argument("--dry-run",    action="store_true",  help="Print commands without running them")
-	parser.add_argument("--docker",     action="store_true",  help="Run this task inside the Docker container")
-	parser.add_argument("-p", "--package", metavar="PKG",     help="Package name (for b / build --packages-select)")
-	parser.add_argument("--laptop-ip",  metavar="IP",         help="Laptop IP for proxy-pixhawk")
-	parser.add_argument("--pixhawk-port", default="/dev/Pixhawk", help="Pixhawk device path (default: /dev/Pixhawk, SITL: tcp:localhost:5760, proxy: tcp:localhost:14551)")
-	parser.add_argument("--name",       default="bottomcam",  help="Camera name for camera target")
-	parser.add_argument("--python-version", default="python3.12", help="Python version for mavproxy install")
-	parser.add_argument("--file",       metavar="LAUNCH",     help="Launch file for launch target (format: 'package file' or 'file')")
-	parser.add_argument("--node",       metavar="NODE",       help="Node for run target (format: 'package executable' or 'executable')")
-	parser.add_argument("--rtsp-url",   metavar="URL",        help="RTSP stream URL for view-rtsp-stream target")
-	
-	# Enable argcomplete if available
-	if HAS_ARGCOMPLETE:
-		argcomplete.autocomplete(parser)
-	
-	args = parser.parse_args()
+	argv = sys.argv[1:]
 
-	DRY_RUN = args.dry_run
-	RUN_IN_DOCKER = args.docker
+	# ── Strip global flags anywhere in argv ─────────────────
+	if "--dry-run" in argv:
+		DRY_RUN = True
+		argv = [a for a in argv if a != "--dry-run"]
 
-	if args.list or not args.target:
-		print(f"\n{BOLD}Available targets:{RESET}")
-		# Only show unique tasks (not aliases) and sort them
-		seen = set()
-		for name, task_info in TASKS.items():
-			fn = task_info["fn"]
-			if fn not in seen:
-				seen.add(fn)
-				print(f"  {CYAN}{name:<22}{RESET} {task_info['label']}")
-		print()
+	if "--docker" in argv:
+		RUN_IN_DOCKER = True
+		argv = [a for a in argv if a != "--docker"]
+
+	# ── No command → build by default ───────────────────────
+	if not argv:
+		target_build()
 		return
 
-	# If --docker flag is set, re-run this script inside Docker
+	if argv[0] in ("--list", "-l"):
+		_print_targets()
+		return
+
+	if argv[0] in ("--help", "-h"):
+		_print_targets()
+		return
+
+	cmd  = argv[0]
+	rest = argv[1:]
+
+	# ── Docker passthrough ───────────────────────────────────
 	if RUN_IN_DOCKER:
 		run_task_in_docker(sys.argv)
 		return
 
-	t = args.target.lower()
+	# ── Dispatch ─────────────────────────────────────────────
 
-	# Look up the task in our registry
-	task_info = TASKS.get(t)
-	if task_info is None:
-		# Target not found - search for matching ROS2 executables and launch files
-		matches = find_matching_ros_targets(args.target)
-		
-		total_matches = len(matches["executables"]) + len(matches["launch_files"])
-		
-		if total_matches == 0:
-			error(f"Unknown target: '{args.target}'")
-			print(f"Run {CYAN}python mira.py --list{RESET} to see available targets.")
-			print(f"Or run {CYAN}python mira.py run{RESET} to see ROS2 executables.")
-			print(f"Or run {CYAN}python mira.py launch{RESET} to see launch files.")
-			sys.exit(1)
-		elif total_matches == 1:
-			# Exactly one match - run it automatically
-			if matches["executables"]:
-				package, exe_name = matches["executables"][0]
-				info(f"Found executable: {package}/{exe_name}")
-				header(f"Running {package}/{exe_name}...")
-				check_ros()
-				run(f"{WS_SOURCE} && ros2 run {package} {exe_name}")
-			else:
-				package, launch_name = matches["launch_files"][0]
-				info(f"Found launch file: {package}/{launch_name}")
-				header(f"Launching {package}/{launch_name}...")
-				check_ros()
-				run(f"{WS_SOURCE} && ros2 launch {package} {launch_name}")
-			return
-		else:
-			# Multiple matches - prefer executable over launch file
-			if matches["executables"]:
-				package, exe_name = matches["executables"][0]
-				warn(f"Multiple matches found for '{args.target}', preferring executable")
-				info(f"Running: {package}/{exe_name}")
-				if matches["launch_files"]:
-					print(f"  {YELLOW}Alternative: ros2 launch {matches['launch_files'][0][0]} {matches['launch_files'][0][1]}{RESET}")
-				header(f"Running {package}/{exe_name}...")
-				check_ros()
-				run(f"{WS_SOURCE} && ros2 run {package} {exe_name}")
-			else:
-				# Only launch files matched (multiple of them)
-				package, launch_name = matches["launch_files"][0]
-				warn(f"Multiple launch files found for '{args.target}', using first match")
-				info(f"Launching: {package}/{launch_name}")
-				header(f"Launching {package}/{launch_name}...")
-				check_ros()
-				run(f"{WS_SOURCE} && ros2 launch {package} {launch_name}")
-			return
+	# launch / l  — positional args after the command
+	if cmd in ("launch", "l"):
+		target_launch(*rest)
+		return
 
-	# Get the function and call it with appropriate arguments
-	fn = task_info["fn"]
-	fn_name = fn.__name__.replace("target_", "")
-	
-	# Map task names to their argument providers
-	if fn_name in ["build", "b"]:
-		fn(args.package)
-	elif fn_name == "install_mavproxy":
-		fn(args.python_version)
-	elif fn_name == "proxy_pixhawk":
-		fn(args.laptop_ip)
-	elif fn_name == "camera":
-		fn(args.name)
-	elif fn_name == "alt_master":
-		fn(args.pixhawk_port)
-	elif fn_name == "launch":
-		fn(args.file)
-	elif fn_name == "run":
-		fn(args.node)
-	elif fn_name == "view_rtsp_stream":
-		fn(args.rtsp_url)
-	elif fn_name in ["validate_all", "enable_autocomplete"]:
-		# Tasks that take no arguments
-		fn()
+	# run / r  — positional args after the command
+	if cmd in ("run", "r"):
+		target_run(*rest)
+		return
+
+	# service / svc
+	if cmd in ("service", "svc"):
+		target_service(*rest)
+		return
+
+	# build / b  — optional package as first positional or -p flag
+	if cmd in ("build", "b"):
+		pkg = None
+		if rest:
+			if rest[0] == "-p" and len(rest) > 1:
+				pkg = rest[1]
+			elif not rest[0].startswith("-"):
+				pkg = rest[0]
+		target_build(pkg)
+		return
+
+	# camera  — optional name as positional arg
+	if cmd == "camera":
+		target_camera(rest[0] if rest else None)
+		return
+
+	# alt-master / alt_master  — optional port as positional arg
+	if cmd in ("alt-master", "alt_master"):
+		target_alt_master(rest[0] if rest else "/dev/Pixhawk")
+		return
+
+	# alt-master-sitl
+	if cmd in ("alt-master-sitl", "alt_master_sitl"):
+		target_alt_master_sitl()
+		return
+
+	# proxy-pixhawk  — optional laptop IP as positional arg
+	if cmd in ("proxy-pixhawk", "proxy_pixhawk"):
+		target_proxy_pixhawk(rest[0] if rest else None)
+		return
+
+	# install-mavproxy  — optional python version as positional arg
+	if cmd in ("install-mavproxy", "install_mavproxy"):
+		target_install_mavproxy(rest[0] if rest else "python3.12")
+		return
+
+	# view-rtsp-stream  — URL as positional arg
+	if cmd in ("view-rtsp-stream", "view_rtsp_stream"):
+		target_view_rtsp_stream(rest[0] if rest else None)
+		return
+
+	# ── Task registry (no-arg tasks) ────────────────────────
+	task_info = TASKS.get(cmd)
+	if task_info is not None:
+		task_info["fn"]()
+		return
+
+	# ── Fuzzy ROS target search ──────────────────────────────
+	matches = find_matching_ros_targets(cmd)
+	all_ros = (
+		[("run",    p, n) for p, n in matches["executables"]] +
+		[("launch", p, n) for p, n in matches["launch_files"]]
+	)
+
+	if not all_ros:
+		error(f"Unknown target: '{cmd}'")
+		print(f"  Run {CYAN}python mira.py --list{RESET} to see available targets.")
+		print(f"  Run {CYAN}python mira.py run{RESET}    for a TUI node picker.")
+		print(f"  Run {CYAN}python mira.py launch{RESET} for a TUI launch picker.")
+		sys.exit(1)
+
+	check_ros()
+
+	if len(all_ros) == 1:
+		kind, pkg, name = all_ros[0]
+		header(f"{kind.title()}ing {pkg}/{name}...")
+		run(f"{WS_SOURCE} && ros2 {kind} {pkg} {name}")
 	else:
-		fn()
+		item = tui_select(
+			all_ros,
+			title=f"Multiple matches for '{cmd}'",
+			format_fn=lambda x: f"[{x[0]}] {x[1]}/{x[2]}",
+		)
+		if item:
+			kind, pkg, name = item
+			header(f"{kind.title()}ing {pkg}/{name}...")
+			run(f"{WS_SOURCE} && ros2 {kind} {pkg} {name}")
 
 
 if __name__ == "__main__":

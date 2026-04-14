@@ -6,6 +6,9 @@ export RCUTILS_CONSOLE_OUTPUT_FORMAT={severity} {message}
 # export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
 export MACHINE_IP=$(shell hostname -I | awk '{print $$1}')
 export OPENCV_FFMPEG_CAPTURE_OPTIONS="fifo_size;500000|overrun_nonfatal;1|fflags;nobuffer|flags;low_delay|framedrop;1|vf;setpts=0"
+export _UID=$(shell id -u)
+export _GID=$(shell id -g)
+
 GSTREAMER_FIX=export LD_PRELOAD=$(shell gcc -print-file-name=libunwind.so.8)
 
 ifeq ($(MACHINE_IP),192.168.2.6)
@@ -87,9 +90,8 @@ export COLCON_ARGS= --cmake-args $(CMAKE_ARGS) \
                           --parallel-workers 3 \
 			  --event-handlers console_cohesion+ \
 			  --packages-skip $(SKIP_PACKAGES) \
-				--continue-on-error
-			  # --merge-install
-			  # --symlink-install
+			  --continue-on-error \
+		          --symlink-install
 
 build: check-ros
 	$(warning If you built in docker last - you'll need to clean and rebuild)
@@ -115,15 +117,6 @@ build-docker-container: docker-ensure
 
 docker-fix-perms:
 	sudo chown -R $(shell id -u):$(shell id -g) .
-
-export _UID=$(shell id -u)
-export _GID=$(shell id -g)
-build-in-docker: docker-fix-perms docker-ensure
-	docker compose exec mira
-	 	bash -c "make repoversion && \
-	 	make clean && \
-	 	make build"
-
 docker: docker-ensure docker-x11
 	docker compose exec -u root mira /bin/bash
 
