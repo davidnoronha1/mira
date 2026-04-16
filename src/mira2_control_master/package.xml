@@ -3,9 +3,9 @@
 <package format="3">
   <name>mira2_control_master</name>
   <version>0.0.0</version>
-  <description>TODO: Package description</description>
+  <description>Primary MAVLink interface to the Pixhawk flight controller. Publishes vehicle telemetry and relays ROS 2 commands as RC overrides. Includes emergency kill-switch monitor and docking state machine.</description>
   <maintainer email="davidnoronha@outlook.in">david</maintainer>
-  <license>TODO: License declaration</license>
+  <license>Apache-2.0</license>
 
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>
@@ -13,9 +13,11 @@
   <test_depend>python3-pytest</test_depend>
   <exec_depend>rclpy</exec_depend>
   <exec_depend>geometry_msgs</exec_depend>
+  <exec_depend>sensor_msgs</exec_depend>
+  <exec_depend>std_srvs</exec_depend>
   <exec_depend>custom_msgs</exec_depend>
   <exec_depend>python3-numpy</exec_depend>
-  <!-- <exec_depend>python-pymavlink</exec_depend> -->
+  <exec_depend>python3-pymavlink</exec_depend>
 
   <export>
     <build_type>ament_python</build_type>

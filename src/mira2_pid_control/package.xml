@@ -2,26 +2,27 @@
 <package format="3">
   <name>mira2_pid_control</name>
   <version>0.0.0</version>
-  <description>The mira2_pid_control package</description>
+  <description>PID controller nodes for interactive gain tuning, simple depth/yaw maneuvers, and hardcoded multi-stage mission sequences for the Mira2 AUV.</description>
 
   <!-- Maintainer information -->
   <maintainer email="f3rt@todo.todo">f3rt</maintainer>
 
   <!-- License information -->
-  <license>TODO</license>
+  <license>Apache-2.0</license>
 
   <!-- Dependencies -->
   <buildtool_depend>ament_cmake</buildtool_depend>
   <depend>rclcpp</depend>
   <depend>rclpy</depend>
   <depend>std_msgs</depend>
+  <depend>sensor_msgs</depend>
+  <depend>geometry_msgs</depend>
   <depend>custom_msgs</depend>
   <depend>control_utils</depend>
   <depend>ament_index_cpp</depend>
-<depend>geometry_msgs</depend>
+
   <!-- Export information -->
   <export>
-  <build_type>ament_cmake</build_type>
-    <!-- Additional information can go here -->
+    <build_type>ament_cmake</build_type>
   </export>
 </package>

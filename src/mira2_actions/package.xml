@@ -1,9 +1,9 @@
 <package format="3">
   <name>mira2_actions</name>
   <version>0.0.0</version>
-  <description>TODO: Package description</description>
-  <maintainer email="your.email@example.com">Your Name</maintainer>
-  <license>TODO: License declaration</license>
+  <description>Behavior Tree-based autonomous task execution for the Mira2 AUV. Provides composable motion and detection leaf nodes for gate, docking, and bucket competition tasks.</description>
+  <maintainer email="davidnoronha@outlook.in">david</maintainer>
+  <license>Apache-2.0</license>
   <buildtool_depend>ament_cmake</buildtool_depend>
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>
@@ -13,6 +13,8 @@
   <depend>control_utils</depend>
   <depend>custom_msgs</depend>
   <depend>vision_msgs</depend>
+  <depend>geometry_msgs</depend>
+  <depend>std_msgs</depend>
   <export>
     <build_type>ament_cmake</build_type>
   </export>

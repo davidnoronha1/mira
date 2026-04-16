@@ -2,25 +2,26 @@
 <package format="3">
   <name>mira2_path_planning</name>
   <version>0.0.0</version>
-  <description>The mira2_path_planning package</description>
+  <description>Autonomous navigation nodes for gate traversal, ArUco-guided docking, and bucket approach. Each node runs a closed-loop PID controller driven by perception data and vehicle telemetry.</description>
 
   <!-- Maintainer information -->
   <maintainer email="punlat@todo.todo">punlat</maintainer>
 
   <!-- License information -->
-  <license>TODO</license>
+  <license>Apache-2.0</license>
 
   <!-- Dependencies -->
   <buildtool_depend>ament_cmake</buildtool_depend>
   <depend>custom_msgs</depend>
   <depend>geometry_msgs</depend>
-  <depend>mira2_pid_control</depend>
+  <depend>std_msgs</depend>
   <depend>rclcpp</depend>
+  <depend>rclpy</depend>
   <depend>vision_msgs</depend>
   <depend>control_utils</depend>
 
   <!-- Export information -->
   <export>
-    <!-- Additional information can be added here -->
+    <build_type>ament_cmake</build_type>
   </export>
 </package>

@@ -3,23 +3,18 @@
 <package format="3">
   <name>mira2_perception</name>
   <version>0.0.0</version>
-  <description>TODO: Package description</description>
+  <description>Camera management package for the Mira2 AUV. Provides launch files to start and configure USB and ZED camera drivers with optional GStreamer RTSP streaming.</description>
   <maintainer email="davidnoronha@outlook.in">david</maintainer>
-  <license>TODO: License declaration</license>
+  <license>Apache-2.0</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
+  <buildtool_depend>ament_cmake_python</buildtool_depend>
 
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>
   <exec_depend>rclpy</exec_depend>
-  <exec_depend>geometry_msgs</exec_depend>
   <exec_depend>sensor_msgs</exec_depend>
-  <exec_depend>cv_bridge</exec_depend>
-  <exec_depend>python3-opencv</exec_depend>
-  <exec_depend>python3-scipy</exec_depend>
-  <exec_depend>python3-numpy</exec_depend>
-
-  <!-- <depend>v4l2_camera</depend> -->
+  <exec_depend>camera_driver</exec_depend>
 
   <export>
     <build_type>ament_cmake</build_type>
