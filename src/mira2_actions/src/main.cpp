@@ -21,6 +21,7 @@ int main(int argc, char **argv) {
           "/config/default.xml");
 
   auto tree_xml_path = node->get_parameter("tree_xml").as_string();
+  RCLCPP_INFO(node->get_logger(), "Loading config from %s", tree_xml_path);
 
   BT::BehaviorTreeFactory factory;
 

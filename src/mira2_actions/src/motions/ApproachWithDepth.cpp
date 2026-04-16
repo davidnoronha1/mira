@@ -70,7 +70,10 @@ BT::NodeStatus ApproachWithDepth::onStart()
     // Read input parameters
     auto point_topic = getInput<std::string>("point_topic");
     if (!point_topic) {
-        throw BT::RuntimeError("Missing required input [point_topic]: ", point_topic.error());
+        RCLCPP_ERROR(ros_state_->node->get_logger(),
+                     "ApproachWithDepth: missing required input [point_topic]: %s",
+                     point_topic.error().c_str());
+        return BT::NodeStatus::FAILURE;
     }
     point_topic_ = point_topic.value();
     
@@ -171,7 +174,7 @@ BT::NodeStatus ApproachWithDepth::onRunning()
     
     // If target not visible but we're in acceptable blind range, hold position
     if (!target_visible_) {
-        RCLCPP_DEBUG(ros_state_->node->get_logger(),
+        RCLCPP_INFO_THROTTLE(ros_state_->node->get_logger(), *ros_state_->node->get_clock(), 1000,
                     "ApproachWithDepth: target not visible, holding...");
         publish_neutral();
         return BT::NodeStatus::RUNNING;
@@ -202,7 +205,7 @@ BT::NodeStatus ApproachWithDepth::onRunning()
     cmd.yaw = static_cast<int>(yaw_pwm);
     ros_state_->cmd_publisher->publish(cmd);
     
-    RCLCPP_DEBUG(ros_state_->node->get_logger(),
+    RCLCPP_INFO_THROTTLE(ros_state_->node->get_logger(), *ros_state_->node->get_clock(), 1000,
                 "ApproachWithDepth: nx=%.3f ny=%.3f depth=%.3f thr=%d",
                 target_nx_, target_ny_, target_depth_, cmd.thrust);
     

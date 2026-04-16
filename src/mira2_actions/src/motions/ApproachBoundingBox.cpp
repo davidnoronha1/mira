@@ -127,7 +127,9 @@ BT::PortsList ApproachBB::providedPorts() {
 BT::NodeStatus ApproachBB::onStart() {
   auto object = getInput<std::string>("object");
   if (!object) {
-    throw BT::RuntimeError("Mission required input [object]: ", object.error());
+    RCLCPP_ERROR(ros_state_->node->get_logger(),
+                 "ApproachBB: missing required input [object]: %s", object.error().c_str());
+    return BT::NodeStatus::FAILURE;
   }
 
   target_object_ = object.value();
@@ -140,17 +142,19 @@ BT::NodeStatus ApproachBB::onStart() {
   flight_mode_ = getInput<std::string>("flight_mode").value();
 
   if (frame_width_ <= 0.0) {
-    throw BT::RuntimeError("ApproachBB requires [frame_width] > 0, got ",
-                           frame_width_);
+    RCLCPP_ERROR(ros_state_->node->get_logger(),
+                 "ApproachBB: [frame_width] must be > 0, got %f", frame_width_);
+    return BT::NodeStatus::FAILURE;
   }
   if (frame_height_ <= 0.0) {
-    throw BT::RuntimeError("ApproachBB requires [frame_height] > 0, got ",
-                           frame_height_);
+    RCLCPP_ERROR(ros_state_->node->get_logger(),
+                 "ApproachBB: [frame_height] must be > 0, got %f", frame_height_);
+    return BT::NodeStatus::FAILURE;
   }
   if (success_bb_area_ <= 0.0) {
-    throw BT::RuntimeError(
-        "ApproachBB requires [success_area_ratio] > 0, got ",
-        success_bb_area_);
+    RCLCPP_ERROR(ros_state_->node->get_logger(),
+                 "ApproachBB: [success_area_ratio] must be > 0, got %f", success_bb_area_);
+    return BT::NodeStatus::FAILURE;
   }
   // Lock heading at start
   locked_heading_ = ros_state_->telemetry.yaw;
