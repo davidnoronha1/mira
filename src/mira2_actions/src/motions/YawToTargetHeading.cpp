@@ -4,7 +4,7 @@ RotateToTargetHeading::RotateToTargetHeading(const std::string &name,
                       const BT::NodeConfiguration &config,
                       ROSState *ros_state)
     : BT::SyncActionNode(name, config), 
-      yaw_pid("yaw", ros_state->node),
+      yaw_pid(name + "_yaw", ros_state->node),
       ros_state_(ros_state),
       target_heading_(0.0),
       yaw_error_(0.0),

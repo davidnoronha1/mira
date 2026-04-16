@@ -60,15 +60,17 @@ private:
     rclcpp::Time start_time_;
     rclcpp::Time last_detection_time_;
     
-    // Latest bounding box info
-    bool bb_found_;
+    // Latest bounding box info (freshness determined via last_detection_time_)
     double bb_x_center_norm_;
     double bb_y_center_norm_;
     double bb_area_norm_;
 
-    // Depth control
-    double depth_setpoint_base_;
-    double depth_visual_gain_;
+    // Depth control (visual y-servo, no pressure sensor)
+    double depth_setpoint_base_;   // target y-row for dock center, e.g. 0.65
+    double depth_visual_gain_;     // area-based setpoint shift per unit bb_area
+
+    // Success conditions
+    double success_y_threshold_;   // exit when dock y_center exceeds this (dock nearly below)
 
     // Yaw lock
     double locked_heading_;

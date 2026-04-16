@@ -1,0 +1,43 @@
+<?xml version="1.0"?>
+<root BTCPP_format="4">
+    <BehaviorTree ID="test_phase1">
+        <Sequence name="Phase1Test">
+
+            <Fallback name="SearchOrApproach">
+                <ApproachBoundingBox
+                    name="Phase1_YoloApproach"
+                    object="dock"
+                    forward_pwm="1550.0"
+                    flight_mode="STABILIZE"
+                    timeout="60.0"
+                    object_lost_timeout="4.0"
+                    success_y_threshold="0.85"
+                    success_area_ratio="0.6"
+                    depth_setpoint="0.65"
+                    depth_visual_gain="0.15"
+                    depth_pid_kp="200.0" depth_pid_ki="0.0" depth_pid_kd="50.0" depth_pid_base_offset="1500.0"
+                    lateral_pid_kp="1.0" lateral_pid_ki="0.002" lateral_pid_kd="2.0" lateral_pid_base_offset="1500.0"
+                    yaw_pid_kp="1.5" yaw_pid_ki="0.005" yaw_pid_kd="3.0" yaw_pid_base_offset="1500.0"/>
+
+                <Sequence name="SearchRecovery">
+                    <YawSweep
+                        center_heading="0.0"
+                        amplitude="45.0"
+                        cycles="1"
+                        dwell_time="1.0"
+                        tolerance="5.0"
+                        timeout="20.0"
+                        yaw_pid_kp="3.18" yaw_pid_kd="7.2" yaw_pid_base_offset="1500.0"/>
+                    <AlwaysFailure/>
+                </Sequence>
+            </Fallback>
+
+            <!-- Phase 1.5: hold position after approach succeeds -->
+            <HoldPosition
+                name="Phase1.5_Hold"
+                duration="2.0"
+                flight_mode="STABILIZE"/>
+
+        </Sequence>
+    </BehaviorTree>
+</root>
