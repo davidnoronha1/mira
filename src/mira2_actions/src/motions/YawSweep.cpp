@@ -2,7 +2,7 @@
 
 YawSweep::YawSweep(const std::string& name, const BT::NodeConfiguration& config, ROSState* ros_state)
     : BT::StatefulActionNode(name, config), 
-      yaw_pid("yaw", ros_state->node), 
+      yaw_pid(name + "_yaw", ros_state->node),
       ros_state_(ros_state),
       center_heading_(0.0),
       amplitude_(30.0),
