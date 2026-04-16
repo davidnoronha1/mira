@@ -19,7 +19,7 @@ def generate_launch_description():
     
     model_name_arg = DeclareLaunchArgument(
         'model_name',
-        default_value='docking.onnx',
+        default_value='dockingv2.onnx',
         description='ONNX model filename'
     )
     
