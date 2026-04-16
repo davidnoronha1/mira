@@ -266,64 +266,12 @@ class VisionBoundingBoxNode(Node):
             return
 
         result = results[0]
-        # boxes format: [x1, y1, x2, y2, conf, cls]
-        detections = result.boxes.data.cpu().numpy()
 
-        # Optional reflection rejection
-        if self.get_parameter("reject_reflections").value and len(detections) > 0:
-            rt = self.get_parameter("reject_threshold").value
-            detections = detections[~np.array([is_reflection(d, rt) for d in detections])]
-
-        if len(detections) > 0:
-            # Real detection: update tracking state and reset estimation accumulators
-            det_array = self._build_detection_msg(detections, result.names, stamp)
-            self._det_pub.publish(det_array)
-            if self.get_parameter("enable_bb_estimation").value:
-                self._last_detections = list(det_array.detections)
-                self._last_detection_time = now
-                self._integrated_yaw = 0.0
-                self._integrated_pitch = 0.0
-                self._estimation_warned = False
-        else:
-            # No detection this frame: attempt BB estimation from last known position
-            if (
-                self.get_parameter("enable_bb_estimation").value
-                and self._last_detections
-                and self._last_detection_time is not None
-            ):
-                elapsed_s = (now - self._last_detection_time).nanoseconds * 1e-9
-
-                if elapsed_s > 1.0 and not self._estimation_warned:
-                    self.get_logger().warn(
-                        f"Estimating bounding box for {elapsed_s:.1f}s — no detection received."
-                    )
-                    self._estimation_warned = True
-
-                # Integrate IMU angular velocity since the previous process call.
-                # Skip integration if dt is unreasonably large (e.g. after a scheduler pause)
-                # to avoid large spurious jumps in the estimated position.
-                _MAX_DT = 0.5  # seconds
-                dt = 0.0
-                if self._last_process_time is not None:
-                    dt = (now - self._last_process_time).nanoseconds * 1e-9
-
-                with self._imu_lock:
-                    ang_vel = self._imu_angular_velocity
-
-                if ang_vel is not None and 0.0 < dt < _MAX_DT:
-                    # angular_velocity.z = yaw rate (positive = left turn → objects shift right)
-                    # angular_velocity.y = pitch rate (positive = nose up → objects shift down)
-                    self._integrated_yaw += ang_vel[2] * dt
-                    self._integrated_pitch += ang_vel[1] * dt
-
-                estimated = self._apply_imu_shift(self._last_detections, stamp)
-                self._det_pub.publish(estimated)
-            else:
-                # No prior detection to estimate from; publish empty array
-                empty = Detection2DArray()
-                empty.header.stamp = stamp
-                empty.header.frame_id = "camera"
-                self._det_pub.publish(empty)
+        # Use xyxyn — Ultralytics normalises to [0,1] and handles letterbox
+        # removal internally, so coordinates are always correct regardless of
+        # model export format or input resolution.
+        det_array = self._build_detection_msg(result, stamp)
+        self._det_pub.publish(det_array) 
 
         # Publish / visualize image
         if self._img_pub is not None or self.get_parameter("visualize").value:
@@ -340,81 +288,41 @@ class VisionBoundingBoxNode(Node):
                 cv2.imshow("vision_boundingbox", vis)
                 cv2.waitKey(1)
 
-        self._last_process_time = now
-
-    def _apply_imu_shift(self, detections: List[Detection2D], stamp) -> Detection2DArray:
-        """Return a Detection2DArray with box centres shifted by the IMU-integrated displacement.
-
-        The projection uses a linear (small-angle) approximation: pixels_per_radian =
-        image_dimension / fov_radians.  This is accurate near the image centre but
-        introduces increasing error toward the edges, particularly for wide-angle lenses
-        (e.g. the default 90° HFOV where tangential distortion is non-negligible).
-        """
-        img_w = float(self.get_parameter("input_width").value)
-        img_h = float(self.get_parameter("input_height").value)
-        hfov_rad = math.radians(self.get_parameter("hfov_deg").value)
-        vfov_rad = math.radians(self.get_parameter("vfov_deg").value)
-
-        # Pixels per radian (small-angle / linear projection approximation)
-        px_per_rad_x = img_w / hfov_rad
-        px_per_rad_y = img_h / vfov_rad
-
-        # Positive yaw → robot turns left → objects appear to shift right (+x)
-        # Positive pitch → nose up → objects appear to shift down (+y in image frame)
-        dx = self._integrated_yaw * px_per_rad_x
-        dy = self._integrated_pitch * px_per_rad_y
-
+    def _build_detection_msg(self, result, stamp) -> Detection2DArray:
         msg = Detection2DArray()
         msg.header.stamp = stamp
         msg.header.frame_id = "camera"
 
-        for src in detections:
-            d = Detection2D()
-            d.header = msg.header
-            bb = BoundingBox2D()
-            bb.center = Pose2D(
-                x=max(0.0, min(img_w, src.bbox.center.x + dx)),
-                y=max(0.0, min(img_h, src.bbox.center.y + dy)),
-                theta=src.bbox.center.theta,
-            )
-            bb.size_x = src.bbox.size_x
-            bb.size_y = src.bbox.size_y
-            d.bbox = bb
-            d.results = list(src.results)
-            msg.detections.append(d)
+        boxes = result.boxes
+        if boxes is None or len(boxes) == 0:
+            return msg
 
-        return msg
+        # xyxyn: [x1, y1, x2, y2] normalised to [0,1] by Ultralytics,
+        # letterbox padding already removed — works for any model format.
+        xyxyn = boxes.xyxyn.cpu().numpy()
+        confs  = boxes.conf.cpu().numpy()
+        cls_ids = boxes.cls.cpu().numpy().astype(int)
 
-    def _build_detection_msg(
-        self, detections: np.ndarray, names: dict, stamp
-    ) -> Detection2DArray:
-        msg = Detection2DArray()
-        msg.header.stamp = stamp
-        msg.header.frame_id = "camera"
+        for i in range(len(boxes)):
+            x1n, y1n, x2n, y2n = xyxyn[i]
 
-        for det in detections:
-            x1, y1, x2, y2, conf, cls_id = det
-            
             d = Detection2D()
             d.header = msg.header
 
             bb = BoundingBox2D()
-            bb.center.position.x = float((x1 + x2) / 2.0)
-            bb.center.position.y = float((y1 + y2) / 2.0)
+            bb.center.position.x = float((x1n + x2n) / 2.0)
+            bb.center.position.y = float((y1n + y2n) / 2.0)
             bb.center.theta = 0.0
-            bb.size_x = float(x2 - x1)
-            bb.size_y = float(y2 - y1)
+            bb.size_x = float(x2n - x1n)
+            bb.size_y = float(y2n - y1n)
             d.bbox = bb
 
-            cls_int = int(cls_id)
-            class_name = names.get(cls_int, str(cls_int))
-
-            # Populate id so BT nodes can match by object name
+            class_name = result.names.get(cls_ids[i], str(cls_ids[i]))
             d.id = class_name
 
             hyp = ObjectHypothesisWithPose()
             hyp.hypothesis.class_id = class_name
-            hyp.hypothesis.score = float(conf)
+            hyp.hypothesis.score = float(confs[i])
             d.results.append(hyp)
 
             msg.detections.append(d)
