@@ -9,9 +9,15 @@
 #include <custom_msgs/msg/telemetry.hpp>
 #include <vision_msgs/msg/bounding_box2_d_array.hpp>
 #include <geometry_msgs/msg/point.hpp>
+#include <geometry_msgs/msg/pose.hpp>
+#include <tf2/LinearMath/Quaternion.h>
+#include <tf2/LinearMath/Matrix3x3.h>
+#include <zed_msgs/msg/object.hpp>
+#include <zed_msgs/msg/objects_stamped.hpp>
 #include <string>
 #include <vector>
 #include <cmath>
+#include <array>
 #include "../common.hpp"
 #include "vision_msgs/msg/detection2_d_array.hpp"
 
@@ -325,4 +331,58 @@ private:
     rclcpp::Time cycle_start_time_;
     int current_direction_;
     int completed_cycles_;
+};
+
+/**
+ * @brief Approach3DBBox: Approach a 3D bounding box from ZED object detection
+ *
+ * Uses 3D position and orientation extracted from ZED's ObjectsStamped message.
+ * Automatically computes approach pose and navigates to target.
+ * Returns SUCCESS when within distance threshold of target.
+ */
+class Approach3DBBox : public BT::StatefulActionNode
+{
+public:
+    Approach3DBBox(const std::string& name,
+             const BT::NodeConfiguration& config,
+             ROSState* ros_state);
+
+    static BT::PortsList providedPorts();
+
+    BT::NodeStatus onStart() override;
+    BT::NodeStatus onRunning() override;
+    void onHalted() override;
+
+private:
+    void objects_callback(const zed_interfaces::msg::ObjectsStamped::SharedPtr msg);
+    void publish_neutral();
+    geometry_msgs::msg::Pose extractPoseFromObject(const zed_interfaces::msg::Object& obj);
+    tf2::Quaternion extractRotationFromCorners(const std::array<geometry_msgs::msg::Point, 8>& corners);
+    geometry_msgs::msg::Pose computeApproachPose(
+        const geometry_msgs::msg::Pose& object_pose,
+        const tf2::Quaternion& orientation,
+        double approach_distance);
+
+    ROSState* ros_state_;
+    rclcpp::Subscription<zed_interfaces::msg::ObjectsStamped>::SharedPtr objects_sub_;
+
+    PID_Controller lateral_pid;
+    PID_Controller forward_pid;
+    PID_Controller depth_pid;
+    PID_Controller yaw_pid;
+
+    std::string target_label_;
+    double success_distance_;
+    double approach_distance_;
+    double object_lost_timeout_;
+    double timeout_;
+    std::string flight_mode_;
+
+    geometry_msgs::msg::Pose target_pose_;
+    bool target_visible_;
+    rclcpp::Time last_detection_time_;
+    rclcpp::Time start_time_;
+
+    double locked_heading_;
+    bool heading_locked_;
 };

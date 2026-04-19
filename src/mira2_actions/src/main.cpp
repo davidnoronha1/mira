@@ -30,6 +30,7 @@ int main(int argc, char **argv) {
   factory.registerNodeType<DetectObjectBoundingbox>("DetectObjectBoundingBox", &state);
   factory.registerNodeType<DetectTargetPoint>("DetectTargetPoint", &state);
   factory.registerNodeType<ApproachBB>("ApproachBoundingBox", &state);
+  factory.registerNodeType<Approach3DBBox>("Approach3DBBox", &state);
   factory.registerNodeType<AlignXY>("AlignXY", &state);
   factory.registerNodeType<ApproachWithDepth>("ApproachWithDepth", &state);
   factory.registerNodeType<HoldPosition>("HoldPosition", &state);
