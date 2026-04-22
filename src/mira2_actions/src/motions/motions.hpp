@@ -80,6 +80,20 @@ private:
 
     // Yaw lock
     double locked_heading_;
+
+    // Raw terminal status line throttle (onRunning)
+    rclcpp::Time last_print_time_;
+    // Separate throttle for bbox_callback so it doesn't starve onRunning prints
+    rclcpp::Time last_callback_print_time_;
+
+    // TUI display state
+    void print_tui();
+    bool tui_initialized_;
+    std::string tui_status_;
+    double tui_elapsed_;
+    double tui_x_error_;
+    double tui_y_error_;
+    int tui_fwd_, tui_lat_, tui_thr_, tui_yaw_;
 };
 
 /**

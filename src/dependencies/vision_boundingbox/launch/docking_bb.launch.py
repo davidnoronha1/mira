@@ -47,7 +47,13 @@ def generate_launch_description():
         default_value='false',
         description='Whether to show visualization window'
     )
-    
+
+    is_stereo_image_arg = DeclareLaunchArgument(
+        'is_stereo_image',
+        default_value='true',
+        description='Crop input frame to left half (for side-by-side stereo streams)'
+    )
+
     # Vision bounding box node
     vision_node = Node(
         package='vision_boundingbox',
@@ -61,9 +67,10 @@ def generate_launch_description():
             'publish_image': LaunchConfiguration('publish_image'),
             'visualize': LaunchConfiguration('visualize'),
             'image_source': LaunchConfiguration('image_source'),
+            'is_stereo_image': LaunchConfiguration('is_stereo_image'),
         }]
     )
-    
+
     return LaunchDescription([
         image_source_arg,
         model_name_arg,
@@ -71,5 +78,6 @@ def generate_launch_description():
         conf_threshold_arg,
         publish_image_arg,
         visualize_arg,
+        is_stereo_image_arg,
         vision_node,
     ])

@@ -90,8 +90,8 @@ export COLCON_ARGS= --cmake-args $(CMAKE_ARGS) \
                           --parallel-workers 3 \
 			  --event-handlers console_cohesion+ \
 			  --packages-skip $(SKIP_PACKAGES) \
-			  --continue-on-error \
-		          --symlink-install
+			  --continue-on-error
+		          # --symlink-install
 
 build: check-ros
 	$(warning If you built in docker last - you'll need to clean and rebuild)
