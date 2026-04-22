@@ -3,6 +3,31 @@
 #include <behaviortree_cpp/exceptions.h>
 #include <cstdio>
 
+void ApproachBB::print_tui() {
+  constexpr int TUI_LINES = 9;
+  if (tui_initialized_) {
+    fprintf(stderr, "\033[%dA", TUI_LINES);
+  } else {
+    tui_initialized_ = true;
+  }
+  fprintf(stderr,
+    "┌─ ApproachBB ──────────────────────────────────────────┐\033[K\n"
+    "  Status  : %s\033[0m\033[K\n"
+    "  Target  : %-16s  Elapsed: %6.1f s\033[K\n"
+    "  ────────────────────────────────────────────────────\033[K\n"
+    "  BB Pos  : area=%5.1f%%   x=%.3f   y=%.3f\033[K\n"
+    "  Errors  : xerr=%+.3f   yerr=%+.3f\033[K\n"
+    "  ────────────────────────────────────────────────────\033[K\n"
+    "  PWM out : fwd=%-4d  lat=%-4d  thr=%-4d  yaw=%-4d\033[K\n"
+    "└────────────────────────────────────────────────────────┘\033[K\n",
+    tui_status_.c_str(),
+    target_object_.c_str(), tui_elapsed_,
+    bb_area_norm_ * 100.0, bb_x_center_norm_, bb_y_center_norm_,
+    tui_x_error_, tui_y_error_,
+    tui_fwd_, tui_lat_, tui_thr_, tui_yaw_);
+  fflush(stderr);
+}
+
 void ApproachBB::bbox_callback(
     const vision_msgs::msg::Detection2DArray::SharedPtr msg) {
   // Do NOT reset bb_found_ here. Freshness is determined in onRunning()
@@ -36,26 +61,23 @@ void ApproachBB::bbox_callback(
 
   if (found_this_frame) {
     last_detection_time_ = ros_state_->node->now();
-    double since_print = (last_detection_time_ - last_print_time_).seconds();
+    double since_print = (last_detection_time_ - last_callback_print_time_).seconds();
     if (since_print >= 0.2) {
-      last_print_time_ = last_detection_time_;
-      fprintf(stderr,
-              "\r[ApproachBB] \033[32m● LOCKED\033[0m  target=%-12s  "
-              "area=%5.1f%%  x=%.3f  y=%.3f          ",
-              target_object_.c_str(), bb_area_norm_ * 100.0,
-              bb_x_center_norm_, bb_y_center_norm_);
-      fflush(stderr);
+      last_callback_print_time_ = last_detection_time_;
+      tui_status_ = "\033[32m● LOCKED\033[0m";
+      print_tui();
     }
   } else if (!msg->detections.empty()) {
     rclcpp::Time now = ros_state_->node->now();
-    double since_print = (now - last_print_time_).seconds();
+    double since_print = (now - last_callback_print_time_).seconds();
     if (since_print >= 0.5) {
-      last_print_time_ = now;
-      fprintf(stderr,
-              "\r[ApproachBB] \033[33m~ NO MATCH\033[0m  got %zu detection(s),"
-              " none are '%s'          ",
-              msg->detections.size(), target_object_.c_str());
-      fflush(stderr);
+      last_callback_print_time_ = now;
+      char buf[128];
+      snprintf(buf, sizeof(buf),
+               "\033[33m~ NO MATCH\033[0m  (%zu detection(s), none are '%s')",
+               msg->detections.size(), target_object_.c_str());
+      tui_status_ = buf;
+      print_tui();
     }
   }
 }
@@ -70,7 +92,10 @@ ApproachBB::ApproachBB(const std::string &name,
       bb_lost_timeout_(1.0), timeout_(20.0), flight_mode_("STABILIZE"),
       bb_x_center_norm_(0.5), bb_y_center_norm_(0.8), bb_area_norm_(0.0),
       depth_setpoint_base_(0.65), depth_visual_gain_(0.15),
-      success_y_threshold_(0.85), locked_heading_(0.0) {
+      success_y_threshold_(0.85), locked_heading_(0.0),
+      tui_initialized_(false), tui_elapsed_(0.0),
+      tui_x_error_(0.0), tui_y_error_(0.0),
+      tui_fwd_(1500), tui_lat_(1500), tui_thr_(1500), tui_yaw_(1500) {
   // Subscription is now created in onStart() to ensure parameters are ready.
 }
 
@@ -223,7 +248,13 @@ BT::NodeStatus ApproachBB::onStart() {
   last_detection_time_ =
       start_time_ - rclcpp::Duration::from_seconds(10.0);
   last_print_time_ = last_detection_time_;
+  last_callback_print_time_ = last_detection_time_;
   bb_area_norm_ = 0.0;
+  tui_initialized_ = false;
+  tui_status_ = "\033[90m● waiting for first detection...\033[0m";
+  tui_elapsed_ = 0.0;
+  tui_x_error_ = 0.0; tui_y_error_ = 0.0;
+  tui_fwd_ = 1500; tui_lat_ = 1500; tui_thr_ = 1500; tui_yaw_ = 1500;
 
   RCLCPP_INFO(
       ros_state_->node->get_logger(),
@@ -245,26 +276,26 @@ BT::NodeStatus ApproachBB::onRunning() {
   double elapsed = (now - start_time_).seconds();
 
   // ── 1. Hard timeout check ─────────────────────────────────────────────
-  if (elapsed > timeout_) {
-    RCLCPP_WARN(ros_state_->node->get_logger(),
-                "ApproachBoundingBox: hard timeout after %.1f s", elapsed);
-    publish_neutral();
-    return BT::NodeStatus::FAILURE;
-  }
+  // DISABLED for perception testing
+  // if (elapsed > timeout_) {
+  //   fprintf(stderr, "\n");
+  //   RCLCPP_WARN(ros_state_->node->get_logger(),
+  //               "ApproachBoundingBox: hard timeout after %.1f s", elapsed);
+  //   publish_neutral();
+  //   return BT::NodeStatus::FAILURE;
+  // }
 
   // ── 2. Object lost timeout ────────────────────────────────────────────
-  // If the BB hasn't been seen for object_lost_timeout_ seconds → FAILURE.
-  // This handles: object moved out of frame, vision node crashed, etc.
+  // DISABLED for perception testing
   double time_since_detection = (now - last_detection_time_).seconds();
-  if (elapsed > 1.0 && time_since_detection > bb_lost_timeout_) {
-    // The elapsed > 1.0 guard avoids false triggers right at startup
-    // before the first detection has had a chance to arrive.
-    RCLCPP_WARN(ros_state_->node->get_logger(),
-                "ApproachBoundingBox: object '%s' lost for %.1f s → FAILURE",
-                target_object_.c_str(), time_since_detection);
-    publish_neutral();
-    return BT::NodeStatus::FAILURE;
-  }
+  // if (elapsed > 1.0 && time_since_detection > bb_lost_timeout_) {
+  //   fprintf(stderr, "\n");
+  //   RCLCPP_WARN(ros_state_->node->get_logger(),
+  //               "ApproachBoundingBox: object '%s' lost for %.1f s → FAILURE",
+  //               target_object_.c_str(), time_since_detection);
+  //   publish_neutral();
+  //   return BT::NodeStatus::FAILURE;
+  // }
 
   // ── 3. BB not fresh → hold and wait ──────────────────────────────────
   // Use a short recency window instead of a per-frame flag so that a
@@ -276,11 +307,12 @@ BT::NodeStatus ApproachBB::onRunning() {
     double since_print = (now - last_print_time_).seconds();
     if (since_print >= 0.5) {
       last_print_time_ = now;
-      fprintf(stderr,
-              "\r[ApproachBB] \033[33m⏳ WAITING\033[0m  '%s' not seen"
-              "  (%.2f s ago)          ",
-              target_object_.c_str(), time_since_detection);
-      fflush(stderr);
+      char buf[128];
+      snprintf(buf, sizeof(buf),
+               "\033[33m⏳ WAITING\033[0m  (%.2f s ago)", time_since_detection);
+      tui_status_ = buf;
+      tui_elapsed_ = elapsed;
+      print_tui();
     }
     publish_neutral();
     return BT::NodeStatus::RUNNING;
@@ -373,13 +405,15 @@ BT::NodeStatus ApproachBB::onRunning() {
     double since_print = (now - last_print_time_).seconds();
     if (since_print >= 0.2) {
       last_print_time_ = now;
-      fprintf(stderr,
-              "\r[ApproachBB] \033[36m→ CONTROL\033[0m  %-12s  "
-              "area=%5.1f%%  xerr=%+.3f  yerr=%+.3f  "
-              "| fwd=%-4d lat=%-4d thr=%-4d yaw=%-4d     ",
-              target_object_.c_str(), bb_area_norm_ * 100.0, x_error, y_error,
-              cmd.forward, cmd.lateral, cmd.thrust, cmd.yaw);
-      fflush(stderr);
+      tui_status_ = "\033[36m→ CONTROL\033[0m";
+      tui_elapsed_ = elapsed;
+      tui_x_error_ = x_error;
+      tui_y_error_ = y_error;
+      tui_fwd_ = cmd.forward;
+      tui_lat_ = cmd.lateral;
+      tui_thr_ = cmd.thrust;
+      tui_yaw_ = cmd.yaw;
+      print_tui();
     }
   }
 
