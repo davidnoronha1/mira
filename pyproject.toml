@@ -19,6 +19,7 @@ dependencies = [
     "tk>=0.1.0",
     "opencv-contrib-python",
     "mavproxy>=1.8.74",
+    "onnxruntime>=1.24.4",
 ]
 
 [project.optional-dependencies]

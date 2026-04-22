@@ -1,6 +1,7 @@
 #include "motions.hpp"
 #include "vision_msgs/msg/detection2_d_array.hpp"
 #include <behaviortree_cpp/exceptions.h>
+#include <cstdio>
 
 void ApproachBB::bbox_callback(
     const vision_msgs::msg::Detection2DArray::SharedPtr msg) {
@@ -35,16 +36,27 @@ void ApproachBB::bbox_callback(
 
   if (found_this_frame) {
     last_detection_time_ = ros_state_->node->now();
-    RCLCPP_INFO_THROTTLE(ros_state_->node->get_logger(),
-                         *ros_state_->node->get_clock(), 1000,
-                         "ApproachBB: Found '%s' (area=%.1f%%, x=%.2f, y=%.2f)",
-                         target_object_.c_str(), bb_area_norm_ * 100.0,
-                         bb_x_center_norm_, bb_y_center_norm_);
+    double since_print = (last_detection_time_ - last_print_time_).seconds();
+    if (since_print >= 0.2) {
+      last_print_time_ = last_detection_time_;
+      fprintf(stderr,
+              "\r[ApproachBB] \033[32m● LOCKED\033[0m  target=%-12s  "
+              "area=%5.1f%%  x=%.3f  y=%.3f          ",
+              target_object_.c_str(), bb_area_norm_ * 100.0,
+              bb_x_center_norm_, bb_y_center_norm_);
+      fflush(stderr);
+    }
   } else if (!msg->detections.empty()) {
-    RCLCPP_WARN_THROTTLE(
-        ros_state_->node->get_logger(), *ros_state_->node->get_clock(), 2000,
-        "ApproachBB: Received %zu detections, but none match '%s'",
-        msg->detections.size(), target_object_.c_str());
+    rclcpp::Time now = ros_state_->node->now();
+    double since_print = (now - last_print_time_).seconds();
+    if (since_print >= 0.5) {
+      last_print_time_ = now;
+      fprintf(stderr,
+              "\r[ApproachBB] \033[33m~ NO MATCH\033[0m  got %zu detection(s),"
+              " none are '%s'          ",
+              msg->detections.size(), target_object_.c_str());
+      fflush(stderr);
+    }
   }
 }
 
@@ -56,8 +68,8 @@ ApproachBB::ApproachBB(const std::string &name,
       yaw_pid(name + "_yaw", ros_state->node), forward_pwm_(1550.0),
       frame_width_(1.0), frame_height_(1.0), success_bb_area_(0.70),
       bb_lost_timeout_(1.0), timeout_(20.0), flight_mode_("STABILIZE"),
-      bb_x_center_norm_(0.5), bb_y_center_norm_(0.8),
-      bb_area_norm_(0.0), depth_setpoint_base_(0.65), depth_visual_gain_(0.15),
+      bb_x_center_norm_(0.5), bb_y_center_norm_(0.8), bb_area_norm_(0.0),
+      depth_setpoint_base_(0.65), depth_visual_gain_(0.15),
       success_y_threshold_(0.85), locked_heading_(0.0) {
   // Subscription is now created in onStart() to ensure parameters are ready.
 }
@@ -83,10 +95,10 @@ BT::PortsList ApproachBB::providedPorts() {
           "success_area_ratio", 0.70,
           "Succeed when BB area >= this fraction of frame area (0.0-1.0). "
           "Fallback condition — prefer success_y_threshold for docking."),
-      BT::InputPort<double>(
-          "success_y_threshold", 0.85,
-          "Succeed when BB y_center >= this value (0.0-1.0). "
-          "0.85 means dock is nearly at the bottom of frame → you are almost over it."),
+      BT::InputPort<double>("success_y_threshold", 0.85,
+                            "Succeed when BB y_center >= this value (0.0-1.0). "
+                            "0.85 means dock is nearly at the bottom of frame "
+                            "→ you are almost over it."),
 
       // Loss detection
       BT::InputPort<double>(
@@ -104,16 +116,18 @@ BT::PortsList ApproachBB::providedPorts() {
           "FC mode: ALT_HOLD (auto depth hold) or STABILIZE (manual thrust)"),
 
       // Depth PID — pure visual servo, no pressure sensor
-      // depth_setpoint is the TARGET y-row for the dock center in the frame (0.0-1.0).
-      // depth_visual_gain shifts that setpoint upward as the BB fills the frame,
-      // creating proactive extra descent as the AUV closes in on the dock.
-      BT::InputPort<double>(
-          "depth_setpoint", 0.65,
-          "Target y-row for dock center in normalised frame coords (0.0=top, 1.0=bottom). "
-          "e.g. 0.65 keeps dock in lower third."),
+      // depth_setpoint is the TARGET y-row for the dock center in the frame
+      // (0.0-1.0). depth_visual_gain shifts that setpoint upward as the BB
+      // fills the frame, creating proactive extra descent as the AUV closes in
+      // on the dock.
+      BT::InputPort<double>("depth_setpoint", 0.65,
+                            "Target y-row for dock center in normalised frame "
+                            "coords (0.0=top, 1.0=bottom). "
+                            "e.g. 0.65 keeps dock in lower third."),
       BT::InputPort<double>(
           "depth_visual_gain", 0.15,
-          "Area-based setpoint shift: effective_setpoint = depth_setpoint - gain * bb_area. "
+          "Area-based setpoint shift: effective_setpoint = depth_setpoint - "
+          "gain * bb_area. "
           "Causes extra descent as the dock fills more of the frame."),
       BT::InputPort<double>("depth_pid_kp", 0.05,
                             "Depth PID proportional gain"),
@@ -145,14 +159,9 @@ BT::PortsList ApproachBB::providedPorts() {
 BT::NodeStatus ApproachBB::onStart() {
   auto object = getInput<std::string>("object");
   if (!object) {
-<<<<<<< HEAD
     RCLCPP_ERROR(ros_state_->node->get_logger(),
-                 "ApproachBB: missing required input [object]: %s", object.error().c_str());
-    return BT::NodeStatus::FAILURE;
-=======
-    RCLCPP_ERROR(ros_state_->node->get_logger(), "Mission required input [object], None given");
+                 "Mission required input [object], None given");
     throw BT::RuntimeError("No object argument given");
->>>>>>> 0eea6c657a987f9eaa5de5f64300a0890be0611d
   }
 
   target_object_ = object.value();
@@ -173,12 +182,14 @@ BT::NodeStatus ApproachBB::onStart() {
   }
   if (frame_height_ <= 0.0) {
     RCLCPP_ERROR(ros_state_->node->get_logger(),
-                 "ApproachBB: [frame_height] must be > 0, got %f", frame_height_);
+                 "ApproachBB: [frame_height] must be > 0, got %f",
+                 frame_height_);
     return BT::NodeStatus::FAILURE;
   }
   if (success_bb_area_ <= 0.0) {
     RCLCPP_ERROR(ros_state_->node->get_logger(),
-                 "ApproachBB: [success_area_ratio] must be > 0, got %f", success_bb_area_);
+                 "ApproachBB: [success_area_ratio] must be > 0, got %f",
+                 success_bb_area_);
     return BT::NodeStatus::FAILURE;
   }
   // Lock heading at start
@@ -207,7 +218,11 @@ BT::NodeStatus ApproachBB::onStart() {
   lateral_pid.emptyError();
 
   start_time_ = ros_state_->node->now();
-  last_detection_time_ = start_time_;
+  // Initialize to a time far in the past so bb_fresh starts false — we must
+  // see at least one real detection before computing PID outputs.
+  last_detection_time_ =
+      start_time_ - rclcpp::Duration::from_seconds(10.0);
+  last_print_time_ = last_detection_time_;
   bb_area_norm_ = 0.0;
 
   RCLCPP_INFO(
@@ -258,33 +273,39 @@ BT::NodeStatus ApproachBB::onRunning() {
   constexpr double BB_FRESH_WINDOW = 0.15;
   bool bb_fresh = time_since_detection < BB_FRESH_WINDOW;
   if (!bb_fresh) {
-    RCLCPP_INFO_THROTTLE(ros_state_->node->get_logger(),
-                         *ros_state_->node->get_clock(), 1000,
-                         "ApproachBoundingBox: [WAITING] no '%s' detected "
-                         "(%.1f s since last seen)",
-                         target_object_.c_str(), time_since_detection);
+    double since_print = (now - last_print_time_).seconds();
+    if (since_print >= 0.5) {
+      last_print_time_ = now;
+      fprintf(stderr,
+              "\r[ApproachBB] \033[33m⏳ WAITING\033[0m  '%s' not seen"
+              "  (%.2f s ago)          ",
+              target_object_.c_str(), time_since_detection);
+      fflush(stderr);
+    }
     publish_neutral();
     return BT::NodeStatus::RUNNING;
   }
   // ── 4. Success conditions ─────────────────────────────────────────────
   // Primary: dock y_center exceeds threshold → dock is nearly below the AUV
   //          → bottom camera should be picking up ArUco soon.
-  if (bb_y_center_norm_ >= success_y_threshold_) {
-    RCLCPP_INFO(ros_state_->node->get_logger(),
-                "ApproachBoundingBox: '%s' y_center=%.2f >= %.2f → over the dock",
-                target_object_.c_str(), bb_y_center_norm_, success_y_threshold_);
-    publish_neutral();
-    return BT::NodeStatus::SUCCESS;
-  }
+  // if (bb_y_center_norm_ >= success_y_threshold_) {
+  //   RCLCPP_INFO(
+  //       ros_state_->node->get_logger(),
+  //       "ApproachBoundingBox: '%s' y_center=%.2f >= %.2f → over the dock",
+  //       target_object_.c_str(), bb_y_center_norm_, success_y_threshold_);
+  //   publish_neutral();
+  //   return BT::NodeStatus::SUCCESS;
+  // }
   // Fallback: area fill (dock very close horizontally)
-  if (bb_area_norm_ >= success_bb_area_) {
-    RCLCPP_INFO(ros_state_->node->get_logger(),
-                "ApproachBoundingBox: '%s' area=%.1f%% >= %.1f%% → close enough",
-                target_object_.c_str(), bb_area_norm_ * 100.0,
-                success_bb_area_ * 100.0);
-    publish_neutral();
-    return BT::NodeStatus::SUCCESS;
-  }
+  // if (bb_area_norm_ >= success_bb_area_) {
+  //   RCLCPP_INFO(
+  //       ros_state_->node->get_logger(),
+  //       "ApproachBoundingBox: '%s' area=%.1f%% >= %.1f%% → close enough",
+  //       target_object_.c_str(), bb_area_norm_ * 100.0,
+  //       success_bb_area_ * 100.0);
+  //   publish_neutral();
+  //   return BT::NodeStatus::SUCCESS;
+  // }
 
   // ── 5. Compute horizontal centering error ─────────────────────────────
   // x_error is positive when BB center is to the RIGHT of screen center.
@@ -312,7 +333,8 @@ BT::NodeStatus ApproachBB::onRunning() {
   //
   // We pass -y_error to pid_control so that with base_offset=1500:
   //   positive pid input  →  output > 1500  →  ascend   (correct for too deep)
-  //   negative pid input  →  output < 1500  →  descend  (correct for too shallow)
+  //   negative pid input  →  output < 1500  →  descend  (correct for too
+  //   shallow)
   double effective_y_setpoint =
       depth_setpoint_base_ - depth_visual_gain_ * bb_area_norm_;
   double y_error = bb_y_center_norm_ - effective_y_setpoint;
@@ -338,7 +360,8 @@ BT::NodeStatus ApproachBB::onRunning() {
 
   // ── 9. Publish command ────────────────────────────────────────────────
   custom_msgs::msg::Commands cmd;
-  cmd.mode = flight_mode_; // "STABILIZE" → our depth PID controls thrust directly
+  cmd.mode =
+      flight_mode_; // "STABILIZE" → our depth PID controls thrust directly
   cmd.arm = true;
   cmd.forward = static_cast<int>(effective_forward);
   cmd.lateral = static_cast<int>(lateral_pwm);
@@ -346,12 +369,19 @@ BT::NodeStatus ApproachBB::onRunning() {
   cmd.yaw = static_cast<int>(yaw_pwm);
   ros_state_->cmd_publisher->publish(cmd);
 
-  RCLCPP_INFO_THROTTLE(ros_state_->node->get_logger(),
-                       *ros_state_->node->get_clock(), 1000,
-                       "ApproachBB: Found '%s' (area=%.1f%%, x_err=%.3f, "
-                       "y_err=%.3f) -> Fwd: %d, Lat: %d, Thr: %d, Yaw: %d",
-                       target_object_.c_str(), bb_area_norm_ * 100.0, x_error,
-                       y_error, cmd.forward, cmd.lateral, cmd.thrust, cmd.yaw);
+  {
+    double since_print = (now - last_print_time_).seconds();
+    if (since_print >= 0.2) {
+      last_print_time_ = now;
+      fprintf(stderr,
+              "\r[ApproachBB] \033[36m→ CONTROL\033[0m  %-12s  "
+              "area=%5.1f%%  xerr=%+.3f  yerr=%+.3f  "
+              "| fwd=%-4d lat=%-4d thr=%-4d yaw=%-4d     ",
+              target_object_.c_str(), bb_area_norm_ * 100.0, x_error, y_error,
+              cmd.forward, cmd.lateral, cmd.thrust, cmd.yaw);
+      fflush(stderr);
+    }
+  }
 
   return BT::NodeStatus::RUNNING;
 }

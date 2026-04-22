@@ -74,6 +74,9 @@ private:
 
     // Yaw lock
     double locked_heading_;
+
+    // Raw terminal status line throttle
+    rclcpp::Time last_print_time_;
 };
 
 /**

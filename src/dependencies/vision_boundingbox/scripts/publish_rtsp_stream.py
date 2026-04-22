@@ -81,8 +81,46 @@ class VideoLooper:
     def _cb_enough_data(self, src):
         self._paused = True
 
+    def _push_frame(self, frame):
+        """Encode one BGR frame and push it to appsrc. Returns False on error."""
+        if frame.shape[1] != self.width or frame.shape[0] != self.height:
+            frame = cv2.resize(frame, (self.width, self.height),
+                               interpolation=cv2.INTER_LINEAR)
+        yuv = cv2.cvtColor(frame, cv2.COLOR_BGR2YUV_I420)
+        buf = Gst.Buffer.new_wrapped(yuv.tobytes())
+        buf.pts      = self._pts
+        buf.duration = self.frame_dur_ns
+        self._pts   += self.frame_dur_ns
+        flow = self.appsrc.emit("push-buffer", buf)
+        if flow != Gst.FlowReturn.OK:
+            print(f"[WARN] push-buffer: {flow}")
+            self._running = False
+            return False
+        return True
+
     def _push_loop(self):
         frame_interval = 1.0 / self.fps
+        is_image = self.video_path.lower().endswith(".png")
+
+        if is_image:
+            frame = cv2.imread(self.video_path)
+            if frame is None:
+                print(f"[ERROR] Cannot read image: {self.video_path}", file=sys.stderr)
+                return
+            print("[INFO] Image mode — looping single frame.")
+            while self._running:
+                t0 = time.monotonic()
+                while self._running and self._paused:
+                    time.sleep(0.005)
+                if not self._running:
+                    break
+                if not self._push_frame(frame):
+                    break
+                elapsed = time.monotonic() - t0
+                sleep = frame_interval - elapsed
+                if sleep > 0:
+                    time.sleep(sleep)
+            return
 
         while self._running:
             cap = cv2.VideoCapture(self.video_path)
@@ -99,11 +137,6 @@ class VideoLooper:
                     print("[INFO] EOF — looping.")
                     break
 
-                # Resize if needed
-                if frame.shape[1] != self.width or frame.shape[0] != self.height:
-                    frame = cv2.resize(frame, (self.width, self.height),
-                                       interpolation=cv2.INTER_LINEAR)
-
                 # Back-pressure: wait if appsrc has enough data
                 while self._running and self._paused:
                     time.sleep(0.005)
@@ -111,17 +144,7 @@ class VideoLooper:
                 if not self._running:
                     break
 
-                # BGR -> I420
-                yuv = cv2.cvtColor(frame, cv2.COLOR_BGR2YUV_I420)
-                buf = Gst.Buffer.new_wrapped(yuv.tobytes())
-                buf.pts      = self._pts
-                buf.duration = self.frame_dur_ns
-                self._pts   += self.frame_dur_ns
-
-                flow = self.appsrc.emit("push-buffer", buf)
-                if flow != Gst.FlowReturn.OK:
-                    print(f"[WARN] push-buffer: {flow}")
-                    self._running = False
+                if not self._push_frame(frame):
                     break
 
                 # Sleep for remainder of frame interval
@@ -134,7 +157,7 @@ class VideoLooper:
 
     def start(self):
         self._running = True
-        self._paused  = False
+        self._paused  = True   # wait for need-data signal before pushing
         self._thread  = threading.Thread(target=self._push_loop, daemon=True)
         self._thread.start()
 
@@ -188,8 +211,14 @@ class AppsrcMediaFactory(GstRtspServer.RTSPMediaFactory):
 
         print(f"[INFO] Pipeline:\n  {pipeline_str}\n")
 
-        pipeline = Gst.parse_launch(pipeline_str)
+        pipeline = Gst.parse_bin_from_description(pipeline_str, False)
         appsrc   = pipeline.get_by_name("vsrc")
+
+        # Ensure appsrc properties are set even if parse_bin_from_description
+        # doesn't honour them from the string (known Python binding quirk)
+        appsrc.set_property("is-live", True)
+        appsrc.set_property("format", Gst.Format.TIME)
+        appsrc.set_property("do-timestamp", False)
 
         # Stop any previous looper (shouldn't happen with shared=True, but be safe)
         if self._looper is not None:
@@ -226,14 +255,22 @@ class RTSPLoopServer:
         Gst.init(None)
 
         # Probe source dimensions + FPS with OpenCV
-        cap = cv2.VideoCapture(self.video_path)
-        if not cap.isOpened():
-            print(f"[ERROR] Cannot open: {self.video_path}", file=sys.stderr)
-            sys.exit(1)
-        src_w   = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-        src_h   = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-        src_fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
-        cap.release()
+        if self.video_path.lower().endswith(".png"):
+            img = cv2.imread(self.video_path)
+            if img is None:
+                print(f"[ERROR] Cannot read image: {self.video_path}", file=sys.stderr)
+                sys.exit(1)
+            src_h, src_w = img.shape[:2]
+            src_fps = 30.0
+        else:
+            cap = cv2.VideoCapture(self.video_path)
+            if not cap.isOpened():
+                print(f"[ERROR] Cannot open: {self.video_path}", file=sys.stderr)
+                sys.exit(1)
+            src_w   = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+            src_h   = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+            src_fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
+            cap.release()
 
         # Use requested size or fall back to source; keep dims even for x264
         w = args.width  or src_w
