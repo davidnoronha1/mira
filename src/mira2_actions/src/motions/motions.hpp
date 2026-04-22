@@ -368,9 +368,9 @@ public:
     void onHalted() override;
 
 private:
-    void objects_callback(const zed_interfaces::msg::ObjectsStamped::SharedPtr msg);
+    void objects_callback(const zed_msgs::msg::ObjectsStamped::SharedPtr msg);
     void publish_neutral();
-    geometry_msgs::msg::Pose extractPoseFromObject(const zed_interfaces::msg::Object& obj);
+    geometry_msgs::msg::Pose extractPoseFromObject(const zed_msgs::msg::Object& obj);
     tf2::Quaternion extractRotationFromCorners(const std::array<geometry_msgs::msg::Point, 8>& corners);
     geometry_msgs::msg::Pose computeApproachPose(
         const geometry_msgs::msg::Pose& object_pose,
@@ -378,7 +378,7 @@ private:
         double approach_distance);
 
     ROSState* ros_state_;
-    rclcpp::Subscription<zed_interfaces::msg::ObjectsStamped>::SharedPtr objects_sub_;
+    rclcpp::Subscription<zed_msgs::msg::ObjectsStamped>::SharedPtr objects_sub_;
 
     PID_Controller lateral_pid;
     PID_Controller forward_pid;
