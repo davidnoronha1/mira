@@ -112,15 +112,13 @@ def detect_yellow_pipeline(frame, hsv_lower, hsv_upper):
         - mask: binary mask for visualization
     """
     height, width = frame.shape[:2]
-    
-    # Convert to HSV
-    hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
-    
-    # Create yellow mask
+
+    blurred = cv2.GaussianBlur(frame, (7, 7), 0)
+    hsv = cv2.cvtColor(blurred, cv2.COLOR_BGR2HSV)
     mask = cv2.inRange(hsv, hsv_lower, hsv_upper)
     
     # Clean up noise
-    kernel = np.ones((5, 5), np.uint8)
+    kernel = np.ones((7, 7), np.uint8)
     mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
     mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
     
