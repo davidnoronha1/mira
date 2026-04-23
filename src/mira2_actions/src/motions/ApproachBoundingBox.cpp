@@ -145,14 +145,14 @@ BT::PortsList ApproachBB::providedPorts() {
 BT::NodeStatus ApproachBB::onStart() {
   auto object = getInput<std::string>("object");
   if (!object) {
-<<<<<<< HEAD
+
     RCLCPP_ERROR(ros_state_->node->get_logger(),
                  "ApproachBB: missing required input [object]: %s", object.error().c_str());
     return BT::NodeStatus::FAILURE;
-=======
+
     RCLCPP_ERROR(ros_state_->node->get_logger(), "Mission required input [object], None given");
     throw BT::RuntimeError("No object argument given");
->>>>>>> 0eea6c657a987f9eaa5de5f64300a0890be0611d
+
   }
 
   target_object_ = object.value();

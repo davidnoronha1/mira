@@ -6,7 +6,7 @@ from launch.actions import ExecuteProcess
 def generate_launch_description():
     machine = os.environ.get('MACHINE_NAME', 'ORIN')
     # Bottom camera USB paths
-    usb_port = "usb-3610000.usb-2.4" if machine == 'RPI4' else "usb-xhci-hcd.1-2"
+    usb_port = "usb-3610000.usb-2.4" if machine == 'RPI4' else "usb-3610000.usb-2.4"
     
     return LaunchDescription([
         Node(
@@ -15,8 +15,8 @@ def generate_launch_description():
             name='camera_bottom_driver',
             output='screen',
             parameters=[{
-                'vendor_id': '0x0c45',
-                'product_id': '0x6366',
+                'vendor_id': 0x05a3,
+                'product_id': 0x9420,
                 'serial_no': 'SN0001',
                 'image_width': 1280,
                 'image_height': 720,

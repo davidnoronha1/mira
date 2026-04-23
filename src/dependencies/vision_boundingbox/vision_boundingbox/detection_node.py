@@ -180,7 +180,7 @@ class VisionBoundingBoxNode(Node):
         self.get_logger().info("vision_boundingbox_node (Ultralytics) ready.")
 
     def _declare_params(self):
-        self.declare_parameter("image_source", "rtsp://192.168.2.6:2001/image_rtsp")
+        self.declare_parameter("image_source", "rtsp://192.168.2.6:2002/image_rtsp")
         self.declare_parameter("model_name", "docking.pt")  # Ultralytics prefers .pt or .onnx
         self.declare_parameter("device", "CPU")
         self.declare_parameter("conf_threshold", 0.5)

@@ -742,6 +742,7 @@ dependencies = [
     { name = "textual" },
     { name = "textual-plotext" },
     { name = "tk" },
+    { name = "ultralytics" },
 ]
 
 [package.optional-dependencies]
@@ -765,6 +766,7 @@ requires-dist = [
     { name = "textual", specifier = ">=8.0.0" },
     { name = "textual-plotext", specifier = ">=1.0.1" },
     { name = "tk", specifier = ">=0.1.0" },
+    { name = "ultralytics", specifier = ">=8.4.38" },
     { name = "ultralytics", marker = "extra == 'vision'", specifier = ">=8.4.33" },
 ]
 provides-extras = ["vision"]
