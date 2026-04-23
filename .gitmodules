@@ -1,3 +1,6 @@
 [submodule "src/dependencies/camera_driver"]
 	path = src/dependencies/camera_driver
 	url = git@github.com:davidnoronha1/camera_driver.git
+[submodule "src/dependencies/zed-ros2-interfaces"]
+	path = src/dependencies/zed-ros2-interfaces
+	url = https://github.com/stereolabs/zed-ros2-interfaces.git
