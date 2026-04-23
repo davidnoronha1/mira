@@ -225,6 +225,13 @@ alt_master_sitl:
 teleop: check-ros
 	${WS} && ros2 launch mira2_rov teleop.launch
 
+ARUCO_ID ?= 5
+tune-lateral: check-ros
+	${WS} && ros2 launch mira2_pid_control aruco_tuner.launch.py target_id:=${ARUCO_ID} axis:=lateral
+
+tune-forward: check-ros
+	${WS} && ros2 launch mira2_pid_control aruco_tuner.launch.py target_id:=${ARUCO_ID} axis:=forward
+
 # Development setup
 setup: check-ros install-deps submodules build install-udev fix-vscode
 	$(info 🚀 Complete workspace setup finished!)
