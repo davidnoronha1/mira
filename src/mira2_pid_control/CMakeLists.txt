@@ -27,6 +27,8 @@ add_executable(video_hardcode_exe src/video_submission_hardcode.cpp)
 add_executable(flare_imu src/flare_imu.cpp)
 add_executable(flare_timed src/flare_avoidance_timed.cpp)
 add_executable(yaw_tuning_exe src/yaw_tuner.cpp)
+add_executable(lateral_tuning_exe src/lateral_tuner.cpp)
+add_executable(forward_tuning_exe src/forward_tuner.cpp)
 # Link libraries
 ament_target_dependencies(go_down_exe rclcpp std_srvs std_msgs custom_msgs geometry_msgs control_utils)
 ament_target_dependencies(depth_tuning_exe rclcpp std_srvs std_msgs custom_msgs geometry_msgs control_utils)
@@ -34,6 +36,8 @@ ament_target_dependencies(video_hardcode_exe rclcpp std_msgs std_srvs custom_msg
 ament_target_dependencies(flare_imu rclcpp std_msgs std_srvs custom_msgs geometry_msgs control_utils)
 ament_target_dependencies(flare_timed rclcpp std_msgs std_srvs custom_msgs geometry_msgs control_utils)
 ament_target_dependencies(yaw_tuning_exe rclcpp std_srvs std_msgs custom_msgs geometry_msgs control_utils)
+ament_target_dependencies(lateral_tuning_exe rclcpp std_msgs custom_msgs geometry_msgs control_utils)
+ament_target_dependencies(forward_tuning_exe rclcpp std_msgs custom_msgs geometry_msgs control_utils)
 # Install targets
 install(TARGETS
   depth_tuning_exe
@@ -42,6 +46,8 @@ install(TARGETS
   flare_timed
   yaw_tuning_exe
   go_down_exe
+  lateral_tuning_exe
+  forward_tuning_exe
   DESTINATION lib/${PROJECT_NAME}
 )
 # Install include directory

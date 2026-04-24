@@ -19,6 +19,9 @@ find_package(custom_msgs REQUIRED)
 find_package(vision_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
+find_package(tf2 REQUIRED)
+find_package(tf2_ros REQUIRED)
+find_package(zed_msgs REQUIRED)
 
 # Create executable
 add_executable(mira2_actions_exe 
@@ -26,6 +29,7 @@ add_executable(mira2_actions_exe
   src/behaviours/DetectObjectBoundingbox.cpp
   src/behaviours/DetectTargetPoint.cpp
   src/motions/ApproachBoundingBox.cpp
+  src/motions/Approach3DBBox.cpp
   src/motions/AlignXY.cpp
   src/motions/ApproachWithDepth.cpp
   src/motions/HoldPosition.cpp
@@ -33,15 +37,18 @@ add_executable(mira2_actions_exe
   src/motions/LateralEvasion.cpp
   src/motions/RotateToTargetHeading.cpp
   src/motions/YawSweep.cpp)
-ament_target_dependencies(mira2_actions_exe
- rclcpp
- behaviortree_cpp
- control_utils
- custom_msgs
- vision_msgs
- geometry_msgs
- std_msgs
- ament_index_cpp)
+ ament_target_dependencies(mira2_actions_exe
+  rclcpp
+  Behaviortree_cpp
+  control_utils
+  custom_msgs
+  vision_msgs
+  geometry_msgs
+  std_msgs
+  ament_index_cpp
+  tf2
+  tf2_ros
+  zed_msgs)
 
 # Install executable
 install(TARGETS mira2_actions_exe

@@ -13,9 +13,9 @@
                     object_lost_timeout="4.0"
                     success_y_threshold="0.85"
                     success_area_ratio="0.6"
-                    depth_setpoint="0.65"
+                    depth_setpoint="0.55"
                     depth_visual_gain="0.15"
-                    depth_pid_kp="200.0" depth_pid_ki="0.0" depth_pid_kd="50.0" depth_pid_base_offset="1500.0"
+                    depth_pid_kp="100.0" depth_pid_ki="0.0" depth_pid_kd="50.0" depth_pid_base_offset="1500.0"
                     lateral_pid_kp="1.0" lateral_pid_ki="0.002" lateral_pid_kd="2.0" lateral_pid_base_offset="1500.0"
                     yaw_pid_kp="1.5" yaw_pid_ki="0.005" yaw_pid_kd="3.0" yaw_pid_base_offset="1500.0"/>
 

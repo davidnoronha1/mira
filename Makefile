@@ -90,8 +90,8 @@ export COLCON_ARGS= --cmake-args $(CMAKE_ARGS) \
                           --parallel-workers 3 \
 			  --event-handlers console_cohesion+ \
 			  --packages-skip $(SKIP_PACKAGES) \
-			  --continue-on-error \
-		          --symlink-install
+			  --continue-on-error
+		          # --symlink-install
 
 build: check-ros
 	$(warning If you built in docker last - you'll need to clean and rebuild)
@@ -224,6 +224,13 @@ alt_master_sitl:
 
 teleop: check-ros
 	${WS} && ros2 launch mira2_rov teleop.launch
+
+ARUCO_ID ?= 5
+tune-lateral: check-ros
+	${WS} && ros2 launch mira2_pid_control aruco_tuner.launch.py target_id:=${ARUCO_ID} axis:=lateral
+
+tune-forward: check-ros
+	${WS} && ros2 launch mira2_pid_control aruco_tuner.launch.py target_id:=${ARUCO_ID} axis:=forward
 
 # Development setup
 setup: check-ros install-deps submodules build install-udev fix-vscode

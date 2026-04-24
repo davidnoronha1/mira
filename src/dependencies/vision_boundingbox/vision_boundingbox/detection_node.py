@@ -92,6 +92,23 @@ class OpenCVSource(ImageSource):
         self._cap.release()
 
 
+_STATIC_IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".bmp", ".tiff", ".tif", ".webp"}
+
+
+class StaticImageSource(ImageSource):
+    """Returns the same image on every grab() call."""
+
+    def __init__(self, path: str, node_logger):
+        self._frame = cv2.imread(path)
+        if self._frame is None:
+            node_logger.error(f"Cannot read static image: {path}")
+        else:
+            node_logger.info(f"Loaded static image: {path}")
+
+    def grab(self) -> Optional[np.ndarray]:
+        return self._frame.copy() if self._frame is not None else None
+
+
 class ROS2TopicSource(ImageSource):
     def __init__(self, topic: str, node: "VisionBoundingBoxNode"):
         self._bridge = CvBridge()
@@ -191,6 +208,7 @@ class VisionBoundingBoxNode(Node):
         self.declare_parameter("input_width", 640)
         self.declare_parameter("reject_reflections", True)
         self.declare_parameter("reject_threshold", 0.5)
+        self.declare_parameter("is_stereo_image", False)
         self.declare_parameter("enable_bb_estimation", True)
         self.declare_parameter("imu_topic", "/master/imu")  # sensor_msgs/Imu topic for BB estimation
         self.declare_parameter("hfov_deg", 90.0)  # Camera horizontal field of view (degrees)
@@ -228,8 +246,18 @@ class VisionBoundingBoxNode(Node):
             if not topic.startswith("/"): topic = "/" + topic
             return ROS2TopicSource(topic, self)
 
-        if any(uri.startswith(s) for s in ["file://", "rtsp://", "rtsps://"]):
+        if uri.startswith("file://"):
+            path = uri[len("file://"):]
+            if Path(path).suffix.lower() in _STATIC_IMAGE_SUFFIXES:
+                return StaticImageSource(path, self.get_logger())
             return OpenCVSource(uri, self.get_logger())
+
+        if any(uri.startswith(s) for s in ["rtsp://", "rtsps://"]):
+            return OpenCVSource(uri, self.get_logger())
+
+        # Bare file path (no scheme)
+        if Path(uri).suffix.lower() in _STATIC_IMAGE_SUFFIXES:
+            return StaticImageSource(uri, self.get_logger())
 
         return OpenCVSource(uri, self.get_logger())
 
@@ -247,6 +275,9 @@ class VisionBoundingBoxNode(Node):
         if frame is None:
             self._last_process_time = now
             return
+
+        if self.get_parameter("is_stereo_image").value:
+            frame = frame[:, : frame.shape[1] // 2]
 
         stamp = now.to_msg()
 

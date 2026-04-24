@@ -23,13 +23,22 @@ if(BUILD_TESTING)
   set(ament_cmake_cpplint_FOUND TRUE)
   ament_lint_auto_find_test_dependencies()
 endif()
+install(PROGRAMS
+  scripts/aruco_tracker.py
+  DESTINATION lib/${PROJECT_NAME}
+)
+
 # Install launch files
-install(DIRECTORY launch/	
+install(DIRECTORY launch/
   DESTINATION share/${PROJECT_NAME}/launch
 )
 
 install(DIRECTORY config/
   DESTINATION share/${PROJECT_NAME}/config
+)
+
+install(FILES optimized_calib.npz
+  DESTINATION share/${PROJECT_NAME}
 )
 
 ament_package()
