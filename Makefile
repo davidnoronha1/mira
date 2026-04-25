@@ -226,11 +226,12 @@ teleop: check-ros
 	${WS} && ros2 launch mira2_rov teleop.launch
 
 ARUCO_ID ?= 5
+VIDEO ?= rtsp://192.168.2.6:2000/image_rtsp
 tune-lateral: check-ros
-	${WS} && ros2 launch mira2_pid_control aruco_tuner.launch.py target_id:=${ARUCO_ID} axis:=lateral
+	${WS} && ros2 launch mira2_pid_control aruco_tuner.launch.py target_id:=${ARUCO_ID} axis:=lateral rtsp_url:=${VIDEO}
 
 tune-forward: check-ros
-	${WS} && ros2 launch mira2_pid_control aruco_tuner.launch.py target_id:=${ARUCO_ID} axis:=forward
+	${WS} && ros2 launch mira2_pid_control aruco_tuner.launch.py target_id:=${ARUCO_ID} axis:=forward rtsp_url:=${VIDEO}
 
 # Development setup
 setup: check-ros install-deps submodules build install-udev fix-vscode

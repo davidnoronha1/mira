@@ -16,13 +16,20 @@ def generate_launch_description():
             'axis', default_value='lateral',
             description='Axis to tune: lateral or forward'),
 
+        DeclareLaunchArgument(
+            'rtsp_url', default_value='rtsp://192.168.2.6:2000/image_rtsp',
+            description='Video source URL (RTSP stream or file path)'),
+
         Node(
             package='mira2_perception',
             executable='aruco_tracker.py',
             name='aruco_tracker',
             output='screen',
             emulate_tty=True,
-            parameters=[{'target_id': LaunchConfiguration('target_id')}],
+            parameters=[{
+                'target_id': LaunchConfiguration('target_id'),
+                'rtsp_url': LaunchConfiguration('rtsp_url'),
+            }],
         ),
 
         Node(

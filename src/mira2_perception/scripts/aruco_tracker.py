@@ -54,7 +54,8 @@ class ArucoTracker(Node):
         self.visualize = self.declare_parameter('visualize', True).value
 
         # Load calibration
-        calib_path = './optimized_calib.npz'
+        calib_path = os.path.join(
+            get_package_share_directory('mira2_perception'), 'optimized_calib.npz')
         if not os.path.exists(calib_path):
             self.get_logger().error(f"Calibration file not found at {calib_path}")
             raise FileNotFoundError(calib_path)
@@ -65,6 +66,8 @@ class ArucoTracker(Node):
 
         self.pose_pub = self.create_publisher(PoseStamped, '/aruco/pose', 10)
         self.error_pub = self.create_publisher(Vector3, '/aruco/error', 10)
+
+        self._last_error = None  # (x, y) tuple; held when marker leaves frame
 
         self.get_logger().info(
             f'Tracking ArUco ID {self.target_id} from {self.rtsp_url} | visualize={self.visualize}')
@@ -90,9 +93,29 @@ class ArucoTracker(Node):
                 cv2.waitKey(1000)
                 continue
 
+            # --- Underwater image enhancement ---
+            # Denoise to reduce temporal flickering
+            frame = cv2.bilateralFilter(frame, d=7, sigmaColor=50, sigmaSpace=50)
+            # CLAHE on L channel to boost contrast in murky water
+            lab = cv2.cvtColor(frame, cv2.COLOR_BGR2LAB)
+            l, a, b = cv2.split(lab)
+            clahe = cv2.createCLAHE(clipLimit=2.5, tileGridSize=(8, 8))
+            l = clahe.apply(l)
+            frame = cv2.cvtColor(cv2.merge([l, a, b]), cv2.COLOR_LAB2BGR)
+            # Sharpen edges to make marker borders crisper
+            kernel = np.array([[0, -1, 0], [-1, 5, -1], [0, -1, 0]], dtype=np.float32)
+            frame = cv2.filter2D(frame, -1, kernel)
+
             corners, ids, _ = detect_markers(frame)
 
+            frame_h, frame_w = frame.shape[:2]
+            frame_cx, frame_cy = frame_w // 2, frame_h // 2
+            marker_center = None
+            display_err_x, display_err_y = None, None
+
             if ids is not None:
+                detected = ids.flatten().tolist()
+                self.get_logger().info(f'Detected IDs: {detected} (target={self.target_id})')
                 if self.visualize:
                     cv2.aruco.drawDetectedMarkers(frame, corners, ids)
 
@@ -139,6 +162,10 @@ class ArucoTracker(Node):
                     err.z = 0.0
                     self.error_pub.publish(err)
 
+                    self._last_error = (float(tvec[0]), float(tvec[1]))
+                    display_err_x = float(tvec[0])
+                    display_err_y = float(tvec[1])
+
                     # --- Visualization ---
                     if self.visualize:
                         cv2.drawFrameAxes(
@@ -146,15 +173,50 @@ class ArucoTracker(Node):
                             rvec, tvec, MARKER_LENGTH * 0.75
                         )
 
-                        # FIX: Now tvec[0] is a scalar, so formatting works
                         text = f"ID:{marker_id} x:{tvec[0]:.2f} y:{tvec[1]:.2f} z:{tvec[2]:.2f}"
                         pt = tuple(corners[i][0][0].astype(int))
                         cv2.putText(frame, text, pt,
                                     cv2.FONT_HERSHEY_SIMPLEX, 0.5,
                                     (0, 255, 0), 2)
+
+                        # Pixel centre of the detected marker
+                        cx = int(corners[i][0][:, 0].mean())
+                        cy = int(corners[i][0][:, 1].mean())
+                        marker_center = (cx, cy)
+
                     break
 
+            # Failsafe: if marker not detected this frame, republish last known error
+            if display_err_x is None and self._last_error is not None:
+                err = Vector3()
+                err.x = self._last_error[0]
+                err.y = self._last_error[1]
+                err.z = 0.0
+                self.error_pub.publish(err)
+                display_err_x, display_err_y = self._last_error
+
             if self.visualize:
+                # Draw crosshair at frame centre
+                cv2.drawMarker(frame, (frame_cx, frame_cy), (0, 0, 255),
+                               cv2.MARKER_CROSS, 20, 2)
+
+                if marker_center is not None:
+                    # Line from marker centre to frame centre
+                    cv2.line(frame, marker_center, (frame_cx, frame_cy),
+                             (0, 255, 255), 2)
+                    cv2.circle(frame, marker_center, 5, (0, 255, 255), -1)
+
+                if display_err_x is not None:
+                    # Error overlay in top-left corner
+                    cv2.putText(frame,
+                                f"err_x: {display_err_x:+.3f} m",
+                                (10, 25), cv2.FONT_HERSHEY_SIMPLEX, 0.65,
+                                (0, 255, 255), 2)
+                    cv2.putText(frame,
+                                f"err_y: {display_err_y:+.3f} m",
+                                (10, 52), cv2.FONT_HERSHEY_SIMPLEX, 0.65,
+                                (0, 255, 255), 2)
+
                 cv2.imshow("Aruco Tracker", frame)
                 if cv2.waitKey(1) & 0xFF == 27:
                     break

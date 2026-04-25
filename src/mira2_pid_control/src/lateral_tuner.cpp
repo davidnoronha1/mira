@@ -1,7 +1,9 @@
 #include <algorithm>
 #include <chrono>
+#include <cmath>
 #include <control_utils/control_utils.hpp>
 #include <custom_msgs/msg/commands.hpp>
+#include <custom_msgs/msg/telemetry.hpp>
 #include <geometry_msgs/msg/vector3.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <std_msgs/msg/char.hpp>
@@ -24,7 +26,8 @@
 class LateralTunerController {
 public:
   LateralTunerController(rclcpp::Node::SharedPtr node)
-      : node_(node), lateral_controller_("lateral", node) {
+      : node_(node), lateral_controller_("lateral", node),
+        yaw_controller_("yaw", node) {
 
     initializePIDControllers();
 
@@ -42,8 +45,16 @@ public:
             std::bind(&LateralTunerController::arucoCallback, this,
                       std::placeholders::_1));
 
+    telemetry_subscriber_ =
+        node_->create_subscription<custom_msgs::msg::Telemetry>(
+            "/master/telemetry", 1,
+            std::bind(&LateralTunerController::telemetryCallback, this,
+                      std::placeholders::_1));
+
     software_arm_flag_ = false;
     lateral_error_ = 0.0;
+    target_heading_ = -1;
+    yaw_error_ = 0;
 
     cmd_pwm_.arm = false;
     cmd_pwm_.mode = "ALT_HOLD";
@@ -70,6 +81,11 @@ private:
     lateral_controller_.ki = 0.0;
     lateral_controller_.kd = 0.0;
     lateral_controller_.base_offset = 1500;
+
+    yaw_controller_.kp = 3.18;
+    yaw_controller_.ki = 0.01;
+    yaw_controller_.kd = 7.2;
+    yaw_controller_.base_offset = 1500;
   }
 
   void printPIDParameters() {
@@ -77,6 +93,9 @@ private:
                 "Lateral PID — Kp: %.2f  Ki: %.3f  Kd: %.2f",
                 lateral_controller_.kp, lateral_controller_.ki,
                 lateral_controller_.kd);
+    RCLCPP_INFO(node_->get_logger(),
+                "Yaw PID (heading lock) — Kp: %.2f  Ki: %.3f  Kd: %.2f",
+                yaw_controller_.kp, yaw_controller_.ki, yaw_controller_.kd);
   }
 
   void keysCallback(const std_msgs::msg::Char::SharedPtr msg) {
@@ -136,6 +155,21 @@ private:
     }
   }
 
+  void telemetryCallback(const custom_msgs::msg::Telemetry::SharedPtr msg) {
+    int heading = msg->heading;
+    if (target_heading_ < 0) {
+      target_heading_ = heading;
+      RCLCPP_INFO(node_->get_logger(),
+                  "[YAW] Heading locked at %d°", target_heading_);
+    }
+    // Shortest angular error [-180, 180] degrees — same as yaw_tuner.cpp
+    double error = static_cast<double>(target_heading_ - heading);
+    error = std::fmod(error + 180.0, 360.0);
+    if (error < 0.0) error += 360.0;
+    yaw_error_ = static_cast<int>(error - 180.0);
+    telemetry_received_ = true;
+  }
+
   // error.x = lateral offset of marker from camera centre (metres).
   void arucoCallback(const geometry_msgs::msg::Vector3::SharedPtr msg) {
     if (!aruco_received_) {
@@ -172,6 +206,14 @@ private:
                          "[LOOP] armed=%d  lateral_error=%.4f  dt=%.4f",
                          software_arm_flag_, lateral_error_, dt);
 
+    if (!telemetry_received_) {
+      RCLCPP_WARN_THROTTLE(node_->get_logger(), *node_->get_clock(), 2000,
+                           "[WARNING] No telemetry yet — yaw unlocked");
+    }
+
+    float pid_yaw = yaw_controller_.pid_control(yaw_error_, dt, false);
+    int yaw_pwm = std::clamp(static_cast<int>(pid_yaw), 1100, 1900);
+
     if (software_arm_flag_ && pose_fresh) {
       cmd_pwm_.mode = "ALT_HOLD";
       cmd_pwm_.arm = true;
@@ -182,13 +224,14 @@ private:
       cmd_pwm_.forward = 1500;
       cmd_pwm_.lateral = std::clamp(static_cast<int>(pid_lateral), 1100, 1900);
       cmd_pwm_.thrust = 1500;
-      cmd_pwm_.yaw = 1500;
+      cmd_pwm_.yaw = telemetry_received_ ? yaw_pwm : 1500;
     } else {
       if (software_arm_flag_ && !pose_fresh) {
         RCLCPP_WARN_THROTTLE(node_->get_logger(), *node_->get_clock(), 500,
                              "[WARNING] Stale ArUco pose — holding neutral");
       }
       lateral_controller_.emptyError();
+      yaw_controller_.emptyError();
       cmd_pwm_.arm = software_arm_flag_;
       cmd_pwm_.mode = "ALT_HOLD";
       cmd_pwm_.forward = 1500;
@@ -208,16 +251,22 @@ private:
   rclcpp::TimerBase::SharedPtr timer_;
 
   PID_Controller lateral_controller_;
+  PID_Controller yaw_controller_;
 
   bool software_arm_flag_;
   bool aruco_received_ = false;
+  bool telemetry_received_ = false;
   custom_msgs::msg::Commands cmd_pwm_;
 
   double lateral_error_;
+  int target_heading_;
+  int yaw_error_;
 
   rclcpp::Time prev_time_;
   rclcpp::Time last_loop_time_;
   rclcpp::Time last_pose_time_;
+
+  rclcpp::Subscription<custom_msgs::msg::Telemetry>::SharedPtr telemetry_subscriber_;
 };
 
 int main(int argc, char **argv) {
