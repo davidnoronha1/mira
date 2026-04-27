@@ -101,27 +101,32 @@ geometry_msgs::msg::Pose Approach3DBBox::extractPoseFromObject(
 }
 
 tf2::Quaternion Approach3DBBox::extractRotationFromCorners(
-    const std::array<geometry_msgs::msg::Point, 8>& corners) {
+    const std::array<zed_msgs::msg::Keypoint3D, 8>& corners) {
   if (corners.size() < 8) {
     return tf2::Quaternion::getIdentity();
   }
 
-  tf2::Vector3 v1(
-      corners[1].x - corners[0].x,
-      corners[1].y - corners[0].y,
-      corners[1].z - corners[0].z);
-  tf2::Vector3 v2(
-      corners[3].x - corners[0].x,
-      corners[3].y - corners[0].y,
-      corners[3].z - corners[0].z);
-  tf2::Vector3 v3(
-      corners[4].x - corners[0].x,
-      corners[4].y - corners[0].y,
-      corners[4].z - corners[0].z);
+  auto kp = [&](const zed_msgs::msg::Keypoint3D& c, int i) { return c.kp[i]; };
 
-  v1.normalize();
-  v2.normalize();
+  tf2::Vector3 v3(
+      kp(corners[4], 0) - kp(corners[0], 0),
+      kp(corners[4], 1) - kp(corners[0], 1),
+      kp(corners[4], 2) - kp(corners[0], 2));
+  tf2::Vector3 v1(
+      kp(corners[1], 0) - kp(corners[0], 0),
+      kp(corners[1], 1) - kp(corners[0], 1),
+      kp(corners[1], 2) - kp(corners[0], 2));
+  tf2::Vector3 v2_temp(
+      kp(corners[3], 0) - kp(corners[0], 0),
+      kp(corners[3], 1) - kp(corners[0], 1),
+      kp(corners[3], 2) - kp(corners[0], 2));
+
   v3.normalize();
+  v1.normalize();
+  tf2::Vector3 v2 = v3.cross(v1);
+  v2.normalize();
+  v1 = v2.cross(v3);
+  v1.normalize();
 
   tf2::Matrix3x3 rot_matrix(
       v3.x(), v1.x(), v2.x(),
