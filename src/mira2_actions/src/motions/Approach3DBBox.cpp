@@ -240,17 +240,10 @@ BT::NodeStatus Approach3DBBox::onRunning() {
     return BT::NodeStatus::RUNNING;
   }
 
-  double vehicle_x = 0.0, vehicle_y = 0.0, vehicle_z = -ros_state_->telemetry.depth;
-  if (ros_state_->telemetry.position_ned.size() >= 3) {
-    vehicle_x = ros_state_->telemetry.position_ned[0];
-    vehicle_y = ros_state_->telemetry.position_ned[1];
-    vehicle_z = ros_state_->telemetry.position_ned[2];
-  }
-
-  double dx = target_pose_.position.x - vehicle_x;
-  double dy = target_pose_.position.y - vehicle_y;
-  double dz = target_pose_.position.z - vehicle_z;
-  double distance = std::sqrt(dx * dx + dy * dy + dz * dz);
+  double obj_x = target_pose_.position.x;
+  double obj_y = target_pose_.position.y;
+  double obj_z = target_pose_.position.z;
+  double distance = std::sqrt(obj_x * obj_x + obj_y * obj_y + obj_z * obj_z);
 
   if (distance <= success_distance_) {
     RCLCPP_INFO(ros_state_->node->get_logger(),
@@ -270,35 +263,25 @@ BT::NodeStatus Approach3DBBox::onRunning() {
       target_pose_.orientation.y,
       target_pose_.orientation.z,
       target_pose_.orientation.w);
-  auto approach_pose = computeApproachPose(target_pose_, obj_q, approach_distance_);
 
-  double vehicle_px = 0.0, vehicle_py = 0.0;
-  if (ros_state_->telemetry.position_ned.size() >= 2) {
-    vehicle_px = ros_state_->telemetry.position_ned[0];
-    vehicle_py = ros_state_->telemetry.position_ned[1];
-  } else {
-    vehicle_px = target_pose_.position.x;
-    vehicle_py = target_pose_.position.y;
+  tf2::Vector3 obj_forward(1.0, 0.0, 0.0);
+  if (obj_q.length2() > 0.001) {
+    obj_q.normalize();
+    tf2::Matrix3x3 rot(obj_q);
+    obj_forward = rot.getColumn(0);
   }
 
-  double ax = approach_pose.position.x - vehicle_px;
-  double ay = approach_pose.position.y - vehicle_py;
-  double forward_error = std::sqrt(ax * ax + ay * ay);
-
-  double lateral_error = dy;
-  float lateral_pwm = lateral_pid.pid_control(lateral_error, elapsed, false);
-  float forward_pwm = forward_pid.pid_control(forward_error, elapsed, false);
-
-  double target_depth = approach_pose.position.z;
-  double vehicle_depth = (ros_state_->telemetry.position_ned.size() >= 3) 
-      ? ros_state_->telemetry.position_ned[2] 
-      : -ros_state_->telemetry.depth;
-  double depth_error = target_depth - vehicle_depth;
-  float depth_pwm = depth_pid.pid_control(depth_error, elapsed, false);
+  double forward_error = obj_forward.x() * obj_x + obj_forward.y() * obj_y + obj_forward.z() * obj_z;
+  double lateral_error = -obj_forward.y() * obj_x + obj_forward.x() * obj_y;
+  double depth_error = -obj_z;
 
   double yaw_error = locked_heading_ - ros_state_->telemetry.yaw;
   while (yaw_error > 180.0) yaw_error -= 360.0;
   while (yaw_error < -180.0) yaw_error += 360.0;
+
+  float lateral_pwm = lateral_pid.pid_control(lateral_error, elapsed, false);
+  float forward_pwm = forward_pid.pid_control(forward_error, elapsed, false);
+  float depth_pwm = depth_pid.pid_control(depth_error, elapsed, false);
   float yaw_pwm = yaw_pid.pid_control(yaw_error, elapsed, false);
 
   custom_msgs::msg::Commands cmd;
