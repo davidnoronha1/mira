@@ -359,7 +359,7 @@ private:
   geometry_msgs::msg::Pose
   extractPoseFromObject(const zed_msgs::msg::Object &obj);
   tf2::Quaternion extractRotationFromCorners(
-      const std::array<geometry_msgs::msg::Point, 8> &corners);
+      const std::array<zed_msgs::msg::Keypoint3D, 8> &corners);
   geometry_msgs::msg::Pose
   computeApproachPose(const geometry_msgs::msg::Pose &object_pose,
                       const tf2::Quaternion &orientation,
@@ -376,13 +376,11 @@ private:
   std::string target_label_;
   double success_distance_;
   double approach_distance_;
-  double hover_height_;
   double object_lost_timeout_;
   double timeout_;
   std::string flight_mode_;
 
   geometry_msgs::msg::Pose target_pose_;
-  std::array<zed_msgs::msg::Keypoint3D, 8> target_bbox_corners_;
   bool target_visible_;
   rclcpp::Time last_detection_time_;
   rclcpp::Time start_time_;
