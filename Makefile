@@ -233,6 +233,9 @@ tune-lateral: check-ros
 tune-forward: check-ros
 	${WS} && ros2 launch mira2_pid_control aruco_tuner.launch.py target_id:=${ARUCO_ID} axis:=forward rtsp_url:=${VIDEO}
 
+tune-gui: check-ros
+	${WS} && ros2 launch mira2_pid_control pid_tuner_gui.launch.py target_id:=${ARUCO_ID} rtsp_url:=${VIDEO}
+
 # Development setup
 setup: check-ros install-deps submodules build install-udev fix-vscode
 	$(info 🚀 Complete workspace setup finished!)

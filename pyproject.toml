@@ -20,6 +20,8 @@ dependencies = [
     "opencv-contrib-python",
     "mavproxy>=1.8.74",
     "ultralytics>=8.4.38",
+    "PyQt5>=5.15",
+    "pyqtgraph>=0.13",
 ]
 
 [project.optional-dependencies]
