@@ -5,41 +5,42 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "catkin-pkg>=1.0.0",
-    "empy>=4.2",
-    "lark-parser>=0.12.0",
-    "numpy>=2.3.2",
-    "opencv-python>=4.11.0.86",
-    "plotext>=5.3.2",
-    "pymavlink>=2.4.49",
-    "pyserial>=3.5",
-    "pyyaml>=6.0.2",
-    "textual>=8.0.0",
-    "textual-plotext>=1.0.1",
-    "tk>=0.1.0",
-    "opencv-contrib-python",
-    "mavproxy>=1.8.74",
-    "ultralytics>=8.4.38",
+  "catkin-pkg>=1.0.0",
+  "empy<4",
+  "lark-parser>=0.12.0",
+  "numpy>=2.3.2",
+  "opencv-python>=4.11.0.86",
+  "plotext>=5.3.2",
+  "pymavlink>=2.4.49",
+  "pyserial>=3.5",
+  "pyyaml>=6.0.2",
+  "textual>=8.0.0",
+  "textual-plotext>=1.0.1",
+  "tk>=0.1.0",
+  "opencv-contrib-python",
+  "mavproxy>=1.8.74",
+  "ultralytics>=8.4.38",
+  "onnxruntime>=1.24.4",
 ]
 
 [project.optional-dependencies]
-vision = [
-    "ultralytics>=8.4.33",
-]
+vision = ["ultralytics>=8.4.33"]
 
 # [tool.uv]
 # torch-backend = "auto"
+[tool.uv]
+#torch-backend = "auto"
 
 [[tool.uv.index]]
 name = "jetson-ai-lab"
 url = "https://pypi.jetson-ai-lab.io/jp6/cu126"
 explicit = true
- 
+
 [tool.uv.sources]
 torch = [
-    # CUDA 12.6 wheel — only resolved on linux/aarch64 (Jetson Orin)
-    { index = "jetson-ai-lab", marker = "platform_machine == 'aarch64' and sys_platform == 'linux'" },
+  # CUDA 12.6 wheel — only resolved on linux/aarch64 (Jetson Orin)
+  { index = "jetson-ai-lab", marker = "platform_machine == 'aarch64' and sys_platform == 'linux'" },
 ]
 torchvision = [
-    { index = "jetson-ai-lab", marker = "platform_machine == 'aarch64' and sys_platform == 'linux'" },
+  { index = "jetson-ai-lab", marker = "platform_machine == 'aarch64' and sys_platform == 'linux'" },
 ]
