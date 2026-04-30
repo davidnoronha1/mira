@@ -36,10 +36,12 @@ add_executable(mira2_actions_exe
   src/motions/TimedForward.cpp
   src/motions/LateralEvasion.cpp
   src/motions/RotateToTargetHeading.cpp
-  src/motions/YawSweep.cpp)
- ament_target_dependencies(mira2_actions_exe
+  src/motions/YawSweep.cpp
+)
+
+ament_target_dependencies(mira2_actions_exe
   rclcpp
-  #   Behaviortree_cpp
+  behaviortree_cpp
   control_utils
   custom_msgs
   vision_msgs

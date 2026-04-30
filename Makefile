@@ -136,6 +136,8 @@ install-deps: check-ros check-uv
 	$(info Installing ROS dependencies...)
 	@source /opt/ros/jazzy/setup.bash && \
 	rosdep install --from-paths src --ignore-src -r -y
+	$(info Building zed_msgs submodule...)
+	@colcon build --packages-select zed_msgs --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=Release
 
 PYTHON_VERSION ?= python3.12
 install-mavproxy: check-uv

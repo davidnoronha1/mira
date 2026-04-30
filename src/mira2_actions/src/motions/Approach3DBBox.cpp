@@ -1,12 +1,15 @@
 #include "motions.hpp"
 #include <cmath>
+#include <tf2/LinearMath/Matrix3x3.hpp>
+#include <tf2/LinearMath/Quaternion.hpp>
+#include <tf2/LinearMath/Vector3.hpp>
 
 void Approach3DBBox::objects_callback(
     const zed_msgs::msg::ObjectsStamped::SharedPtr msg) {
   bool found_this_frame = false;
   double best_confidence = 0.0;
 
-  for (const auto& obj : msg->objects) {
+  for (const auto &obj : msg->objects) {
     if (obj.label != target_label_ && obj.sublabel != target_label_)
       continue;
 
@@ -23,10 +26,8 @@ void Approach3DBBox::objects_callback(
     RCLCPP_INFO_THROTTLE(ros_state_->node->get_logger(),
                          *ros_state_->node->get_clock(), 1000,
                          "Approach3DBBox: Found '%s' at (%.2f, %.2f, %.2f)",
-                         target_label_.c_str(),
-                         target_pose_.position.x,
-                         target_pose_.position.y,
-                         target_pose_.position.z);
+                         target_label_.c_str(), target_pose_.position.x,
+                         target_pose_.position.y, target_pose_.position.z);
   } else if (!msg->objects.empty()) {
     RCLCPP_WARN_THROTTLE(
         ros_state_->node->get_logger(), *ros_state_->node->get_clock(), 2000,
@@ -35,38 +36,41 @@ void Approach3DBBox::objects_callback(
   }
 }
 
-Approach3DBBox::Approach3DBBox(const std::string& name,
-                           const BT::NodeConfiguration& config, ROSState* ros_state)
+Approach3DBBox::Approach3DBBox(const std::string &name,
+                               const BT::NodeConfiguration &config,
+                               ROSState *ros_state)
     : BT::StatefulActionNode(name, config), ros_state_(ros_state),
       lateral_pid(name + "_lat", ros_state->node),
       forward_pid(name + "_fwd", ros_state->node),
       depth_pid(name + "_depth", ros_state->node),
-      yaw_pid(name + "_yaw", ros_state->node),
-      target_visible_(false), heading_locked_(false) {}
+      yaw_pid(name + "_yaw", ros_state->node), target_visible_(false),
+      heading_locked_(false) {}
 
 BT::PortsList Approach3DBBox::providedPorts() {
   return {
       BT::InputPort<std::string>("label", "Target object label to approach"),
       BT::InputPort<double>("success_distance", 0.5,
-                          "Distance to target to succeed (meters)"),
+                            "Distance to target to succeed (meters)"),
       BT::InputPort<double>("approach_distance", 1.0,
-                          "Distance to stop at before final approach"),
+                            "Distance to stop at before final approach"),
       BT::InputPort<double>("object_lost_timeout", 3.0,
-                          "Seconds after which FAILURE if object lost"),
+                            "Seconds after which FAILURE if object lost"),
       BT::InputPort<double>("timeout", 60.0,
-                          "Maximum time for entire approach (seconds)"),
+                            "Maximum time for entire approach (seconds)"),
       BT::InputPort<std::string>("flight_mode", "STABILIZE",
-                            "FC mode: ALT_HOLD or STABILIZE"),
+                                 "FC mode: ALT_HOLD or STABILIZE"),
 
       BT::InputPort<double>("lateral_pid_kp", 1.0, "Lateral PID kp"),
       BT::InputPort<double>("lateral_pid_ki", 0.002, "Lateral PID ki"),
       BT::InputPort<double>("lateral_pid_kd", 2.0, "Lateral PID kd"),
-      BT::InputPort<double>("lateral_pid_base_offset", 1500.0, "Lateral PID base"),
+      BT::InputPort<double>("lateral_pid_base_offset", 1500.0,
+                            "Lateral PID base"),
 
       BT::InputPort<double>("forward_pid_kp", 1.0, "Forward PID kp"),
       BT::InputPort<double>("forward_pid_ki", 0.002, "Forward PID ki"),
       BT::InputPort<double>("forward_pid_kd", 2.0, "Forward PID kd"),
-      BT::InputPort<double>("forward_pid_base_offset", 1500.0, "Forward PID base"),
+      BT::InputPort<double>("forward_pid_base_offset", 1500.0,
+                            "Forward PID base"),
 
       BT::InputPort<double>("depth_pid_kp", 0.05, "Depth PID kp"),
       BT::InputPort<double>("depth_pid_ki", 0.005, "Depth PID ki"),
@@ -80,8 +84,8 @@ BT::PortsList Approach3DBBox::providedPorts() {
   };
 }
 
-geometry_msgs::msg::Pose Approach3DBBox::extractPoseFromObject(
-    const zed_msgs::msg::Object& obj) {
+geometry_msgs::msg::Pose
+Approach3DBBox::extractPoseFromObject(const zed_msgs::msg::Object &obj) {
   geometry_msgs::msg::Pose pose;
   pose.position.x = obj.position[0];
   pose.position.y = obj.position[1];
@@ -101,42 +105,42 @@ geometry_msgs::msg::Pose Approach3DBBox::extractPoseFromObject(
 }
 
 tf2::Quaternion Approach3DBBox::extractRotationFromCorners(
-    const std::array<geometry_msgs::msg::Point, 8>& corners) {
+    const std::array<zed_msgs::msg::Keypoint3D, 8> &corners) {
   if (corners.size() < 8) {
     return tf2::Quaternion::getIdentity();
   }
 
-  tf2::Vector3 v1(
-      corners[1].x - corners[0].x,
-      corners[1].y - corners[0].y,
-      corners[1].z - corners[0].z);
-  tf2::Vector3 v2(
-      corners[3].x - corners[0].x,
-      corners[3].y - corners[0].y,
-      corners[3].z - corners[0].z);
-  tf2::Vector3 v3(
-      corners[4].x - corners[0].x,
-      corners[4].y - corners[0].y,
-      corners[4].z - corners[0].z);
+  auto kp = [&](const zed_msgs::msg::Keypoint3D &c, int i) { return c.kp[i]; };
 
-  v1.normalize();
-  v2.normalize();
+  tf2::Vector3 v3(kp(corners[4], 0) - kp(corners[0], 0),
+                  kp(corners[4], 1) - kp(corners[0], 1),
+                  kp(corners[4], 2) - kp(corners[0], 2));
+  tf2::Vector3 v1(kp(corners[1], 0) - kp(corners[0], 0),
+                  kp(corners[1], 1) - kp(corners[0], 1),
+                  kp(corners[1], 2) - kp(corners[0], 2));
+  tf2::Vector3 v2_temp(kp(corners[3], 0) - kp(corners[0], 0),
+                       kp(corners[3], 1) - kp(corners[0], 1),
+                       kp(corners[3], 2) - kp(corners[0], 2));
+
   v3.normalize();
+  v1.normalize();
+  tf2::Vector3 v2 = v3.cross(v1);
+  v2.normalize();
+  v1 = v2.cross(v3);
+  v1.normalize();
 
-  tf2::Matrix3x3 rot_matrix(
-      v3.x(), v1.x(), v2.x(),
-      v3.y(), v1.y(), v2.y(),
-      v3.z(), v1.z(), v2.z());
+  tf2::Matrix3x3 rot_matrix(v3.x(), v1.x(), v2.x(), v3.y(), v1.y(), v2.y(),
+                            v3.z(), v1.z(), v2.z());
 
   tf2::Quaternion q;
   rot_matrix.getRotation(q);
   return q.normalize();
 }
 
-geometry_msgs::msg::Pose Approach3DBBox::computeApproachPose(
-    const geometry_msgs::msg::Pose& object_pose,
-    const tf2::Quaternion& object_orientation,
-    double distance) {
+geometry_msgs::msg::Pose
+Approach3DBBox::computeApproachPose(const geometry_msgs::msg::Pose &object_pose,
+                                    const tf2::Quaternion &object_orientation,
+                                    double distance) {
 
   tf2::Matrix3x3 rot_matrix(object_orientation);
   tf2::Vector3 obj_x = rot_matrix.getColumn(0);
@@ -159,8 +163,8 @@ BT::NodeStatus Approach3DBBox::onStart() {
   auto label = getInput<std::string>("label");
   if (!label) {
     RCLCPP_ERROR(ros_state_->node->get_logger(),
-                "Approach3DBBox: missing required input [label]: %s",
-                label.error().c_str());
+                 "Approach3DBBox: missing required input [label]: %s",
+                 label.error().c_str());
     return BT::NodeStatus::FAILURE;
   }
 
@@ -204,9 +208,11 @@ BT::NodeStatus Approach3DBBox::onStart() {
               "(success_dist=%.2fm, approach_dist=%.2fm)",
               target_label_.c_str(), success_distance_, approach_distance_);
 
-  objects_sub_ = ros_state_->node->create_subscription<zed_msgs::msg::ObjectsStamped>(
-      "/zed/obj_det/objects", 10,
-      std::bind(&Approach3DBBox::objects_callback, this, std::placeholders::_1));
+  objects_sub_ =
+      ros_state_->node->create_subscription<zed_msgs::msg::ObjectsStamped>(
+          "/zed/obj_det/objects", 10,
+          std::bind(&Approach3DBBox::objects_callback, this,
+                    std::placeholders::_1));
 
   return BT::NodeStatus::RUNNING;
 }
@@ -232,30 +238,22 @@ BT::NodeStatus Approach3DBBox::onRunning() {
   }
 
   if (!target_visible_) {
-    RCLCPP_INFO_THROTTLE(ros_state_->node->get_logger(),
-                         *ros_state_->node->get_clock(), 1000,
-                         "Approach3DBBox: [WAITING] no '%s' detected",
-                         target_label_.c_str());
+    RCLCPP_INFO_THROTTLE(
+        ros_state_->node->get_logger(), *ros_state_->node->get_clock(), 1000,
+        "Approach3DBBox: [WAITING] no '%s' detected", target_label_.c_str());
     publish_neutral();
     return BT::NodeStatus::RUNNING;
   }
 
-  double vehicle_x = 0.0, vehicle_y = 0.0, vehicle_z = -ros_state_->telemetry.depth;
-  if (ros_state_->telemetry.position_ned.size() >= 3) {
-    vehicle_x = ros_state_->telemetry.position_ned[0];
-    vehicle_y = ros_state_->telemetry.position_ned[1];
-    vehicle_z = ros_state_->telemetry.position_ned[2];
-  }
-
-  double dx = target_pose_.position.x - vehicle_x;
-  double dy = target_pose_.position.y - vehicle_y;
-  double dz = target_pose_.position.z - vehicle_z;
-  double distance = std::sqrt(dx * dx + dy * dy + dz * dz);
+  double obj_x = target_pose_.position.x;
+  double obj_y = target_pose_.position.y;
+  double obj_z = target_pose_.position.z;
+  double distance = std::sqrt(obj_x * obj_x + obj_y * obj_y + obj_z * obj_z);
 
   if (distance <= success_distance_) {
     RCLCPP_INFO(ros_state_->node->get_logger(),
-                "Approach3DBBox: distance %.2fm <= %.2fm -> SUCCESS",
-                distance, success_distance_);
+                "Approach3DBBox: distance %.2fm <= %.2fm -> SUCCESS", distance,
+                success_distance_);
     publish_neutral();
     return BT::NodeStatus::SUCCESS;
   }
@@ -265,40 +263,30 @@ BT::NodeStatus Approach3DBBox::onRunning() {
     heading_locked_ = true;
   }
 
-  tf2::Quaternion obj_q(
-      target_pose_.orientation.x,
-      target_pose_.orientation.y,
-      target_pose_.orientation.z,
-      target_pose_.orientation.w);
-  auto approach_pose = computeApproachPose(target_pose_, obj_q, approach_distance_);
+  tf2::Quaternion obj_q(target_pose_.orientation.x, target_pose_.orientation.y,
+                        target_pose_.orientation.z, target_pose_.orientation.w);
 
-  double vehicle_px = 0.0, vehicle_py = 0.0;
-  if (ros_state_->telemetry.position_ned.size() >= 2) {
-    vehicle_px = ros_state_->telemetry.position_ned[0];
-    vehicle_py = ros_state_->telemetry.position_ned[1];
-  } else {
-    vehicle_px = target_pose_.position.x;
-    vehicle_py = target_pose_.position.y;
+  tf2::Vector3 obj_forward(1.0, 0.0, 0.0);
+  if (obj_q.length2() > 0.001) {
+    obj_q.normalize();
+    tf2::Matrix3x3 rot(obj_q);
+    obj_forward = rot.getColumn(0);
   }
 
-  double ax = approach_pose.position.x - vehicle_px;
-  double ay = approach_pose.position.y - vehicle_py;
-  double forward_error = std::sqrt(ax * ax + ay * ay);
-
-  double lateral_error = dy;
-  float lateral_pwm = lateral_pid.pid_control(lateral_error, elapsed, false);
-  float forward_pwm = forward_pid.pid_control(forward_error, elapsed, false);
-
-  double target_depth = approach_pose.position.z;
-  double vehicle_depth = (ros_state_->telemetry.position_ned.size() >= 3) 
-      ? ros_state_->telemetry.position_ned[2] 
-      : -ros_state_->telemetry.depth;
-  double depth_error = target_depth - vehicle_depth;
-  float depth_pwm = depth_pid.pid_control(depth_error, elapsed, false);
+  double forward_error = obj_forward.x() * obj_x + obj_forward.y() * obj_y +
+                         obj_forward.z() * obj_z;
+  double lateral_error = -obj_forward.y() * obj_x + obj_forward.x() * obj_y;
+  double depth_error = -obj_z;
 
   double yaw_error = locked_heading_ - ros_state_->telemetry.yaw;
-  while (yaw_error > 180.0) yaw_error -= 360.0;
-  while (yaw_error < -180.0) yaw_error += 360.0;
+  while (yaw_error > 180.0)
+    yaw_error -= 360.0;
+  while (yaw_error < -180.0)
+    yaw_error += 360.0;
+
+  float lateral_pwm = lateral_pid.pid_control(lateral_error, elapsed, false);
+  float forward_pwm = forward_pid.pid_control(forward_error, elapsed, false);
+  float depth_pwm = depth_pid.pid_control(depth_error, elapsed, false);
   float yaw_pwm = yaw_pid.pid_control(yaw_error, elapsed, false);
 
   custom_msgs::msg::Commands cmd;
@@ -314,8 +302,8 @@ BT::NodeStatus Approach3DBBox::onRunning() {
                        *ros_state_->node->get_clock(), 1000,
                        "Approach3DBBox: dist=%.2f fwd_err=%.2f lat_err=%.2f "
                        "-> Fwd: %d, Lat: %d, Thr: %d, Yaw: %d",
-                       distance, forward_error, lateral_error,
-                       cmd.forward, cmd.lateral, cmd.thrust, cmd.yaw);
+                       distance, forward_error, lateral_error, cmd.forward,
+                       cmd.lateral, cmd.thrust, cmd.yaw);
 
   return BT::NodeStatus::RUNNING;
 }
