@@ -43,7 +43,7 @@ def parse_args():
     parser.add_argument("video",                               help="Path to video file")
     parser.add_argument("--port",     type=int, default=2001, help="RTSP port (default: 2001)")
     parser.add_argument("--endpoint", default="image_rtsp",   help="RTSP endpoint (default: image_rtsp)")
-    parser.add_argument("--bitrate",  type=int, default=4000, help="x264 bitrate kbps (default: 4000)")
+    parser.add_argument("--bitrate",  type=int, default=8000, help="x264 bitrate kbps (default: 8000)")
     parser.add_argument("--latency",  type=int, default=200,  help="RTSP jitter buffer ms (default: 200)")
     parser.add_argument("--width",    type=int, default=None, help="Resize width (default: source)")
     parser.add_argument("--height",   type=int, default=None, help="Resize height (default: source)")
@@ -202,8 +202,11 @@ class AppsrcMediaFactory(GstRtspServer.RTSPMediaFactory):
             f"width={self.width},height={self.height},"
             f"framerate={fps_n}/{fps_d}\" ! "
             "queue max-size-buffers=10 leaky=downstream ! "
-            "x264enc tune=zerolatency speed-preset=veryfast "
-            f"bitrate={self.bitrate} key-int-max={fps_n} ! "
+            f"x264enc tune=zerolatency speed-preset=superfast "
+            # key-int-max set to ~half second so the decoder recovers
+            # quickly when a P-frame gets corrupted in transit.
+            f"bitrate={self.bitrate} key-int-max=10 bframes=0 " 
+            f"byte-stream=true aud=true ! "
             "video/x-h264,profile=baseline ! "
             "h264parse ! "
             "rtph264pay name=pay0 pt=96 config-interval=1"
@@ -272,12 +275,30 @@ class RTSPLoopServer:
             src_fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
             cap.release()
 
-        # Use requested size or fall back to source; keep dims even for x264
-        w = args.width  or src_w
-        h = args.height or src_h
+        # Pick output dimensions:
+        #   - both --width and --height given → use as-is
+        #   - only one given → preserve aspect ratio
+        #   - neither given → auto-downscale to 960 wide if source is bigger
+        #     (bigger sources at the default 4 Mbps overrun x264 in
+        #     zerolatency/veryfast mode and produce decoder corruption)
+        AUTO_MAX_WIDTH = 960
+        if args.width is not None and args.height is not None:
+            w, h = args.width, args.height
+        elif args.width is not None:
+            w = args.width
+            h = int(round(src_h * (w / src_w)))
+        elif args.height is not None:
+            h = args.height
+            w = int(round(src_w * (h / src_h)))
+        elif src_w > AUTO_MAX_WIDTH:
+            w = AUTO_MAX_WIDTH
+            h = int(round(src_h * (w / src_w)))
+        else:
+            w, h = src_w, src_h
+        # x264 needs even dims
         self.width  = w + (w % 2)
         self.height = h + (h % 2)
-        self.fps    = src_fps
+        self.fps    = min(src_fps, 20.0)
 
         print(f"[INFO] Source  : {src_w}x{src_h} @ {src_fps:.3f} fps")
         print(f"[INFO] Output  : {self.width}x{self.height} @ {self.fps:.3f} fps")
