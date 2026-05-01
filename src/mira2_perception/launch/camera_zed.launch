@@ -23,7 +23,7 @@
         <param name="frame_format"  value="$(var frame_format)"/>
         <param name="framerate"     value="$(var framerate)" />
         <param name="port" value="2002"/>
-        <param name="usb_port" value="usb-3610000.usb-1.4" />
+        <param name="image_source" value="usb://usb-3610000.usb-1.4" />
         <param name="camera_frame_id" value="$(var camera_frame_id)"/>
         <param name="crop" value="$(var crop)"/>
     </node>

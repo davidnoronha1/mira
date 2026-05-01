@@ -25,7 +25,7 @@ def generate_launch_description():
                 'port': 2000,
                 'usb_port': usb_port,
                 'camera_frame_id': 'camera_bottom',
-                'camera_info_url': 'package:///mira2_perception/config/camera_bottom.ini'
+                'camera_info_url': 'package:///mira2_perception/config/bottomcam.ini'
             }]
         ),
         ExecuteProcess(

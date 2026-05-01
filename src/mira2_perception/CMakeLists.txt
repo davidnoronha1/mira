@@ -38,8 +38,5 @@ install(DIRECTORY config/
   DESTINATION share/${PROJECT_NAME}/config
 )
 
-install(FILES optimized_calib.npz
-  DESTINATION share/${PROJECT_NAME}
-)
 
 ament_package()
