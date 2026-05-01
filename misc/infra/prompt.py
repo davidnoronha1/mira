@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """
-misc/prompt.py — PS1 prompt for the mira workspace shell.
+misc/infra/prompt.py — PS1 prompt for the mira workspace shell.
 
 Shows: git branch (dirty flag), Python venv, Docker status,
        workspace sourced state, and time since last build.
 
-Used via:   export PS1='$(python3 /path/to/misc/prompt.py)'
+Used via:   export PS1='$(python3 /path/to/misc/infra/prompt.py)'
 
 ANSI codes are wrapped in \\x01...\\x02 so bash readline correctly
 accounts for non-printing characters when calculating line length.

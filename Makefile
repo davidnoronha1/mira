@@ -9,8 +9,6 @@ export OPENCV_FFMPEG_CAPTURE_OPTIONS="fifo_size;500000|overrun_nonfatal;1|fflags
 export _UID=$(shell id -u)
 export _GID=$(shell id -g)
 
-GSTREAMER_FIX=export LD_PRELOAD=$(shell gcc -print-file-name=libunwind.so.8)
-
 ifeq ($(MACHINE_IP),192.168.2.6)
 export MACHINE_NAME=ORIN
 else ifeq ($(MACHINE_IP),192.168.2.4)
@@ -18,8 +16,6 @@ export MACHINE_NAME=RPI4
 endif
 
 SHELL := /bin/bash
-
-WS := source .venv/bin/activate && source install/setup.bash
 
 # Check if commands/directories exist at parse time
 UV_EXISTS := $(shell command -v uv 2>/dev/null)
@@ -29,84 +25,27 @@ MAVPROXY_EXISTS := $(wildcard .venv/bin/mavproxy*) $(shell command -v mavproxy 2
 
 all: build
 
-# Resolve python paths
-PYTHON3_PATH   := $(shell command -v python3 2>/dev/null)
-PYTHON312_PATH := $(shell command -v python3.12 2>/dev/null)
-
 check-uv:
 ifndef UV_EXISTS
 	$(error ❌ uv is not installed. Install it with: curl -LsSf https://astral.sh/uv/install.sh | sh)
 endif
 
-ifndef VENV_EXISTS
-	$(warning ⚠️  Python virtual environment not found at .venv. Run make setup or uv sync to make it)
-else
-	$(info ✅ Virtual environment found at .venv.)
-endif
-
-# ---- Python checks ----
-ifeq ($(PYTHON3_PATH),)
-	$(error ❌ python3 not found in PATH)
-endif
-
-ifeq ($(PYTHON312_PATH),)
-	$(error ❌ python3.12 not found in PATH)
-endif
-
-ifneq ($(PYTHON3_PATH),/usr/bin/python3)
-	$(error ❌ python3 resolves to $(PYTHON3_PATH). Expected /usr/bin/python3 (not ~/.local/bin))
-endif
-
-ifneq ($(PYTHON312_PATH),/usr/bin/python3.12)
-	$(error ❌ python3.12 resolves to $(PYTHON312_PATH). Expected /usr/bin/python3.12 (not ~/.local/bin))
-endif
-
-$(info ✅ python3     → $(PYTHON3_PATH))
-$(info ✅ python3.12  → $(PYTHON312_PATH))
-
- 
 check-ros: check-uv
 ifndef ROS_JAZZY_EXISTS
 	$(error ❌ ROS Jazzy not found at /opt/ros/jazzy. Only ROS Jazzy is supported by this workspace.)
 endif
-	$(info ✅ ROS Jazzy found.)
 
-# Build the workspace
+build:
+	@python3 mira.py build $(P)
 
-# Alternativley you can use mold which is a bit faster
-LINKER=lld 
-CMAKE_ARGS:= -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
-			 -DCMAKE_COLOR_DIAGNOSTICS=ON \
-			 -GNinja \
-			 -DCMAKE_EXE_LINKER_FLAGS=-fuse-ld=$(LINKER) \
-			 -DCMAKE_MODULE_LINKER_FLAGS=-fuse-ld=$(LINKER) \
-			 -DCMAKE_SHARED_LINKER_FLAGS=-fuse-ld=$(LINKER) \
-			 -DCMAKE_C_COMPILER_LAUNCHER=ccache \
-			 -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
-			 --no-warn-unused-cli
-
-SKIP_PACKAGES ?=  vision_depth
-export COLCON_ARGS= --cmake-args $(CMAKE_ARGS) \
-                          --parallel-workers 3 \
-			  --event-handlers console_cohesion+ \
-			  --packages-skip $(SKIP_PACKAGES) \
-			  --continue-on-error
-		          # --symlink-install
-
-build: check-ros
-	$(warning If you built in docker last - you'll need to clean and rebuild)
-	$(warning If build fails b/c of CMakeCacheList or issues with mismatch for build,log,install, run \`make clean\`)
-	$(info Building workspace...)
-	@source /opt/ros/jazzy/setup.bash && \
-	source .venv/bin/activate && \
-	colcon build ${COLCON_ARGS}
+b:
+	@python3 mira.py b $(P)
 
 repoversion:
-	$(info Last commit in repository:)
-	@git log -1 --oneline
+	@python3 mira.py repoversion
 
 docker-ensure:
-	docker compose up --no-recreate -d mira
+	@python3 mira.py docker-ensure
 
 docker-x11:
 	xhost +local:docker || true
@@ -116,137 +55,84 @@ build-docker-container: docker-ensure
 	@docker compose build mira
 
 docker-fix-perms:
-	sudo chown -R $(shell id -u):$(shell id -g) .
-docker: docker-ensure docker-x11
-	docker compose exec -u root mira /bin/bash
+	@python3 mira.py docker-fix-perms
 
-b: check-ros
-	@source /opt/ros/jazzy/setup.bash && \
-	source .venv/bin/activate && \
-	colcon build ${COLCON_ARGS} --packages-select ${P}
+docker: docker-x11
+	@python3 mira.py docker
 
 # Install dependencies
-install-deps: check-ros check-uv
-	$(info ROS2 Jazzy, UV and Rosdep should be installed)
-	$(info Installing basic build dependencies)
-	@sudo apt install -y lld ninja-build build-essential cmake
-	$(info Installing Python dependencies...)
-	@[ -d .venv ] || uv venv --system-site-packages
-	@uv sync
-	$(info Installing ROS dependencies...)
-	@source /opt/ros/jazzy/setup.bash && \
-	rosdep install --from-paths src --ignore-src -r -y
-	$(info Building zed_msgs submodule...)
-	@colcon build --packages-select zed_msgs --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=Release
+install-deps:
+	@python3 mira.py install-deps
 
 PYTHON_VERSION ?= python3.12
-install-mavproxy: check-uv
-	$(info Installing mavproxy)
-	@uv tool install mavproxy
-	
-	$(info Applying patch for mavproxy)
-	@patch /home/$(USER)/.local/share/uv/tools/mavproxy/lib/$(PYTHON_VERSION)/site-packages/MAVProxy/modules/lib/rline.py < ./misc/patches/mavproxy_rline_fix.patch
+install-mavproxy:
+	@python3 mira.py install-mavproxy $(PYTHON_VERSION)
 
 shell:
-	@bash --rcfile <(echo "cd $(CURDIR) && source $$HOME/.bashrc && source $(CURDIR)/.venv/bin/activate && source $(CURDIR)/install/setup.bash") -i
+	@python3 mira.py shell
 
 proxy-pixhawk:
-	$(info If you get a realine error -> Edit the file mentioned in the stacktrace and remove the import from __future__ for input())
-ifndef LAPTOP_IP
-	$(error No LAPTOP_IP set, please set it to your laptop's IP and call the command like this: make proxy-pixhawk LAPTOP_IP=192.168.2.XX)
-endif
-ifndef MAVPROXY_EXISTS
-	$(error ❌ mavproxy not found in PATH. Install with 'make install-mavproxy' or run 'uv tool install mavproxy'.)
-endif
-	@source .venv/bin/activate && mavproxy.py --default-modules="" --master=/dev/Pixhawk --baudrate 57600 --out udp:$(LAPTOP_IP):14550
-
+	@python3 mira.py proxy-pixhawk $(LAPTOP_IP)
 
 # Get submodules
 get-submodules:
-	$(info Updating git submodules...)
-	@git submodule update --init --recursive
+	@python3 mira.py get-submodules
 
 # Get latest from remote
 force-update:
-	$(info Fetching latest changes from remote...)
-	@git fetch origin
-	@git reset --hard origin/$$(git rev-parse --abbrev-ref HEAD)
+	@python3 mira.py force-update
 
 # Install udev rules
 install-udev:
-	$(info Installing udev rules...)
-	@sudo cp misc/udev/96-mira.rules /etc/udev/rules.d/
-	@sudo udevadm control --reload-rules
-	@sudo udevadm trigger
+	@python3 mira.py install-udev
 
 # Fix VSCode settings paths
 fix-vscode:
-	$(info Fixing VSCode settings paths...)
-	@current_dir=$$(realpath .); \
-	settings_file=".vscode/settings.json"; \
-	if [ -f "$$settings_file" ]; then \
-		sed -i "s|/home/david/mira|$$current_dir|g" "$$settings_file"; \
-		echo "✅ Updated paths in $$settings_file"; \
-	else \
-		echo "⚠️  settings.json not found in .vscode directory."; \
-	fi
+	@python3 mira.py fix-vscode
 
 validate-all:
-	find ./src -type f -name "package.xml" -exec uv run ./util/package-utils/validate_package.py {} \;
+	@python3 mira.py validate-all
 
 camera_zed:
-	${WS} && \
-	${GSTREAMER_FIX} && \
-	ros2 launch mira2_perception camera_zed.launch
+	@python3 mira.py camera zed
 
 camera_bottomcam:
-	${WS} && \
-	${GSTREAMER_FIX} &&  \
-	ros2 launch mira2_perception camera_bottom.launch.py
+	@python3 mira.py camera bottomcam
 
 camera_auto:
-	${WS} && \
-	${GSTREAMER_FIX} && \
-	ros2 launch mira2_perception camera_auto.launch.py
+	@python3 mira.py camera auto
 
 camera_frontcam:
-	${WS} && \
-	${GSTREAMER_FIX} && \
-	ros2 launch mira2_perception camera_front.launch.py
+	@python3 mira.py camera frontcam
 
 PIXHAWK_PORT ?= /dev/Pixhawk
-alt_master: check-ros
-	${WS} && \
-	ros2 launch mira2_control_master alt_master.launch pixhawk_address:=${PIXHAWK_PORT}
+alt_master:
+	@python3 mira.py alt-master $(PIXHAWK_PORT)
 
 alt_master_sitl:
-	$(info "Assuming Ardupilot SITL to running on same IP as THIS device with port 5760")
-	${WS} && \
-	ros2 run mira2_control_master alt_master --ros-args -p pixhawk_address:=tcp:127.0.0.1:5760
+	@python3 mira.py alt-master-sitl
 
-teleop: check-ros
-	${WS} && ros2 launch mira2_rov teleop.launch
+teleop:
+	@python3 mira.py teleop
 
 ARUCO_ID ?= 5
 VIDEO ?= rtsp://192.168.2.6:2000/image_rtsp
 tune-lateral: check-ros
-	${WS} && ros2 launch mira2_pid_control aruco_tuner.launch.py target_id:=${ARUCO_ID} axis:=lateral rtsp_url:=${VIDEO}
+	source .venv/bin/activate && source install/setup.bash && ros2 launch mira2_pid_control aruco_tuner.launch.py target_id:=${ARUCO_ID} axis:=lateral rtsp_url:=${VIDEO}
 
 tune-forward: check-ros
-	${WS} && ros2 launch mira2_pid_control aruco_tuner.launch.py target_id:=${ARUCO_ID} axis:=forward rtsp_url:=${VIDEO}
+	source .venv/bin/activate && source install/setup.bash && ros2 launch mira2_pid_control aruco_tuner.launch.py target_id:=${ARUCO_ID} axis:=forward rtsp_url:=${VIDEO}
 
 tune-gui: check-ros
-	${WS} && ros2 launch mira2_pid_control pid_tuner_gui.launch.py target_id:=${ARUCO_ID} rtsp_url:=${VIDEO}
+	source .venv/bin/activate && source install/setup.bash && ros2 launch mira2_pid_control pid_tuner_gui.launch.py target_id:=${ARUCO_ID} rtsp_url:=${VIDEO}
 
 # Development setup
-setup: check-ros install-deps submodules build install-udev fix-vscode
-	$(info 🚀 Complete workspace setup finished!)
+setup:
+	@python3 mira.py setup
 
 # Clean build artifacts
 clean:
-	$(info Cleaning build artifacts...)
-	@rm -rf build/ install/ log/
-	$(info Clean completed.)
+	@python3 mira.py clean
 
 # Help target
 help:
@@ -276,3 +162,8 @@ help:
 	$(info )
 	$(info   help          - Show this help message)
 
+
+# Delegate any unrecognised target to mira.py
+# Usage: make <task> [P=pkg] [LAPTOP_IP=x.x.x.x] [ARGS="extra args"]
+%:
+	python3 mira.py $@ $(P) $(LAPTOP_IP) $(ARGS)

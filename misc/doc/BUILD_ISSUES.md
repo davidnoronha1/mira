@@ -68,3 +68,15 @@ rosdep to pull in missing system packages:
 ```
 python mira.py install-deps
 ```
+
+---
+
+## Missing packages or submodule errors (camera_driver, zed_msgs, etc.)
+
+If colcon reports that a package such as `camera_driver`, `zed_msgs`, or another
+dependency cannot be found, the Git submodules have likely not been initialised.
+
+**Fix:**
+```
+git submodule update --init --recursive
+```
