@@ -28,6 +28,7 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
     libgstrtspserver-1.0-dev \
     ros-jazzy-behaviortree-cpp \
     ros-jazzy-camera-info-manager \
+    ros-jazzy-image-transport \
     ros-jazzy-foxglove-bridge \
     libboost-python1.74-dev \
     vim
