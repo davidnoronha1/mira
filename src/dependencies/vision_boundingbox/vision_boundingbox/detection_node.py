@@ -19,7 +19,6 @@ Publishes:
   <image_topic>       (sensor_msgs/Image)  -- if publish_image=true
 """
 
-import threading
 import math
 from pathlib import Path
 from typing import Optional, List
@@ -28,7 +27,6 @@ import cv2
 import numpy as np
 import rclpy
 from rclpy.node import Node
-from rclpy.qos import QoSPresetProfiles
 from cv_bridge import CvBridge
 from ament_index_python.packages import get_package_share_directory
 
@@ -40,6 +38,7 @@ from vision_msgs.msg import (
     BoundingBox2D,
     Pose2D,
 )
+from utils.image_source import ImageSource, build_image_source
 
 try:
     from ultralytics import YOLO
@@ -47,92 +46,8 @@ except ImportError as e:
     raise ImportError("ultralytics is required: pip install ultralytics") from e
 
 
-# ---------------------------------------------------------------------------
-# Utility helpers
-# ---------------------------------------------------------------------------
-
 def is_reflection(box: np.ndarray, threshold: float) -> bool:
-    """
-    Heuristic placeholder for reflection rejection.
-    box: [x1, y1, x2, y2, conf, cls_id]
-    """
     return False
-
-
-# ---------------------------------------------------------------------------
-# Image source abstraction
-# ---------------------------------------------------------------------------
-
-class ImageSource:
-    def grab(self) -> Optional[np.ndarray]:
-        raise NotImplementedError
-
-    def release(self):
-        pass
-
-
-class OpenCVSource(ImageSource):
-    def __init__(self, uri: str, node_logger):
-        if uri.startswith("file://"):
-            path = uri[len("file://"):]
-            self._cap = cv2.VideoCapture(path)
-        else:
-            self._cap = cv2.VideoCapture(uri)
-
-        if not self._cap.isOpened():
-            node_logger.error(f"Cannot open video source: {uri}")
-        else:
-            node_logger.info(f"Opened video source: {uri}")
-
-    def grab(self) -> Optional[np.ndarray]:
-        ret, frame = self._cap.read()
-        return frame if ret else None
-
-    def release(self):
-        self._cap.release()
-
-
-_STATIC_IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".bmp", ".tiff", ".tif", ".webp"}
-
-
-class StaticImageSource(ImageSource):
-    """Returns the same image on every grab() call."""
-
-    def __init__(self, path: str, node_logger):
-        self._frame = cv2.imread(path)
-        if self._frame is None:
-            node_logger.error(f"Cannot read static image: {path}")
-        else:
-            node_logger.info(f"Loaded static image: {path}")
-
-    def grab(self) -> Optional[np.ndarray]:
-        return self._frame.copy() if self._frame is not None else None
-
-
-class ROS2TopicSource(ImageSource):
-    def __init__(self, topic: str, node: "VisionBoundingBoxNode"):
-        self._bridge = CvBridge()
-        self._frame: Optional[np.ndarray] = None
-        self._lock = threading.Lock()
-        self._sub = node.create_subscription(
-            Image,
-            topic,
-            self._callback,
-            QoSPresetProfiles.SENSOR_DATA.value,
-        )
-        node.get_logger().info(f"Subscribed to ROS2 image topic: {topic}")
-
-    def _callback(self, msg: Image):
-        try:
-            frame = self._bridge.imgmsg_to_cv2(msg, desired_encoding="bgr8")
-            with self._lock:
-                self._frame = frame
-        except Exception:
-            pass
-
-    def grab(self) -> Optional[np.ndarray]:
-        with self._lock:
-            return self._frame.copy() if self._frame is not None else None
 
 
 # ---------------------------------------------------------------------------
@@ -236,30 +151,7 @@ class VisionBoundingBoxNode(Node):
 
     def _build_source(self) -> ImageSource:
         uri: str = self.get_parameter("image_source").value
-
-        if uri.startswith("camera://"):
-            idx = uri[len("camera://"):]
-            return OpenCVSource(idx if idx.isdigit() else "0", self.get_logger())
-
-        if uri.startswith("ros2://"):
-            topic = uri[len("ros2://"):]
-            if not topic.startswith("/"): topic = "/" + topic
-            return ROS2TopicSource(topic, self)
-
-        if uri.startswith("file://"):
-            path = uri[len("file://"):]
-            if Path(path).suffix.lower() in _STATIC_IMAGE_SUFFIXES:
-                return StaticImageSource(path, self.get_logger())
-            return OpenCVSource(uri, self.get_logger())
-
-        if any(uri.startswith(s) for s in ["rtsp://", "rtsps://"]):
-            return OpenCVSource(uri, self.get_logger())
-
-        # Bare file path (no scheme)
-        if Path(uri).suffix.lower() in _STATIC_IMAGE_SUFFIXES:
-            return StaticImageSource(uri, self.get_logger())
-
-        return OpenCVSource(uri, self.get_logger())
+        return build_image_source(uri, self)
 
     def _imu_callback(self, msg: Imu):
         with self._imu_lock:
