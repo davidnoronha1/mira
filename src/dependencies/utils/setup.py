@@ -22,8 +22,6 @@ setup(
     license='TODO: License declaration',
     tests_require=['pytest'],
     entry_points={
-        'console_scripts': [
-            'param_tuner = utils.param_tuner:main'
-        ],
+        'console_scripts': [],
     },
 )
