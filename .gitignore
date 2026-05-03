@@ -37,3 +37,5 @@ marker_results.txt
 .vscode/
 *.tlog
 *.tlog.raw
+
+.claude
