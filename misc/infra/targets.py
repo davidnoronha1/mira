@@ -2,7 +2,7 @@ import os, sys, subprocess, shutil, re
 from pathlib import Path
 from typing import Optional
 import misc.infra.state as state
-from misc.infra.color import info, msg, warn, error, header, step, BOLD, CYAN, RESET, YELLOW, GREEN
+from misc.infra.color import info, msg, warn, error, header, step, print_logo, BOLD, CYAN, RESET, YELLOW, GREEN
 from misc.infra.shell import run, sh, exists, get_docker_service, ensure_docker_container
 from misc.infra.tui import tui_select, _find_all_ros_targets, _find_all_launch_files, _find_all_executables, _find_all_packages, _ros_tui_fmt
 from misc.infra.tasks import task
@@ -41,6 +41,8 @@ def _print_build_issues() -> None:
 def target_build(packages_select: Optional[str] = None):
 	"""Build the ROS workspace (or a single package with -p)."""
 	check_ros()
+	if not packages_select:
+		print_logo()
 	header("Building workspace...")
 
 	if packages_select:
@@ -237,6 +239,7 @@ export PS1='$(python3 {prompt_py})'
 """)
 		rc_path = f.name
 
+	print_logo()
 	header("Opening workspace shell  (exit to return)")
 	os.execlp("bash", "bash", "--rcfile", rc_path)
 
@@ -494,6 +497,7 @@ def target_shell_docker():
 	ensure_docker_container()
 	service = get_docker_service()
 	run("xhost +local:docker || true", hidden=True)
+	print_logo()
 	run(f"docker compose exec -u root {service} /bin/bash")
 
 
