@@ -64,12 +64,22 @@ class VisionBoundingBoxNode(Node):
         # Load model using Ultralytics
         model_path = self._resolve_model()
         self.get_logger().info(f"Loading Ultralytics model: {model_path}")
-        
+
         # device: 'cpu', 0 (for cuda:0), or 'mps'
         device_str = self.get_parameter("device").value.lower()
         if device_str == "gpu":
             device_str = "0"
 
+        # TensorRT engine files require a CUDA device — override CPU if needed
+        if Path(model_path).suffix.lower() in {'.engine', '.trt'}:
+            if device_str == 'cpu':
+                self.get_logger().warn(
+                    "TensorRT engine detected but device='CPU' was specified. "
+                    "Overriding to GPU (cuda:0) — TRT engines require CUDA."
+                )
+            device_str = "0"
+
+        self._device_str = device_str
         self._model = YOLO(model_path)
         # self._model.to(device_str)
 
@@ -180,7 +190,7 @@ class VisionBoundingBoxNode(Node):
             conf=self.get_parameter("conf_threshold").value,
             iou=self.get_parameter("nms_threshold").value,
             imgsz=(self.get_parameter("input_height").value, self.get_parameter("input_width").value),
-            device=self._model.device,
+            device=self._device_str,
             verbose=False
         )
 
