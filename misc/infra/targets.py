@@ -82,7 +82,7 @@ def target_install_deps():
 	check_ros()
 	check_uv()
 	header("Installing build dependencies...")
-	run("sudo apt install -y lld ninja-build build-essential cmake ros-jazzy-rmw-cyclonedds-cpp")
+	run("sudo apt install -y lld ninja-build build-essential cmake")
 	header("Installing Python dependencies...")
 	if not Path(".venv").exists():
 		run("uv venv --system-site-packages")

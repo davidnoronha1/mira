@@ -17,20 +17,8 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
     ccache \
     python3-pip \
     usbutils \
-    gstreamer1.0-plugins-good \
-    gstreamer1.0-plugins-ugly \
     gstreamer1.0-plugins-base-apps \
-    gstreamer1.0-plugins-bad \
-    gstreamer1.0-tools \
-    libgstreamer1.0-dev \
     libgstreamer-plugins-good1.0-dev \
-    libgstreamer-plugins-bad1.0-dev \
-    libgstrtspserver-1.0-dev \
-    ros-jazzy-behaviortree-cpp \
-    ros-jazzy-camera-info-manager \
-    ros-jazzy-image-transport \
-    ros-jazzy-foxglove-bridge \
-    libboost-python1.74-dev \
     vim
 
 # Install uv (Python package manager)
