@@ -1,0 +1,16 @@
+build/
+install/
+log/
+.venv/
+.cache/
+.git/
+.vscode/
+misc/bin/
+__pycache__/
+*.py[codz]
+*.mypy_cache/
+*.mov
+*.mp4
+*.mpg
+*.pt
+*.onnx
