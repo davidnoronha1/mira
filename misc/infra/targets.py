@@ -211,7 +211,6 @@ def target_proxy_pixhawk(laptop_ip: str = ""):
 	try: 
 		run(f"uv run mavproxy.py --master=/dev/Pixhawk --baudrate 57600 " + (f" --out udp:{laptop_ip}:14550 " if laptop_ip else  "") + f"--out udp:{MACHINE_IP}:14551")
 	except subprocess.CalledProcessError as e:
-		msg("If you see the `no module named future` error, please apply the patch in misc/patches/mavproxy_rline_fix.patch and try again. OR edit the file and comment out the import")
 		error(f"mavproxy exited with code {e.returncode}")
 
 
