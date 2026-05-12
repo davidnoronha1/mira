@@ -19,6 +19,8 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
+          file: misc/ci.dockerfile
+          target: builder
           push: false
           cache-from: type=gha
           cache-to: type=gha,mode=max

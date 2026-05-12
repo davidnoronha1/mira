@@ -5,13 +5,15 @@ Prioritizes CameraInfoManager calibration (defaulting to bottomcam.ini in pkg sh
 falling back to a legacy .npz file.
 """
 
+import datetime
 import os
 import threading
 import cv2
 import numpy as np
 import rclpy
+import tf2_ros
 from ament_index_python.packages import get_package_share_directory
-from geometry_msgs.msg import PoseStamped, Vector3
+from geometry_msgs.msg import PoseStamped, TransformStamped, Vector3
 from sensor_msgs.msg import CameraInfo
 from rclpy.node import Node
 from scipy.spatial.transform import Rotation
@@ -65,7 +67,10 @@ class ArucoTracker(Node):
         self.image_source_uri = self.declare_parameter(
             'image_source', 'rtsp://192.168.2.6:2000/image_rtsp').value
         self.visualize = self.declare_parameter('visualize', True).value
-        
+        self.camera_frame = self.declare_parameter('camera_frame', 'camera').value
+        self.save_dir_base = self.declare_parameter(
+            'save_dir', os.path.expanduser('~')).value
+
         # Calibration Parameters
         self.calib_file_path = self.declare_parameter('calibration_file', '').value
         self.camera_info_url = self.declare_parameter('camera_info_url', default_info_url).value
@@ -76,13 +81,23 @@ class ArucoTracker(Node):
         self.dist_coeffs = None
         self._calib_ready = threading.Event()
         self._last_error = None
+        self._saved_marker_ids = set()
+
+        # --- Output Directory ---
+        ts = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
+        self._output_dir = os.path.join(self.save_dir_base, f'aruco_markers_{ts}')
+        os.makedirs(self._output_dir, exist_ok=True)
+        self._results_path = os.path.join(self._output_dir, 'marker_results.txt')
+        with open(self._results_path, 'w') as f:
+            f.write('timestamp,image_name,aruco_id\n')
 
         # --- Setup Calibration ---
         self._setup_calibration()
 
-        # --- ROS Publishers ---
+        # --- ROS Publishers / TF ---
         self.pose_pub = self.create_publisher(PoseStamped, '/aruco/pose', 10)
         self.error_pub = self.create_publisher(Vector3, '/aruco/error', 10)
+        self.tf_broadcaster = tf2_ros.TransformBroadcaster(self)
 
         self.get_logger().info(
             f'Tracking ArUco ID {self.target_id} | info_url={self.camera_info_url}')
@@ -213,9 +228,25 @@ class ArucoTracker(Node):
                     quat = rot.as_quat()
 
                     now = self.get_clock().now().to_msg()
+
+                    # TF2: camera -> aruco_<id>
+                    tf_msg = TransformStamped()
+                    tf_msg.header.stamp = now
+                    tf_msg.header.frame_id = self.camera_frame
+                    tf_msg.child_frame_id = f'aruco_{marker_id}'
+                    tf_msg.transform.translation.x = float(tvec[0])
+                    tf_msg.transform.translation.y = float(tvec[1])
+                    tf_msg.transform.translation.z = float(tvec[2])
+                    tf_msg.transform.rotation.x = float(quat[0])
+                    tf_msg.transform.rotation.y = float(quat[1])
+                    tf_msg.transform.rotation.z = float(quat[2])
+                    tf_msg.transform.rotation.w = float(quat[3])
+                    self.tf_broadcaster.sendTransform(tf_msg)
+
+                    # PoseStamped: frame_id encodes both parent and marker
                     msg = PoseStamped()
                     msg.header.stamp = now
-                    msg.header.frame_id = 'camera'
+                    msg.header.frame_id = f'{self.camera_frame}/aruco_{marker_id}'
                     msg.pose.position.x = float(tvec[0])
                     msg.pose.position.y = float(tvec[1])
                     msg.pose.position.z = float(tvec[2])
@@ -233,6 +264,18 @@ class ArucoTracker(Node):
 
                     self._last_error = (float(tvec[0]), float(tvec[1]))
                     display_err_x, display_err_y = self._last_error
+
+                    # Save first-seen frame for this marker ID
+                    if marker_id not in self._saved_marker_ids:
+                        self._saved_marker_ids.add(marker_id)
+                        img_ts = datetime.datetime.now().strftime('%Y%m%d_%H%M%S_%f')
+                        img_name = f'marker_{marker_id}_{img_ts}.jpg'
+                        img_path = os.path.join(self._output_dir, img_name)
+                        cv2.imwrite(img_path, frame)
+                        with open(self._results_path, 'a') as f:
+                            f.write(f'{img_ts},{img_name},{marker_id}\n')
+                        self.get_logger().info(
+                            f'Saved first detection of marker {marker_id} → {img_path}')
 
                     if self.visualize:
                         cv2.drawFrameAxes(frame, self.camera_matrix, self.dist_coeffs,

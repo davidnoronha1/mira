@@ -1,3 +1,6 @@
+# TODO:
+# Migrate to use vision_boundingbox instead.
+
 # NOTE: This node contains both perception and controls logic.
 
 import os

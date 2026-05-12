@@ -1,5 +1,5 @@
 import sys
-
+from pathlib import Path
 
 
 BOLD  = "\033[1m"
@@ -9,6 +9,11 @@ YELLOW= "\033[33m"
 CYAN  = "\033[36m"
 RESET = "\033[0m"
 BLUE = "\033[34m"
+
+def print_logo():
+    logo_path = Path(__file__).resolve().parent / "dntlogo.txt"
+    if logo_path.exists():
+        print(f"{BOLD}{CYAN}{logo_path.read_text()}{RESET}", end="")
 
 def info(msg: str):    print(f"{GREEN}✅ {msg}{RESET}")
 def msg(msg: str):     print(f"{BLUE}ℹ️ {msg}{RESET}")
