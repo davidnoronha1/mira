@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 """
 Detect a target ArUco marker from an image source and publish its pose and alignment error.
-Prioritizes CameraInfoManager calibration (defaulting to bottomcam.ini in pkg share), 
+Loads calibration from bottomcam.ini in pkg share, or from a camera_info ROS topic,
 falling back to a legacy .npz file.
 """
 
 import datetime
 import os
+import re
 import threading
 import cv2
 import numpy as np
@@ -18,7 +19,6 @@ from sensor_msgs.msg import CameraInfo
 from rclpy.node import Node
 from scipy.spatial.transform import Rotation
 from std_msgs.msg import Header
-from camera_info_manager import CameraInfoManager
 
 # Assuming this utility exists in your workspace
 try:
@@ -108,23 +108,36 @@ class ArucoTracker(Node):
         self._thread.start()
 
     def _setup_calibration(self):
-        """Initializes CameraInfoManager and sets up topic listener."""
-        self.info_manager = CameraInfoManager(self, cname=self.camera_name, url=self.camera_info_url)
-        
-        # 1. Try to load from Manager (works for file URLs like the default .ini)
-        if self.info_manager.isCalibrated():
-            info = self.info_manager.getCameraInfo()
-            self._update_calib_from_msg(info)
-            self.get_logger().info(f"Calibration loaded from URL: {self.camera_info_url}")
-        else:
-            # 2. If URL is ros_topic:// or file load failed, subscribe to topic
-            topic_name = 'camera_info'
-            if self.camera_info_url.startswith('ros_topic://'):
-                topic_name = self.camera_info_url.replace('ros_topic://', '')
+        if self.camera_info_url.startswith('file://'):
+            file_path = self.camera_info_url[len('file://'):]
+            if self._load_from_ini(file_path):
+                self.get_logger().info(f"Calibration loaded from file: {file_path}")
+                return
+            self.get_logger().warn(f"Failed to load calibration from {file_path}, falling back to topic.")
 
-            self.info_sub = self.create_subscription(
-                CameraInfo, topic_name, self._info_callback, 10)
-            self.get_logger().info(f"CameraInfoManager uncalibrated. Listening on '{topic_name}'...")
+        topic_name = 'camera_info'
+        if self.camera_info_url.startswith('ros_topic://'):
+            topic_name = self.camera_info_url.replace('ros_topic://', '')
+
+        self.info_sub = self.create_subscription(
+            CameraInfo, topic_name, self._info_callback, 10)
+        self.get_logger().info(f"Listening for calibration on '{topic_name}'...")
+
+    def _load_from_ini(self, path):
+        try:
+            with open(path, 'r') as f:
+                content = f.read()
+            matrix_match = re.search(r'camera matrix\n([\d\s.\-]+)', content)
+            dist_match = re.search(r'distortion\n([\d\s.\-]+)', content)
+            if not matrix_match or not dist_match:
+                return False
+            self.camera_matrix = np.array(list(map(float, matrix_match.group(1).split()))).reshape((3, 3))
+            self.dist_coeffs = np.array(list(map(float, dist_match.group(1).split())))
+            self._calib_ready.set()
+            return True
+        except Exception as e:
+            self.get_logger().error(f"Failed to parse .ini calibration: {e}")
+            return False
 
     def _info_callback(self, msg: CameraInfo):
         """Callback to capture CameraInfo from the ROS topic."""
