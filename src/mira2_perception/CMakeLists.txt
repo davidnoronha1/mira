@@ -27,6 +27,7 @@ endif()
 install(PROGRAMS
   scripts/aruco_tracker.py
   DESTINATION lib/${PROJECT_NAME}
+  RENAME aruco_tracker
 )
 
 # Install launch files
