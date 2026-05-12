@@ -22,5 +22,5 @@ jobs:
           file: misc/ci.dockerfile
           target: builder
           push: false
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=ros-builder
+          cache-to: type=gha,scope=ros-builder,mode=max
