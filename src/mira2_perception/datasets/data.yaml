@@ -1,0 +1,19 @@
+path: /home/sanjay/DNT/mira/src/mira2_perception/datasets/tac_valve_dock_dataset/docking_partwise
+
+train:
+  - part1 annotations/converted/images/default
+  - part2 annotations/converted/images/default
+  - part3 annotations/converted/images/default
+  - part5 annotations/converted/images/default
+  - part6 annotations/converted/images/default
+  - valve_1_7/images/train
+
+val:
+  - part7 annotations/converted/images/default
+  - valve_8/images/train
+
+nc: 2
+
+names:
+  0: dock
+  1: valve
