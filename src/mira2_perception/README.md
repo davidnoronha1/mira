@@ -123,6 +123,108 @@ View the RTSP stream from the bottom camera:
 ffplay rtsp://<robot-ip>:2000/stream
 ```
 
+---
+
+## Valve & Dock Perception — ZED + YOLOv8
+
+Standalone perception scripts for detecting the **valve** and **docking station** using the ZED stereo camera. These scripts run outside ROS2's node graph (no topics published) and open an OpenCV display window.
+
+### Required Folder Structure
+
+Before running, ensure the following files are in place relative to the workspace root:
+
+```
+mira/
+├── src/mira2_perception/
+│   ├── datasets/
+│   │   └── Main.svo2                          # ZED SVO2 recording (place here)
+│   └── models/
+│       └── valve_v1/
+│           └── weights/
+│               ├── best.pt                    # YOLOv8 trained weights
+│               └── best.onnx                  # ONNX export (used by default)
+```
+
+> `Main.svo2` is not committed to the repo due to its size. Copy it manually before running.
+
+### Setup — Source the Workspace
+
+```bash
+# TODO: replace with actual workspace source command
+source /path/to/mira/install/setup.bash
+```
+
+### Run 2D Bounding Box (+ XYZ depth)
+
+Draws a 2D green bounding box over detected valves and overlays centre-pixel depth and 3D cuboid XYZ coordinates.
+
+```bash
+ros2 run mira2_perception zed_yolo_xyz.py -- --svo src/mira2_perception/datasets/Main.svo2
+```
+
+### Run 3D Wireframe Bounding Box
+
+Replaces the 2D rectangle with a projected 3D wireframe AABB fitted from the ZED point cloud.
+
+```bash
+ros2 run mira2_perception zed_3d_bbox.py -- --svo src/mira2_perception/datasets/Main.svo2
+```
+
+### Optional Arguments
+
+| Argument | Default | Description |
+|---|---|---|
+| `--svo` | *(required)* | Path to ZED `.svo2` recording |
+| `--model` | `best.onnx` (auto-resolved) | Path to `.pt` or `.onnx` model |
+| `--conf` | `0.4` | YOLO confidence threshold |
+| `--target` | `valve` | Class to detect (`valve`, `dock`, or `all`) |
+| `--start` | `2800` | SVO start frame (frame 2800 = first valve frame) |
+
+**Controls:** `SPACE` = pause, `→` = +200 frames, `←` = -200 frames, `Q`/`ESC` = quit
+
+### How the YOLOv8 Model Was Trained
+
+**Dataset:** Custom annotated dataset of underwater valve and docking station images, split across labelled parts:
+
+```
+tac_valve_dock_dataset/docking_partwise/
+├── part1 annotations/converted/images/default/   # train
+├── part2 annotations/converted/images/default/   # train
+├── part3 annotations/converted/images/default/   # train
+├── part5 annotations/converted/images/default/   # train
+├── part6 annotations/converted/images/default/   # train
+├── part7 annotations/converted/images/default/   # val
+├── valve_1_7/images/train/                        # train
+└── valve_8/images/train/                          # val
+```
+
+**Classes:** `0: dock`, `1: valve`
+
+**Training command:**
+```bash
+cd /home/sanjay/DNT/mira
+.venv/bin/yolo detect train \
+    data=src/mira2_perception/datasets/data.yaml \
+    model=yolov8n.pt \
+    epochs=100 \
+    imgsz=640 \
+    batch=16 \
+    device=0
+```
+
+**Export to ONNX** (for faster inference on Orin):
+```bash
+.venv/bin/python -c "
+from ultralytics import YOLO
+model = YOLO('src/mira2_perception/models/valve_v1/weights/best.pt')
+model.export(format='onnx', imgsz=640)
+"
+```
+
+Training results (confusion matrix, P/R curves, batch previews) are saved under `models/valve_v1/`.
+
+---
+
 ## External Resources
 
 - [GStreamer RTSP Server](https://gstreamer.freedesktop.org/documentation/additional/rtspsrc.html)

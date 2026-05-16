@@ -26,8 +26,16 @@ endif()
 
 install(PROGRAMS
   scripts/aruco_tracker.py
+  scripts/zed_yolo_xyz.py
+  scripts/zed_3d_bbox.py
   DESTINATION lib/${PROJECT_NAME}
   RENAME aruco_tracker
+)
+
+install(FILES
+  models/valve_v1/weights/best.pt
+  models/valve_v1/weights/best.onnx
+  DESTINATION share/${PROJECT_NAME}/models/valve_v1/weights
 )
 
 # Install launch files
