@@ -42,7 +42,7 @@ install(TARGETS gate_navigator_exe
 
 install(PROGRAMS
 src/bucket/phase2.py
-src/docking/dock_controller.py
+src/docking/phase2_dock_controls.py
 DESTINATION lib/${PROJECT_NAME})
 
 # Export package
