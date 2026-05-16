@@ -15,6 +15,7 @@ Usage:
 
 import argparse
 import math
+import os
 import threading
 import time
 
@@ -22,6 +23,17 @@ import cv2
 import numpy as np
 import pyzed.sl as sl
 from ultralytics import YOLO
+
+try:
+    from ament_index_python.packages import get_package_share_directory
+    _PKG_SHARE = get_package_share_directory("mira2_perception")
+except Exception:
+    _PKG_SHARE = None
+
+_DEFAULT_MODEL = (
+    os.path.join(_PKG_SHARE, "models", "valve_v1", "weights", "best.onnx")
+    if _PKG_SHARE else None
+)
 
 # ── colours ───────────────────────────────────────────────────────────────────
 CLR_BOX3D   = (0,   255, 255)   # yellow  — 3D wireframe
@@ -36,7 +48,7 @@ MIN_POINTS  = 6
 def parse_args():
     p = argparse.ArgumentParser()
     p.add_argument("--svo",    required=True)
-    p.add_argument("--model",  required=True)
+    p.add_argument("--model",  default=_DEFAULT_MODEL, required=_DEFAULT_MODEL is None)
     p.add_argument("--conf",   type=float, default=0.4)
     p.add_argument("--target", default="valve")
     p.add_argument("--start",  type=int,   default=2800,
