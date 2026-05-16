@@ -16,6 +16,7 @@ find_package(geometry_msgs REQUIRED)
 rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/Object2D.msg"
   "msg/Commands.msg"
+  "msg/CommandsNormalized.msg"
   "msg/Telemetry.msg"
   "msg/EmergencyKill.msg"
   "msg/Depth.msg"

@@ -1,4 +1,4 @@
-.PHONY: master alt_master position_zed guided_master build source install-deps submodules update install-udev bs fix-vscode dashboard telemetry-viz
+.PHONY: master alt_master commands_normaliser position_zed guided_master build source install-deps submodules update install-udev bs fix-vscode dashboard telemetry-viz
 
 export FORCE_COLOR=1
 export RCUTILS_COLORIZED_OUTPUT=1
@@ -109,6 +109,9 @@ PIXHAWK_PORT ?= /dev/Pixhawk
 alt_master:
 	@python3 mira.py alt-master $(PIXHAWK_PORT)
 
+commands_normaliser:
+	@python3 mira.py commands-normaliser
+
 position_zed: check-ros
 	${WS} && \
 	ros2 launch mira2_control_master mavros_odom.launch.py pixhawk_address:=${PIXHAWK_PORT}
@@ -162,6 +165,7 @@ help:
 	$(info ROS Launch targets:)
 	$(info   master        - Launch master control)
 	$(info   alt_master    - Launch alternative master control)
+	$(info   commands_normaliser - Launch normalized-command bridge node)
 	$(info   position_zed  - Launch ZED MAVROS VIO for GUIDED mode)
 	$(info   guided_master  - Launch GUIDED mode master control)
 	$(info   teleop        - Launch teleoperation)

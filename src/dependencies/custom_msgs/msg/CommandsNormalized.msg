@@ -1,0 +1,10 @@
+bool arm
+string mode
+float32 forward
+float32 lateral
+float32 thrust
+float32 pitch
+float32 roll
+float32 yaw
+float32 servo1
+float32 servo2

@@ -1,0 +1,4 @@
+<launch>
+    <node name="commands_normaliser" pkg="mira2_control_master" exec="commands_normaliser" output="screen">
+    </node>
+</launch>
