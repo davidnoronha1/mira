@@ -24,6 +24,11 @@ import numpy as np
 import pyzed.sl as sl
 from ultralytics import YOLO
 
+import rclpy
+from rclpy.node import Node
+from geometry_msgs.msg import PoseStamped
+from custom_msgs.msg import ValveDetection
+
 try:
     from ament_index_python.packages import get_package_share_directory
     _PKG_SHARE = get_package_share_directory("mira2_perception")
@@ -211,6 +216,12 @@ def main():
     target = args.target.lower()
     model  = YOLO(args.model)
 
+    # ── ROS 2 setup ───────────────────────────────────────────────────────
+    rclpy.init()
+    ros_node = Node('valve_3d_bbox_node')
+    det_pub  = ros_node.create_publisher(ValveDetection, '/valve/detection', 10)
+    pose_pub = ros_node.create_publisher(PoseStamped,    '/valve/pose',      10)
+
     state = SharedState()
     t     = threading.Thread(target=zed_worker, args=(args, state), daemon=True)
     t.start()
@@ -301,6 +312,30 @@ def main():
                                 cv2.FONT_HERSHEY_SIMPLEX, 0.52, CLR_XYZ, 2)
                     cv2.putText(img, size_line, (bx1, by2+40),
                                 cv2.FONT_HERSHEY_SIMPLEX, 0.52, CLR_XYZ, 2)
+
+                    # ── publish custom message ─────────────────────────────
+                    stamp = ros_node.get_clock().now().to_msg()
+
+                    det = ValveDetection()
+                    det.header.stamp    = stamp
+                    det.header.frame_id = 'zed_left_camera_frame'
+                    det.class_name      = cls_name
+                    det.confidence      = conf_val
+                    det.x, det.y, det.z = float(x3), float(y3), float(z3)
+                    det.length          = float(W)
+                    det.breadth         = float(H)
+                    det.height          = float(D)
+                    det_pub.publish(det)
+
+                    # /valve/pose for the controls node (camera frame)
+                    pose = PoseStamped()
+                    pose.header.stamp    = stamp
+                    pose.header.frame_id = 'zed_left_camera_frame'
+                    pose.pose.position.x = float(x3)
+                    pose.pose.position.y = float(y3)
+                    pose.pose.position.z = float(z3)
+                    pose.pose.orientation.w = 1.0
+                    pose_pub.publish(pose)
                 else:
                     cv2.putText(img, "not enough depth pts",
                                 (bx1, by2+20),
@@ -344,6 +379,8 @@ def main():
         state.stop = True
     t.join(timeout=3)
     cv2.destroyAllWindows()
+    ros_node.destroy_node()
+    rclpy.shutdown()
     print("[INFO] Done.")
 
 

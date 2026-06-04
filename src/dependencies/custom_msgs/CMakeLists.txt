@@ -23,6 +23,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/Heading.msg"
   "msg/ArucoPose.msg"
   "msg/ConfidenceLevel.msg"
+  "msg/ValveDetection.msg"
   DEPENDENCIES sensor_msgs std_msgs geometry_msgs
 )
 
