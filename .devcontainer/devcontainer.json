@@ -1,0 +1,76 @@
+{
+  "name": "Mira AUV (ROS2 Jazzy)",
+  "dockerComposeFile": "../docker-compose.yml",
+  "service": "mira-nogpu",
+  "workspaceFolder": "/workspace",
+  // Run install-deps on first container create
+  // "onCreateCommand": "bash -c 'curl -LsSf https://astral.sh/uv/install.sh | sh && source /opt/ros/jazzy/setup.bash && make install-deps'",
+  // Source ROS2 + workspace on every attach
+  // "postAttachCommand": "bash -c 'echo \"source /opt/ros/jazzy/setup.bash\" >> ~/.bashrc && [ -f /workspace/install/setup.bash ] && echo \"source /workspace/install/setup.bash\" >> ~/.bashrc || true'",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        // C++ / clangd
+        "llvm-vs-code-extensions.vscode-clangd",
+        // Python
+        "ms-python.python",
+        "ms-python.vscode-pylance",
+        "charliermarsh.ruff",
+        // CMake
+        "twxs.cmake",
+        "ms-vscode.cmake-tools",
+        // YAML / XML / TOML
+        "redhat.vscode-yaml",
+        "redhat.vscode-xml",
+        "tamasfe.even-better-toml",
+        // Convenience
+        "streetsidesoftware.code-spell-checker",
+        "usernamehw.errorlens"
+      ],
+      "settings": {
+        // ── Shell ──────────────────────────────────────────────────────────────
+        "terminal.integrated.defaultProfile.linux": "bash",
+        "terminal.integrated.profiles.linux": {
+          "bash (ROS)": {
+            "path": "/bin/bash",
+            "args": [
+              "-c",
+              "source /opt/ros/jazzy/setup.bash && [ -f /workspace/install/setup.bash ] && source /workspace/install/setup.bash; exec bash"
+            ]
+          }
+        },
+        // ── C++ / clangd ───────────────────────────────────────────────────────
+        "clangd.path": "/usr/bin/clangd",
+        "clangd.arguments": [
+          "--background-index",
+          "--clang-tidy",
+          "--completion-style=detailed",
+          "--header-insertion=iwyu",
+          "--compile-commands-dir=/workspace/build"
+        ],
+        // Disable the built-in IntelliSense provider in favour of clangd
+        "C_Cpp.intelliSenseEngine": "disabled",
+        // ── Python ─────────────────────────────────────────────────────────────
+        "python.defaultInterpreterPath": "/workspace/.venv/bin/python3",
+        "python.analysis.extraPaths": [
+          "/opt/ros/jazzy/lib/python3.12/site-packages",
+          "/workspace/install/local_setup.py"
+        ],
+        "[python]": {
+          "editor.defaultFormatter": "charliermarsh.ruff",
+          "editor.formatOnSave": true
+        },
+        // ── Editor ─────────────────────────────────────────────────────────────
+        "editor.formatOnSave": true,
+        "editor.rulers": [
+          100
+        ],
+        "files.trimTrailingWhitespace": true,
+        "files.insertFinalNewline": true,
+        // ── cmake-tools ────────────────────────────────────────────────────────
+        "cmake.buildDirectory": "${workspaceFolder}/build/${buildType}",
+        "cmake.generator": "Ninja"
+      }
+    }
+  }
+}

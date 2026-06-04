@@ -35,7 +35,7 @@ jobs:
           target: builder
           push: true
           tags: |
-            ghcr.io/${{ github.repository }}:latest
-            ghcr.io/${{ github.repository }}:${{ github.sha }}
+            ghcr.io/dreadnought-robotics/mira:latest
+            ghcr.io/dreadnought-robotics/mira:${{ github.sha }}
           cache-from: type=gha,scope=ros-builder
           cache-to: type=gha,scope=ros-builder,mode=max
