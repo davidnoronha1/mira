@@ -19,29 +19,54 @@ dependencies = [
   "tk>=0.1.0",
   "opencv-contrib-python",
   "mavproxy>=1.8.74",
-  "ultralytics>=8.4.38",
-  "onnxruntime>=1.24.4",
   "future>=1.0.0",
 ]
 
 [project.optional-dependencies]
-vision = ["ultralytics>=8.4.33"]
+vision = [
+  "torch",
+  "torchvision",
+  "ultralytics>=8.4.38",
+  "onnxruntime-gpu>=1.24.4",
+]
 
-# [tool.uv]
-# torch-backend = "auto"
-[tool.uv]
-#torch-backend = "auto"
+vision-nogpu = [
+  "torch",
+  "torchvision",
+  "ultralytics>=8.4.38",
+  "onnxruntime>=1.24.4",
+]
 
 [[tool.uv.index]]
 name = "jetson-ai-lab"
 url = "https://pypi.jetson-ai-lab.io/jp6/cu126"
 explicit = true
 
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
 [tool.uv.sources]
+
 torch = [
-  # CUDA 12.6 wheel — only resolved on linux/aarch64 (Jetson Orin)
-  { index = "jetson-ai-lab", marker = "platform_machine == 'aarch64' and sys_platform == 'linux'" },
+  # Jetson CUDA wheels for the vision extra
+  { index = "jetson-ai-lab", extra = "vision", marker = "platform_machine == 'aarch64' and sys_platform == 'linux'" },
+
+  # CPU wheels for vision-nogpu
+  { index = "pytorch-cpu", extra = "vision-nogpu" },
+
+  # CPU wheels for vision on non-Jetson systems
+  { index = "pytorch-cpu", extra = "vision", marker = "platform_machine != 'aarch64' or sys_platform != 'linux'" },
 ]
+
 torchvision = [
-  { index = "jetson-ai-lab", marker = "platform_machine == 'aarch64' and sys_platform == 'linux'" },
+  # Jetson CUDA wheels for the vision extra
+  { index = "jetson-ai-lab", extra = "vision", marker = "platform_machine == 'aarch64' and sys_platform == 'linux'" },
+
+  # CPU wheels for vision-nogpu
+  { index = "pytorch-cpu", extra = "vision-nogpu" },
+
+  # CPU wheels for vision on non-Jetson systems
+  { index = "pytorch-cpu", extra = "vision", marker = "platform_machine != 'aarch64' or sys_platform != 'linux'" },
 ]
