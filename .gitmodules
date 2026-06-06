@@ -4,3 +4,6 @@
 [submodule "src/dependencies/zed-ros2-interfaces"]
 	path = src/dependencies/zed-ros2-interfaces
 	url = https://github.com/stereolabs/zed-ros2-interfaces.git
+[submodule "src/dependencies/rosidl_generator_mypy"]
+	path = src/dependencies/rosidl_generator_mypy
+	url = git@github.com:rospypi/rosidl_generator_mypy.git

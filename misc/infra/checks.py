@@ -18,7 +18,9 @@ def check_uv():
 		error("uv is not installed. Install with: curl -LsSf https://astral.sh/uv/install.sh | sh")
 		sys.exit(1)
 	if not Path(".venv").exists():
-		warn("Python virtual environment not found at .venv — run: python mira.py install-deps")
+		warn("Python virtual environment not found at .venv - Creating...")
+		run("uv venv --system-site-packages")
+		run("uv sync")
 
 	# When mira.py itself is run inside the venv (e.g. `python3 mira.py`) the
 	# venv's bin/ sits at the front of PATH, making `which python3` point there
