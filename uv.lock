@@ -2,19 +2,10 @@ version = 1
 revision = 3
 requires-python = ">=3.12"
 resolution-markers = [
-    "sys_platform == 'win32' and extra != 'extra-4-mira-vision' and extra == 'extra-4-mira-vision-nogpu'",
-    "sys_platform != 'darwin' and sys_platform != 'win32' and extra != 'extra-4-mira-vision' and extra == 'extra-4-mira-vision-nogpu'",
-    "sys_platform == 'darwin' and extra != 'extra-4-mira-vision' and extra == 'extra-4-mira-vision-nogpu'",
-    "platform_machine == 'aarch64' and sys_platform == 'linux' and extra == 'extra-4-mira-vision' and extra != 'extra-4-mira-vision-nogpu'",
-    "sys_platform == 'win32' and extra == 'extra-4-mira-vision' and extra != 'extra-4-mira-vision-nogpu'",
-    "(platform_machine != 'aarch64' and sys_platform == 'linux' and extra == 'extra-4-mira-vision' and extra != 'extra-4-mira-vision-nogpu') or (sys_platform != 'darwin' and sys_platform != 'linux' and sys_platform != 'win32' and extra == 'extra-4-mira-vision' and extra != 'extra-4-mira-vision-nogpu')",
-    "sys_platform == 'darwin' and extra == 'extra-4-mira-vision' and extra != 'extra-4-mira-vision-nogpu'",
-    "extra != 'extra-4-mira-vision' and extra != 'extra-4-mira-vision-nogpu'",
+    "sys_platform == 'win32'",
+    "sys_platform != 'darwin' and sys_platform != 'win32'",
+    "sys_platform == 'darwin'",
 ]
-conflicts = [[
-    { package = "mira", extra = "vision" },
-    { package = "mira", extra = "vision-nogpu" },
-]]
 
 [[package]]
 name = "catkin-pkg"
@@ -752,20 +743,18 @@ dependencies = [
 [package.optional-dependencies]
 vision = [
     { name = "onnxruntime-gpu" },
-    { name = "torch", version = "2.8.0", source = { registry = "https://pypi.jetson-ai-lab.io/jp6/cu129" }, marker = "(platform_machine == 'aarch64' and sys_platform == 'linux' and extra == 'extra-4-mira-vision') or (platform_machine != 'aarch64' and extra == 'extra-4-mira-vision' and extra == 'extra-4-mira-vision-nogpu') or (sys_platform != 'linux' and extra == 'extra-4-mira-vision' and extra == 'extra-4-mira-vision-nogpu')" },
-    { name = "torch", version = "2.13.0", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "(sys_platform == 'darwin' and extra == 'extra-4-mira-vision') or (extra == 'extra-4-mira-vision' and extra == 'extra-4-mira-vision-nogpu')" },
-    { name = "torch", version = "2.13.0+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "(platform_machine != 'aarch64' and sys_platform == 'linux' and extra == 'extra-4-mira-vision') or (sys_platform != 'darwin' and sys_platform != 'linux' and extra == 'extra-4-mira-vision') or (sys_platform == 'darwin' and extra == 'extra-4-mira-vision' and extra == 'extra-4-mira-vision-nogpu') or (sys_platform == 'linux' and extra == 'extra-4-mira-vision' and extra == 'extra-4-mira-vision-nogpu')" },
-    { name = "torchvision", version = "0.24.0", source = { registry = "https://pypi.jetson-ai-lab.io/jp6/cu129" }, marker = "(platform_machine == 'aarch64' and sys_platform == 'linux' and extra == 'extra-4-mira-vision') or (platform_machine != 'aarch64' and extra == 'extra-4-mira-vision' and extra == 'extra-4-mira-vision-nogpu') or (sys_platform != 'linux' and extra == 'extra-4-mira-vision' and extra == 'extra-4-mira-vision-nogpu')" },
-    { name = "torchvision", version = "0.28.0", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "(sys_platform == 'darwin' and extra == 'extra-4-mira-vision') or (extra == 'extra-4-mira-vision' and extra == 'extra-4-mira-vision-nogpu')" },
-    { name = "torchvision", version = "0.28.0+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "(platform_machine != 'aarch64' and sys_platform == 'linux' and extra == 'extra-4-mira-vision') or (sys_platform != 'darwin' and sys_platform != 'linux' and extra == 'extra-4-mira-vision') or (sys_platform == 'darwin' and extra == 'extra-4-mira-vision' and extra == 'extra-4-mira-vision-nogpu') or (sys_platform == 'linux' and extra == 'extra-4-mira-vision' and extra == 'extra-4-mira-vision-nogpu')" },
+    { name = "torch", version = "2.13.0", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "sys_platform == 'darwin'" },
+    { name = "torch", version = "2.13.0+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "sys_platform != 'darwin'" },
+    { name = "torchvision", version = "0.28.0", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "sys_platform == 'darwin'" },
+    { name = "torchvision", version = "0.28.0+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "sys_platform != 'darwin'" },
     { name = "ultralytics" },
 ]
 vision-nogpu = [
     { name = "onnxruntime" },
-    { name = "torch", version = "2.13.0", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "(sys_platform == 'darwin' and extra == 'extra-4-mira-vision-nogpu') or (extra == 'extra-4-mira-vision' and extra == 'extra-4-mira-vision-nogpu')" },
-    { name = "torch", version = "2.13.0+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "(sys_platform != 'darwin' and extra == 'extra-4-mira-vision-nogpu') or (extra == 'extra-4-mira-vision' and extra == 'extra-4-mira-vision-nogpu')" },
-    { name = "torchvision", version = "0.28.0", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "(sys_platform == 'darwin' and extra == 'extra-4-mira-vision-nogpu') or (extra == 'extra-4-mira-vision' and extra == 'extra-4-mira-vision-nogpu')" },
-    { name = "torchvision", version = "0.28.0+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "(sys_platform != 'darwin' and extra == 'extra-4-mira-vision-nogpu') or (extra == 'extra-4-mira-vision' and extra == 'extra-4-mira-vision-nogpu')" },
+    { name = "torch", version = "2.13.0", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "sys_platform == 'darwin'" },
+    { name = "torch", version = "2.13.0+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "sys_platform != 'darwin'" },
+    { name = "torchvision", version = "0.28.0", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "sys_platform == 'darwin'" },
+    { name = "torchvision", version = "0.28.0+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "sys_platform != 'darwin'" },
     { name = "ultralytics" },
 ]
 
@@ -788,12 +777,10 @@ requires-dist = [
     { name = "textual", specifier = ">=8.0.0" },
     { name = "textual-plotext", specifier = ">=1.0.1" },
     { name = "tk", specifier = ">=0.1.0" },
-    { name = "torch", marker = "platform_machine == 'aarch64' and sys_platform == 'linux' and extra == 'vision'", index = "https://pypi.jetson-ai-lab.io/jp6/cu129", conflict = { package = "mira", extra = "vision" } },
-    { name = "torch", marker = "(platform_machine != 'aarch64' and extra == 'vision') or (sys_platform != 'linux' and extra == 'vision')", index = "https://download.pytorch.org/whl/cpu", conflict = { package = "mira", extra = "vision" } },
-    { name = "torch", marker = "extra == 'vision-nogpu'", index = "https://download.pytorch.org/whl/cpu", conflict = { package = "mira", extra = "vision-nogpu" } },
-    { name = "torchvision", marker = "platform_machine == 'aarch64' and sys_platform == 'linux' and extra == 'vision'", index = "https://pypi.jetson-ai-lab.io/jp6/cu129", conflict = { package = "mira", extra = "vision" } },
-    { name = "torchvision", marker = "(platform_machine != 'aarch64' and extra == 'vision') or (sys_platform != 'linux' and extra == 'vision')", index = "https://download.pytorch.org/whl/cpu", conflict = { package = "mira", extra = "vision" } },
-    { name = "torchvision", marker = "extra == 'vision-nogpu'", index = "https://download.pytorch.org/whl/cpu", conflict = { package = "mira", extra = "vision-nogpu" } },
+    { name = "torch", marker = "extra == 'vision'", index = "https://download.pytorch.org/whl/cpu" },
+    { name = "torch", marker = "extra == 'vision-nogpu'", index = "https://download.pytorch.org/whl/cpu" },
+    { name = "torchvision", marker = "extra == 'vision'", index = "https://download.pytorch.org/whl/cpu" },
+    { name = "torchvision", marker = "extra == 'vision-nogpu'", index = "https://download.pytorch.org/whl/cpu" },
     { name = "ultralytics", marker = "extra == 'vision'", specifier = ">=8.4.38" },
     { name = "ultralytics", marker = "extra == 'vision-nogpu'", specifier = ">=8.4.38" },
 ]
@@ -1419,26 +1406,6 @@ wheels = [
 
 [[package]]
 name = "torch"
-version = "2.8.0"
-source = { registry = "https://pypi.jetson-ai-lab.io/jp6/cu129" }
-resolution-markers = [
-    "platform_machine == 'aarch64' and sys_platform == 'linux'",
-]
-dependencies = [
-    { name = "filelock", marker = "(platform_machine == 'aarch64' and sys_platform == 'linux' and extra == 'extra-4-mira-vision') or (platform_machine != 'aarch64' and extra == 'extra-4-mira-vision' and extra == 'extra-4-mira-vision-nogpu') or (sys_platform != 'linux' and extra == 'extra-4-mira-vision' and extra == 'extra-4-mira-vision-nogpu')" },
-    { name = "fsspec", marker = "(platform_machine == 'aarch64' and sys_platform == 'linux' and extra == 'extra-4-mira-vision') or (platform_machine != 'aarch64' and extra == 'extra-4-mira-vision' and extra == 'extra-4-mira-vision-nogpu') or (sys_platform != 'linux' and extra == 'extra-4-mira-vision' and extra == 'extra-4-mira-vision-nogpu')" },
-    { name = "jinja2", marker = "(platform_machine == 'aarch64' and sys_platform == 'linux' and extra == 'extra-4-mira-vision') or (platform_machine != 'aarch64' and extra == 'extra-4-mira-vision' and extra == 'extra-4-mira-vision-nogpu') or (sys_platform != 'linux' and extra == 'extra-4-mira-vision' and extra == 'extra-4-mira-vision-nogpu')" },
-    { name = "networkx", marker = "(platform_machine == 'aarch64' and sys_platform == 'linux' and extra == 'extra-4-mira-vision') or (platform_machine != 'aarch64' and extra == 'extra-4-mira-vision' and extra == 'extra-4-mira-vision-nogpu') or (sys_platform != 'linux' and extra == 'extra-4-mira-vision' and extra == 'extra-4-mira-vision-nogpu')" },
-    { name = "setuptools", marker = "(platform_machine == 'aarch64' and sys_platform == 'linux' and extra == 'extra-4-mira-vision') or (platform_machine != 'aarch64' and extra == 'extra-4-mira-vision' and extra == 'extra-4-mira-vision-nogpu') or (sys_platform != 'linux' and extra == 'extra-4-mira-vision' and extra == 'extra-4-mira-vision-nogpu')" },
-    { name = "sympy", marker = "(platform_machine == 'aarch64' and sys_platform == 'linux' and extra == 'extra-4-mira-vision') or (platform_machine != 'aarch64' and extra == 'extra-4-mira-vision' and extra == 'extra-4-mira-vision-nogpu') or (sys_platform != 'linux' and extra == 'extra-4-mira-vision' and extra == 'extra-4-mira-vision-nogpu')" },
-    { name = "typing-extensions", marker = "(platform_machine == 'aarch64' and sys_platform == 'linux' and extra == 'extra-4-mira-vision') or (platform_machine != 'aarch64' and extra == 'extra-4-mira-vision' and extra == 'extra-4-mira-vision-nogpu') or (sys_platform != 'linux' and extra == 'extra-4-mira-vision' and extra == 'extra-4-mira-vision-nogpu')" },
-]
-wheels = [
-    { url = "https://pypi.jetson-ai-lab.io/jp6/cu129/+f/f36/0db283b1249b3/torch-2.8.0-cp312-cp312-linux_aarch64.whl", hash = "sha256:f360db283b1249b36a97b332bf8688917d9c7dbde4bc5120a03ae7a7e5a5d32c" },
-]
-
-[[package]]
-name = "torch"
 version = "2.13.0"
 source = { registry = "https://download.pytorch.org/whl/cpu" }
 resolution-markers = [
@@ -1465,19 +1432,17 @@ name = "torch"
 version = "2.13.0+cpu"
 source = { registry = "https://download.pytorch.org/whl/cpu" }
 resolution-markers = [
-    "sys_platform == 'win32' and extra != 'extra-4-mira-vision' and extra == 'extra-4-mira-vision-nogpu'",
-    "sys_platform != 'darwin' and sys_platform != 'win32' and extra != 'extra-4-mira-vision' and extra == 'extra-4-mira-vision-nogpu'",
-    "sys_platform == 'win32' and extra == 'extra-4-mira-vision' and extra != 'extra-4-mira-vision-nogpu'",
-    "(platform_machine != 'aarch64' and sys_platform == 'linux' and extra == 'extra-4-mira-vision' and extra != 'extra-4-mira-vision-nogpu') or (sys_platform != 'darwin' and sys_platform != 'linux' and sys_platform != 'win32' and extra == 'extra-4-mira-vision' and extra != 'extra-4-mira-vision-nogpu')",
+    "sys_platform == 'win32'",
+    "sys_platform != 'darwin' and sys_platform != 'win32'",
 ]
 dependencies = [
-    { name = "filelock", marker = "(platform_machine != 'aarch64' and sys_platform == 'linux' and extra == 'extra-4-mira-vision') or (platform_machine == 'aarch64' and sys_platform == 'linux' and extra == 'extra-4-mira-vision-nogpu') or (sys_platform != 'darwin' and sys_platform != 'linux' and extra == 'extra-4-mira-vision') or (sys_platform != 'darwin' and sys_platform != 'linux' and extra == 'extra-4-mira-vision-nogpu') or (sys_platform == 'darwin' and extra == 'extra-4-mira-vision' and extra == 'extra-4-mira-vision-nogpu') or (sys_platform == 'linux' and extra != 'extra-4-mira-vision' and extra == 'extra-4-mira-vision-nogpu')" },
-    { name = "fsspec", marker = "(platform_machine != 'aarch64' and sys_platform == 'linux' and extra == 'extra-4-mira-vision') or (platform_machine == 'aarch64' and sys_platform == 'linux' and extra == 'extra-4-mira-vision-nogpu') or (sys_platform != 'darwin' and sys_platform != 'linux' and extra == 'extra-4-mira-vision') or (sys_platform != 'darwin' and sys_platform != 'linux' and extra == 'extra-4-mira-vision-nogpu') or (sys_platform == 'darwin' and extra == 'extra-4-mira-vision' and extra == 'extra-4-mira-vision-nogpu') or (sys_platform == 'linux' and extra != 'extra-4-mira-vision' and extra == 'extra-4-mira-vision-nogpu')" },
-    { name = "jinja2", marker = "(platform_machine != 'aarch64' and sys_platform == 'linux' and extra == 'extra-4-mira-vision') or (platform_machine == 'aarch64' and sys_platform == 'linux' and extra == 'extra-4-mira-vision-nogpu') or (sys_platform != 'darwin' and sys_platform != 'linux' and extra == 'extra-4-mira-vision') or (sys_platform != 'darwin' and sys_platform != 'linux' and extra == 'extra-4-mira-vision-nogpu') or (sys_platform == 'darwin' and extra == 'extra-4-mira-vision' and extra == 'extra-4-mira-vision-nogpu') or (sys_platform == 'linux' and extra != 'extra-4-mira-vision' and extra == 'extra-4-mira-vision-nogpu')" },
-    { name = "networkx", marker = "(platform_machine != 'aarch64' and sys_platform == 'linux' and extra == 'extra-4-mira-vision') or (platform_machine == 'aarch64' and sys_platform == 'linux' and extra == 'extra-4-mira-vision-nogpu') or (sys_platform != 'darwin' and sys_platform != 'linux' and extra == 'extra-4-mira-vision') or (sys_platform != 'darwin' and sys_platform != 'linux' and extra == 'extra-4-mira-vision-nogpu') or (sys_platform == 'darwin' and extra == 'extra-4-mira-vision' and extra == 'extra-4-mira-vision-nogpu') or (sys_platform == 'linux' and extra != 'extra-4-mira-vision' and extra == 'extra-4-mira-vision-nogpu')" },
-    { name = "setuptools", marker = "(platform_machine != 'aarch64' and sys_platform == 'linux' and extra == 'extra-4-mira-vision') or (platform_machine == 'aarch64' and sys_platform == 'linux' and extra == 'extra-4-mira-vision-nogpu') or (sys_platform != 'darwin' and sys_platform != 'linux' and extra == 'extra-4-mira-vision') or (sys_platform != 'darwin' and sys_platform != 'linux' and extra == 'extra-4-mira-vision-nogpu') or (sys_platform == 'darwin' and extra == 'extra-4-mira-vision' and extra == 'extra-4-mira-vision-nogpu') or (sys_platform == 'linux' and extra != 'extra-4-mira-vision' and extra == 'extra-4-mira-vision-nogpu')" },
-    { name = "sympy", marker = "(platform_machine != 'aarch64' and sys_platform == 'linux' and extra == 'extra-4-mira-vision') or (platform_machine == 'aarch64' and sys_platform == 'linux' and extra == 'extra-4-mira-vision-nogpu') or (sys_platform != 'darwin' and sys_platform != 'linux' and extra == 'extra-4-mira-vision') or (sys_platform != 'darwin' and sys_platform != 'linux' and extra == 'extra-4-mira-vision-nogpu') or (sys_platform == 'darwin' and extra == 'extra-4-mira-vision' and extra == 'extra-4-mira-vision-nogpu') or (sys_platform == 'linux' and extra != 'extra-4-mira-vision' and extra == 'extra-4-mira-vision-nogpu')" },
-    { name = "typing-extensions", marker = "(platform_machine != 'aarch64' and sys_platform == 'linux' and extra == 'extra-4-mira-vision') or (platform_machine == 'aarch64' and sys_platform == 'linux' and extra == 'extra-4-mira-vision-nogpu') or (sys_platform != 'darwin' and sys_platform != 'linux' and extra == 'extra-4-mira-vision') or (sys_platform != 'darwin' and sys_platform != 'linux' and extra == 'extra-4-mira-vision-nogpu') or (sys_platform == 'darwin' and extra == 'extra-4-mira-vision' and extra == 'extra-4-mira-vision-nogpu') or (sys_platform == 'linux' and extra != 'extra-4-mira-vision' and extra == 'extra-4-mira-vision-nogpu')" },
+    { name = "filelock", marker = "sys_platform != 'darwin'" },
+    { name = "fsspec", marker = "sys_platform != 'darwin'" },
+    { name = "jinja2", marker = "sys_platform != 'darwin'" },
+    { name = "networkx", marker = "sys_platform != 'darwin'" },
+    { name = "setuptools", marker = "sys_platform != 'darwin'" },
+    { name = "sympy", marker = "sys_platform != 'darwin'" },
+    { name = "typing-extensions", marker = "sys_platform != 'darwin'" },
 ]
 wheels = [
     { url = "https://download-r2.pytorch.org/whl/cpu/torch-2.13.0%2Bcpu-cp312-cp312-linux_s390x.whl", hash = "sha256:ffadde149901c8afa138daa38d898264003cfcf1a3336ca5cd964b5af227d867", upload-time = "2026-07-08T19:28:41Z" },
@@ -1506,22 +1471,6 @@ wheels = [
 
 [[package]]
 name = "torchvision"
-version = "0.24.0"
-source = { registry = "https://pypi.jetson-ai-lab.io/jp6/cu129" }
-resolution-markers = [
-    "platform_machine == 'aarch64' and sys_platform == 'linux'",
-]
-dependencies = [
-    { name = "numpy", marker = "(platform_machine == 'aarch64' and sys_platform == 'linux' and extra == 'extra-4-mira-vision') or (platform_machine != 'aarch64' and extra == 'extra-4-mira-vision' and extra == 'extra-4-mira-vision-nogpu') or (sys_platform != 'linux' and extra == 'extra-4-mira-vision' and extra == 'extra-4-mira-vision-nogpu')" },
-    { name = "pillow", marker = "(platform_machine == 'aarch64' and sys_platform == 'linux' and extra == 'extra-4-mira-vision') or (platform_machine != 'aarch64' and extra == 'extra-4-mira-vision' and extra == 'extra-4-mira-vision-nogpu') or (sys_platform != 'linux' and extra == 'extra-4-mira-vision' and extra == 'extra-4-mira-vision-nogpu')" },
-    { name = "torch", version = "2.8.0", source = { registry = "https://pypi.jetson-ai-lab.io/jp6/cu129" }, marker = "(platform_machine == 'aarch64' and sys_platform == 'linux' and extra == 'extra-4-mira-vision') or (platform_machine != 'aarch64' and extra == 'extra-4-mira-vision' and extra == 'extra-4-mira-vision-nogpu') or (sys_platform != 'linux' and extra == 'extra-4-mira-vision' and extra == 'extra-4-mira-vision-nogpu')" },
-]
-wheels = [
-    { url = "https://pypi.jetson-ai-lab.io/jp6/cu129/+f/c26/fb4d05c0d694c/torchvision-0.24.0-cp312-cp312-linux_aarch64.whl", hash = "sha256:c26fb4d05c0d694cc24812fccd3b52555544744538a943ba78d07506f1ea79b6" },
-]
-
-[[package]]
-name = "torchvision"
 version = "0.28.0"
 source = { registry = "https://download.pytorch.org/whl/cpu" }
 resolution-markers = [
@@ -1544,15 +1493,13 @@ name = "torchvision"
 version = "0.28.0+cpu"
 source = { registry = "https://download.pytorch.org/whl/cpu" }
 resolution-markers = [
-    "sys_platform == 'win32' and extra != 'extra-4-mira-vision' and extra == 'extra-4-mira-vision-nogpu'",
-    "sys_platform != 'darwin' and sys_platform != 'win32' and extra != 'extra-4-mira-vision' and extra == 'extra-4-mira-vision-nogpu'",
-    "sys_platform == 'win32' and extra == 'extra-4-mira-vision' and extra != 'extra-4-mira-vision-nogpu'",
-    "(platform_machine != 'aarch64' and sys_platform == 'linux' and extra == 'extra-4-mira-vision' and extra != 'extra-4-mira-vision-nogpu') or (sys_platform != 'darwin' and sys_platform != 'linux' and sys_platform != 'win32' and extra == 'extra-4-mira-vision' and extra != 'extra-4-mira-vision-nogpu')",
+    "sys_platform == 'win32'",
+    "sys_platform != 'darwin' and sys_platform != 'win32'",
 ]
 dependencies = [
-    { name = "numpy", marker = "(platform_machine != 'aarch64' and sys_platform == 'linux' and extra == 'extra-4-mira-vision') or (platform_machine == 'aarch64' and sys_platform == 'linux' and extra == 'extra-4-mira-vision-nogpu') or (sys_platform != 'darwin' and sys_platform != 'linux' and extra == 'extra-4-mira-vision') or (sys_platform != 'darwin' and sys_platform != 'linux' and extra == 'extra-4-mira-vision-nogpu') or (sys_platform == 'darwin' and extra == 'extra-4-mira-vision' and extra == 'extra-4-mira-vision-nogpu') or (sys_platform == 'linux' and extra != 'extra-4-mira-vision' and extra == 'extra-4-mira-vision-nogpu')" },
-    { name = "pillow", marker = "(platform_machine != 'aarch64' and sys_platform == 'linux' and extra == 'extra-4-mira-vision') or (platform_machine == 'aarch64' and sys_platform == 'linux' and extra == 'extra-4-mira-vision-nogpu') or (sys_platform != 'darwin' and sys_platform != 'linux' and extra == 'extra-4-mira-vision') or (sys_platform != 'darwin' and sys_platform != 'linux' and extra == 'extra-4-mira-vision-nogpu') or (sys_platform == 'darwin' and extra == 'extra-4-mira-vision' and extra == 'extra-4-mira-vision-nogpu') or (sys_platform == 'linux' and extra != 'extra-4-mira-vision' and extra == 'extra-4-mira-vision-nogpu')" },
-    { name = "torch", version = "2.13.0+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "(platform_machine != 'aarch64' and sys_platform == 'linux' and extra == 'extra-4-mira-vision') or (platform_machine == 'aarch64' and sys_platform == 'linux' and extra == 'extra-4-mira-vision-nogpu') or (sys_platform != 'darwin' and sys_platform != 'linux' and extra == 'extra-4-mira-vision') or (sys_platform != 'darwin' and sys_platform != 'linux' and extra == 'extra-4-mira-vision-nogpu') or (sys_platform == 'darwin' and extra == 'extra-4-mira-vision' and extra == 'extra-4-mira-vision-nogpu') or (sys_platform == 'linux' and extra != 'extra-4-mira-vision' and extra == 'extra-4-mira-vision-nogpu')" },
+    { name = "numpy", marker = "sys_platform != 'darwin'" },
+    { name = "pillow", marker = "sys_platform != 'darwin'" },
+    { name = "torch", version = "2.13.0+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "sys_platform != 'darwin'" },
 ]
 wheels = [
     { url = "https://download-r2.pytorch.org/whl/cpu/torchvision-0.28.0%2Bcpu-cp312-cp312-manylinux_2_28_aarch64.whl", hash = "sha256:2f768c4f6d5adf6d5535061fd69ec44827608bac0e96e12114942a6fdfce1107", upload-time = "2026-07-08T12:26:39Z" },
@@ -1601,12 +1548,10 @@ dependencies = [
     { name = "pyyaml" },
     { name = "requests" },
     { name = "scipy" },
-    { name = "torch", version = "2.8.0", source = { registry = "https://pypi.jetson-ai-lab.io/jp6/cu129" }, marker = "(platform_machine == 'aarch64' and sys_platform == 'linux' and extra == 'extra-4-mira-vision') or (platform_machine != 'aarch64' and extra == 'extra-4-mira-vision' and extra == 'extra-4-mira-vision-nogpu') or (sys_platform != 'linux' and extra == 'extra-4-mira-vision' and extra == 'extra-4-mira-vision-nogpu')" },
-    { name = "torch", version = "2.13.0", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "(sys_platform == 'darwin' and extra == 'extra-4-mira-vision') or (sys_platform == 'darwin' and extra == 'extra-4-mira-vision-nogpu') or (extra == 'extra-4-mira-vision' and extra == 'extra-4-mira-vision-nogpu')" },
-    { name = "torch", version = "2.13.0+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "(platform_machine != 'aarch64' and sys_platform == 'linux' and extra == 'extra-4-mira-vision') or (platform_machine == 'aarch64' and sys_platform == 'linux' and extra == 'extra-4-mira-vision-nogpu') or (sys_platform != 'darwin' and sys_platform != 'linux' and extra == 'extra-4-mira-vision') or (sys_platform != 'darwin' and sys_platform != 'linux' and extra == 'extra-4-mira-vision-nogpu') or (sys_platform == 'darwin' and extra == 'extra-4-mira-vision' and extra == 'extra-4-mira-vision-nogpu') or (sys_platform == 'linux' and extra != 'extra-4-mira-vision' and extra == 'extra-4-mira-vision-nogpu')" },
-    { name = "torchvision", version = "0.24.0", source = { registry = "https://pypi.jetson-ai-lab.io/jp6/cu129" }, marker = "(platform_machine == 'aarch64' and sys_platform == 'linux' and extra == 'extra-4-mira-vision') or (platform_machine != 'aarch64' and extra == 'extra-4-mira-vision' and extra == 'extra-4-mira-vision-nogpu') or (sys_platform != 'linux' and extra == 'extra-4-mira-vision' and extra == 'extra-4-mira-vision-nogpu')" },
-    { name = "torchvision", version = "0.28.0", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "(sys_platform == 'darwin' and extra == 'extra-4-mira-vision') or (sys_platform == 'darwin' and extra == 'extra-4-mira-vision-nogpu') or (extra == 'extra-4-mira-vision' and extra == 'extra-4-mira-vision-nogpu')" },
-    { name = "torchvision", version = "0.28.0+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "(platform_machine != 'aarch64' and sys_platform == 'linux' and extra == 'extra-4-mira-vision') or (platform_machine == 'aarch64' and sys_platform == 'linux' and extra == 'extra-4-mira-vision-nogpu') or (sys_platform != 'darwin' and sys_platform != 'linux' and extra == 'extra-4-mira-vision') or (sys_platform != 'darwin' and sys_platform != 'linux' and extra == 'extra-4-mira-vision-nogpu') or (sys_platform == 'darwin' and extra == 'extra-4-mira-vision' and extra == 'extra-4-mira-vision-nogpu') or (sys_platform == 'linux' and extra != 'extra-4-mira-vision' and extra == 'extra-4-mira-vision-nogpu')" },
+    { name = "torch", version = "2.13.0", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "sys_platform == 'darwin'" },
+    { name = "torch", version = "2.13.0+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "sys_platform != 'darwin'" },
+    { name = "torchvision", version = "0.28.0", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "sys_platform == 'darwin'" },
+    { name = "torchvision", version = "0.28.0+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "sys_platform != 'darwin'" },
     { name = "ultralytics-thop" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/33/c2/4972082885022f834cb9f8884dfffb8e6a97d9a18a5256a37fd61eff2397/ultralytics-8.4.38.tar.gz", hash = "sha256:88e4c26205a8472773725db60346a46bbd5ac35e9dab19a7f6f954fa202aedcd", size = 1035555, upload-time = "2026-04-16T12:03:03.282Z" }
@@ -1620,9 +1565,8 @@ version = "2.0.18"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "numpy" },
-    { name = "torch", version = "2.8.0", source = { registry = "https://pypi.jetson-ai-lab.io/jp6/cu129" }, marker = "(platform_machine == 'aarch64' and sys_platform == 'linux' and extra == 'extra-4-mira-vision') or (platform_machine != 'aarch64' and extra == 'extra-4-mira-vision' and extra == 'extra-4-mira-vision-nogpu') or (sys_platform != 'linux' and extra == 'extra-4-mira-vision' and extra == 'extra-4-mira-vision-nogpu')" },
-    { name = "torch", version = "2.13.0", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "(sys_platform == 'darwin' and extra == 'extra-4-mira-vision') or (sys_platform == 'darwin' and extra == 'extra-4-mira-vision-nogpu') or (extra == 'extra-4-mira-vision' and extra == 'extra-4-mira-vision-nogpu')" },
-    { name = "torch", version = "2.13.0+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "(platform_machine != 'aarch64' and sys_platform == 'linux' and extra == 'extra-4-mira-vision') or (platform_machine == 'aarch64' and sys_platform == 'linux' and extra == 'extra-4-mira-vision-nogpu') or (sys_platform != 'darwin' and sys_platform != 'linux' and extra == 'extra-4-mira-vision') or (sys_platform != 'darwin' and sys_platform != 'linux' and extra == 'extra-4-mira-vision-nogpu') or (sys_platform == 'darwin' and extra == 'extra-4-mira-vision' and extra == 'extra-4-mira-vision-nogpu') or (sys_platform == 'linux' and extra != 'extra-4-mira-vision' and extra == 'extra-4-mira-vision-nogpu')" },
+    { name = "torch", version = "2.13.0", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "sys_platform == 'darwin'" },
+    { name = "torch", version = "2.13.0+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "sys_platform != 'darwin'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/1f/63/21a32e1facfeee245dbdfb7b4669faf7a36ff7c00b50987932bdab126f4b/ultralytics_thop-2.0.18.tar.gz", hash = "sha256:21103bcd39cc9928477dc3d9374561749b66a1781b35f46256c8d8c4ac01d9cf", size = 34557, upload-time = "2025-10-29T16:58:13.526Z" }
 wheels = [
