@@ -37,11 +37,45 @@ vision-nogpu = [
   "onnxruntime>=1.24.4",
 ]
 
+[tool.uv]
+conflicts = [
+  [
+    { extra = "vision" },
+    { extra = "vision-nogpu" },
+  ],
+]
+
+[[tool.uv.index]]
+name = "jetson-ai-lab"
+# cu126 only ships cp310 wheels; cu129 is the lowest Jetson CUDA index with cp312 torch/torchvision builds.
+url = "https://pypi.jetson-ai-lab.io/jp6/cu129"
+explicit = true
+
 [[tool.uv.index]]
 name = "pytorch-cpu"
 url = "https://download.pytorch.org/whl/cpu"
 explicit = true
 
 [tool.uv.sources]
-torch = { index = "pytorch-cpu" }
-torchvision = { index = "pytorch-cpu" }
+
+torch = [
+  # Jetson CUDA wheels for the vision extra
+  { index = "jetson-ai-lab", extra = "vision", marker = "platform_machine == 'aarch64' and sys_platform == 'linux'" },
+
+  # CPU wheels for vision-nogpu
+  { index = "pytorch-cpu", extra = "vision-nogpu" },
+
+  # CPU wheels for vision on non-Jetson systems
+  { index = "pytorch-cpu", extra = "vision", marker = "platform_machine != 'aarch64' or sys_platform != 'linux'" },
+]
+
+torchvision = [
+  # Jetson CUDA wheels for the vision extra
+  { index = "jetson-ai-lab", extra = "vision", marker = "platform_machine == 'aarch64' and sys_platform == 'linux'" },
+
+  # CPU wheels for vision-nogpu
+  { index = "pytorch-cpu", extra = "vision-nogpu" },
+
+  # CPU wheels for vision on non-Jetson systems
+  { index = "pytorch-cpu", extra = "vision", marker = "platform_machine != 'aarch64' or sys_platform != 'linux'" },
+]

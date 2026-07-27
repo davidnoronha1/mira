@@ -115,7 +115,7 @@ Uses ArUco marker detection for pose feedback.
 
 ## Hardware Targets
 
-- **Jetson Orin** (aarch64): CPU-only PyTorch wheels for now — Jetson AI Lab's CUDA index has no `cp312` torch/torchvision builds matching JetPack 6.2's Python version, so GPU-accelerated `vision` extra is currently unsupported on this target
+- **Jetson Orin** (aarch64): CUDA 12.6 wheels from Jetson AI Lab index
 - **Raspberry Pi 4**: CPU-only fallback
 - **SITL** (software-in-the-loop): Set `pixhawk_address` to `tcp:127.0.0.1:5760` in `mira2_control_master`
 
