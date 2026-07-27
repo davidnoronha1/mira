@@ -48,6 +48,8 @@ conflicts = [
 [[tool.uv.index]]
 name = "jetson-ai-lab"
 # cu126 only ships cp310 wheels; cu129 is the lowest Jetson CUDA index with cp312 torch/torchvision builds.
+# Requires NVIDIA's aarch64-Jetson CUDA 12.9 forward-compatibility/upgrade package installed on the
+# device — stock JetPack 6.2 only ships the CUDA 12.6 driver interface.
 url = "https://pypi.jetson-ai-lab.io/jp6/cu129"
 explicit = true
 

@@ -115,7 +115,7 @@ Uses ArUco marker detection for pose feedback.
 
 ## Hardware Targets
 
-- **Jetson Orin** (aarch64): CUDA 12.6 wheels from Jetson AI Lab index
+- **Jetson Orin** (aarch64): CUDA 12.9 wheels from Jetson AI Lab index (`jp6/cu129` — the lowest Jetson index with `cp312` torch/torchvision builds). JetPack 6.2's stock driver interface is CUDA 12.6, so the device also needs NVIDIA's aarch64-Jetson [CUDA 12.9 forward-compatibility/upgrade package](https://developer.nvidia.com/cuda-downloads) installed before these wheels will actually use the GPU.
 - **Raspberry Pi 4**: CPU-only fallback
 - **SITL** (software-in-the-loop): Set `pixhawk_address` to `tcp:127.0.0.1:5760` in `mira2_control_master`
 
