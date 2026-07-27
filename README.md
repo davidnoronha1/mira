@@ -58,6 +58,29 @@ To validate that you haven't done any mistakes in a ROS package, you can run the
 uv run util/validator/validate_package.py ./src/<PACKAGE NAME>
 ```
 
+## Developing in the Container
+
+If you don't want to install ROS2 Jazzy and all its dependencies directly on your machine, you can develop entirely inside the `mira` Docker container instead.
+
+```
+make docker
+```
+
+This starts (or attaches to) the container and drops you into a root shell inside `/workspace`, which is bind-mounted to your repo checkout — edits made on the host or in the container show up in both instantly. It picks the `mira` service (GPU passthrough) if CUDA is available on the host, otherwise `mira-nogpu`.
+
+`docker-compose.yml` prefers pulling the pre-built image from `ghcr.io/dreadnought-robotics/mira:latest` (published by CI on every push/PR) and only falls back to building the `Dockerfile` locally if that image can't be pulled. To force a local rebuild instead of pulling:
+```
+make build-docker-container
+```
+
+Since the container mounts your repo directly, `make build`, `make b P=<package>` and `colcon test` all work the same as a native install once you're inside — the container already has ROS, `uv`, and the workspace deps installed.
+
+> [!NOTE]
+> If you run commands as root inside the container (e.g. installing an apt package), files it creates may end up owned by root on the host. Run `make docker-fix-perms` from the host afterwards to restore ownership.
+
+### Dev Container (VSCode)
+The repo also ships a [Dev Container](https://containers.dev/) config at `.devcontainer/devcontainer.json`, which reuses the same `docker-compose.yml`. Open the repo in VSCode and choose **"Reopen in Container"** to get a fully configured environment (ROS2 sourced, clangd, Python, and all the extensions from the Installation section above) without any host setup. It defaults to the `mira-nogpu` service — edit the `service` field in `devcontainer.json` to `mira` if you need GPU passthrough.
+
 ## Usage
 
 > [!NOTE]

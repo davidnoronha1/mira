@@ -1,6 +1,8 @@
 services:
   mira:
-    image: mira
+    # Compose tries to pull this image first; if it isn't reachable/present it
+    # falls back to building locally from the Dockerfile below.
+    image: ghcr.io/dreadnought-robotics/mira:latest
     build:
       context: .
       dockerfile: Dockerfile
@@ -26,7 +28,7 @@ services:
               count: all
               capabilities: [gpu]
   mira-nogpu:
-    image: mira
+    image: ghcr.io/dreadnought-robotics/mira:latest
     build:
       context: .
       dockerfile: Dockerfile

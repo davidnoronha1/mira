@@ -3,10 +3,10 @@
   "dockerComposeFile": "../docker-compose.yml",
   "service": "mira-nogpu",
   "workspaceFolder": "/workspace",
-  // Run install-deps on first container create
-  // "onCreateCommand": "bash -c 'curl -LsSf https://astral.sh/uv/install.sh | sh && source /opt/ros/jazzy/setup.bash && make install-deps'",
+  // Build the workspace on first container create (deps are already baked into the image)
+  "onCreateCommand": "bash -c 'source /opt/ros/jazzy/setup.bash && make build'",
   // Source ROS2 + workspace on every attach
-  // "postAttachCommand": "bash -c 'echo \"source /opt/ros/jazzy/setup.bash\" >> ~/.bashrc && [ -f /workspace/install/setup.bash ] && echo \"source /workspace/install/setup.bash\" >> ~/.bashrc || true'",
+  "postAttachCommand": "bash -c 'echo \"source /opt/ros/jazzy/setup.bash\" >> ~/.bashrc && [ -f /workspace/install/setup.bash ] && echo \"source /workspace/install/setup.bash\" >> ~/.bashrc || true'",
   "customizations": {
     "vscode": {
       "extensions": [
