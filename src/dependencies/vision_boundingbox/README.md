@@ -28,18 +28,10 @@ The `vision_boundingbox_node` is a Python application that uses ONNX Runtime to 
 ## Installation
 
 ### Prerequisites
-
-1. Install ONNX Runtime:
-```bash
-pip install onnxruntime  # CPU version
-# or
-pip install onnxruntime-gpu  # GPU version (requires CUDA)
 ```
-
-2. Install other Python dependencies:
-```bash
-pip install opencv-python numpy
+uv sync --extra vision
 ```
+Or `vision-nogpu` depending on if you have CUDA or no.
 
 ### Convert YOLO Model to ONNX
 
