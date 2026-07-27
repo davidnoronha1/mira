@@ -3,11 +3,13 @@ name: Build Docker Image
 on:
   push:
   pull_request:
+    types: [closed]       # Only merged PRs build an image, not every open/sync
   workflow_dispatch:      # Manual trigger whenever needed
 
 jobs:
   push:
     runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request' || github.event.pull_request.merged == true
     permissions:
       contents: read
       packages: write
