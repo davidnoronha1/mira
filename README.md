@@ -10,17 +10,14 @@ Please refer to the repository Wiki for detailed usage instructions and document
 
 ## Packages
 - dependencies/
-	- aruco_detector - Node to consume a ROS image feed and publish any detected aruco markers with pose
-	- camera_driver_uvc - libUVC based camera node
-	- control_utils - Contains utilities used in mira2_pid_control
+	- camera_driver - libUVC based camera node (Git submodule)
+	- control_utils - Contains control utilities
 	- custom_msgs - Contains the message definitions used throughout
-	- vision_boundingbox - Contains the optimized node for Yolo11n inference on AUV hardware
-	- vision_depth - Same but for depth anything (^)
-- mira2_control_master - Takes input from ROS and forwards to PixHawk
+	- mira2_vision - Shared YOLO, ArUco, docking-board and pipeline perception
+- mira2_hardware - Takes input from ROS and forwards to PixHawk
 - mira2_path_planning - Contains code to navigate a gate
 - mira2_perception - Contains our perception stack
-- mira2_pid_control - Contains depth tuner and yaw tuner for calibrating the control systems
-- mira2_rov - Contains our joystick controller code
+- mira2_control - Joystick teleoperation and four-axis PID tuning GUI
 
 ## Installation
 Packages to install:
@@ -60,6 +57,9 @@ uv run util/validator/validate_package.py ./src/<PACKAGE NAME>
 
 ## Usage
 
+Middleware profiles and the ongoing stack cleanup are documented
+in [Stack refactor foundations](misc/doc/STACK_REFACTOR.md).
+
 > [!NOTE]
 > Make sure you aren't in a python virtual env already (conda), if you encounter python packages missing its usually because the uv venv isnt sourced or you are using conda
 
@@ -79,3 +79,18 @@ If you encounter issues when building, make sure you have _sourced_ ROS2, By doi
 ```
 source /opt/ros/jazzy/setup.bash
 ```
+
+
+Run the integrated sibling simulator with `make sim-build` then `make sim`.
+`make sim HEADLESS=1 RUN_ACTIONS=0` starts navigation without the demo;
+`make sim-actions TARGET_CLASS=dock` runs it after a localized target is visible.
+Use `make sim-check` to inspect configuration and `make sim-down` to stop it.
+See [simulator integration](../mira_sim/docs/MIRA_STACK.md).
+
+`camera_driver` is tracked on `new_arch` (the exact revision is pinned by the
+submodule). Its ROS entry point accepts a `pipeline_config` YAML path; see
+`camera_driver/launch/pipeline.launch.py` and `config/ros2_test.yaml` for a
+synthetic-camera example. The simulator uses Gazebo RGB-D instead and
+builds only its required Mira packages. `control_utils` and the unused
+`zed-ros2-interfaces` dependency have been removed; shared control helpers remain
+in `utils` and ROS `cv_bridge` remains a system dependency.
