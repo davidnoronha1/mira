@@ -17,6 +17,15 @@ jobs:
         with:
           submodules: recursive
 
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Validate release configuration
+        run: |
+          python -m pip install PyYAML
+          python misc/tools/check_config.py
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 

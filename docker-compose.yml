@@ -16,7 +16,11 @@ services:
     working_dir: /workspace
     entrypoint: /bin/bash
     environment:
-      - DISPLAY:"${DISPLAY}"
+      DISPLAY: "${DISPLAY:-}"
+      MIRA_MIDDLEWARE: "${MIRA_MIDDLEWARE:-}"
+      RMW_IMPLEMENTATION: "${RMW_IMPLEMENTATION:-}"
+      ROS_DOMAIN_ID: "${ROS_DOMAIN_ID:-0}"
+      MIRA_ZENOH_ENDPOINT: "${MIRA_ZENOH_ENDPOINT:-}"
     runtime: nvidia
     deploy:
       resources:
@@ -42,4 +46,8 @@ services:
     working_dir: /workspace
     entrypoint: /bin/bash
     environment:
-      - DISPLAY:"${DISPLAY}"
+      DISPLAY: "${DISPLAY:-}"
+      MIRA_MIDDLEWARE: "${MIRA_MIDDLEWARE:-}"
+      RMW_IMPLEMENTATION: "${RMW_IMPLEMENTATION:-}"
+      ROS_DOMAIN_ID: "${ROS_DOMAIN_ID:-0}"
+      MIRA_ZENOH_ENDPOINT: "${MIRA_ZENOH_ENDPOINT:-}"

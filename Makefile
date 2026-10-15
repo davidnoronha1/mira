@@ -1,4 +1,4 @@
-.PHONY: master alt_master commands_normaliser position_zed guided_master build source install-deps submodules update install-udev bs fix-vscode dashboard telemetry-viz
+.PHONY: async-master build source install-deps submodules update install-udev bs fix-vscode dashboard telemetry-viz
 
 export FORCE_COLOR=1
 export RCUTILS_COLORIZED_OUTPUT=1
@@ -9,6 +9,11 @@ export OPENCV_FFMPEG_CAPTURE_OPTIONS="fifo_size;500000|overrun_nonfatal;1|fflags
 export _UID=$(shell id -u)
 export _GID=$(shell id -g)
 
+# Applied by mira.py before ROS processes start; no node chooses its own RMW.
+ifneq ($(strip $(MIDDLEWARE)),)
+export MIRA_MIDDLEWARE=$(MIDDLEWARE)
+endif
+
 ifeq ($(MACHINE_IP),192.168.2.6)
 export MACHINE_NAME=ORIN
 else ifeq ($(MACHINE_IP),192.168.2.4)
@@ -16,6 +21,9 @@ export MACHINE_NAME=RPI4
 endif
 
 SHELL := /bin/bash
+# mira.py needs Python >= 3.11 (tomllib); hosts may ship an older default python3.
+PYTHON ?= $(shell command -v python3.12 2>/dev/null || command -v python3)
+WS = source /opt/ros/jazzy/setup.bash && source .venv/bin/activate && source install/setup.bash && MIDDLEWARE_ENV="$$($(PYTHON) mira.py middleware-env)" && eval "$$MIDDLEWARE_ENV"
 
 # Check if commands/directories exist at parse time
 UV_EXISTS := $(shell command -v uv 2>/dev/null)
@@ -36,16 +44,16 @@ ifndef ROS_JAZZY_EXISTS
 endif
 
 build:
-	@python3 mira.py build $(P)
+	@$(PYTHON) mira.py build $(P)
 
 b:
-	@python3 mira.py b $(P)
+	@$(PYTHON) mira.py b $(P)
 
 repoversion:
-	@python3 mira.py repoversion
+	@$(PYTHON) mira.py repoversion
 
 docker-ensure:
-	@python3 mira.py docker-ensure
+	@$(PYTHON) mira.py docker-ensure
 
 docker-x11:
 	xhost +local:docker || true
@@ -55,95 +63,70 @@ build-docker-container: docker-ensure
 	@docker compose build mira
 
 docker-fix-perms:
-	@python3 mira.py docker-fix-perms
+	@$(PYTHON) mira.py docker-fix-perms
 
 docker: docker-x11
-	@python3 mira.py docker
+	@$(PYTHON) mira.py docker
 
 # Install dependencies
 install-deps:
-	@python3 mira.py install-deps
+	@$(PYTHON) mira.py install-deps
 
 PYTHON_VERSION ?= python3.12
 install-mavproxy:
-	@python3 mira.py install-mavproxy $(PYTHON_VERSION)
+	@$(PYTHON) mira.py install-mavproxy $(PYTHON_VERSION)
 
 shell:
-	@python3 mira.py shell
+	@$(PYTHON) mira.py shell
 
 proxy-pixhawk:
-	@python3 mira.py proxy-pixhawk $(LAPTOP_IP)
+	@$(PYTHON) mira.py proxy-pixhawk $(LAPTOP_IP)
 
 # Get submodules
 get-submodules:
-	@python3 mira.py get-submodules
+	@$(PYTHON) mira.py get-submodules
 
 # Get latest from remote
 force-update:
-	@python3 mira.py force-update
+	@$(PYTHON) mira.py force-update
 
 # Install udev rules
 install-udev:
-	@python3 mira.py install-udev
+	@$(PYTHON) mira.py install-udev
 
 # Fix VSCode settings paths
 fix-vscode:
-	@python3 mira.py fix-vscode
+	@$(PYTHON) mira.py fix-vscode
 
 validate-all:
-	@python3 mira.py validate-all
+	@$(PYTHON) mira.py validate-all
 
 camera_zed:
-	@python3 mira.py camera zed
+	@$(PYTHON) mira.py camera zed
 
 camera_bottomcam:
-	@python3 mira.py camera bottomcam
+	@$(PYTHON) mira.py camera bottomcam
 
 camera_auto:
-	@python3 mira.py camera auto
+	@$(PYTHON) mira.py camera auto
 
 camera_frontcam:
-	@python3 mira.py camera frontcam
+	@$(PYTHON) mira.py camera frontcam
 
 PIXHAWK_PORT ?= /dev/Pixhawk
-alt_master:
-	@python3 mira.py alt-master $(PIXHAWK_PORT)
-
-commands_normaliser:
-	@python3 mira.py commands-normaliser
-
-position_zed: check-ros
-	${WS} && \
-	ros2 launch mira2_control_master mavros_odom.launch.py pixhawk_address:=${PIXHAWK_PORT}
-
-guided_master: check-ros
-	${WS} && \
-	ros2 launch mira2_control_master guided_master.launch pixhawk_address:=${PIXHAWK_PORT}
-
-alt_master_sitl:
-	@python3 mira.py alt-master-sitl
+async-master:
+	@$(PYTHON) mira.py async-master $(PIXHAWK_PORT)
 
 teleop:
-	@python3 mira.py teleop
-
-ARUCO_ID ?= 5
-VIDEO ?= rtsp://192.168.2.6:2000/image_rtsp
-tune-lateral: check-ros
-	source .venv/bin/activate && source install/setup.bash && ros2 launch mira2_pid_control aruco_tuner.launch.py target_id:=${ARUCO_ID} axis:=lateral rtsp_url:=${VIDEO}
-
-tune-forward: check-ros
-	source .venv/bin/activate && source install/setup.bash && ros2 launch mira2_pid_control aruco_tuner.launch.py target_id:=${ARUCO_ID} axis:=forward rtsp_url:=${VIDEO}
-
-tune-gui: check-ros
-	source .venv/bin/activate && source install/setup.bash && ros2 launch mira2_pid_control pid_tuner_gui.launch.py target_id:=${ARUCO_ID} rtsp_url:=${VIDEO}
+	@$(PYTHON) mira.py teleop
 
 # Development setup
 setup:
-	@python3 mira.py setup
+	@$(PYTHON) mira.py setup
 
 # Clean build artifacts
 clean:
-	@python3 mira.py clean
+	@$(PYTHON) mira.py clean
 
 # Help target
 help:
@@ -163,11 +146,7 @@ help:
 	$(info   clean         - Clean build artifacts)
 	$(info )
 	$(info ROS Launch targets:)
-	$(info   master        - Launch master control)
-	$(info   alt_master    - Launch alternative master control)
-	$(info   commands_normaliser - Launch normalized-command bridge node)
-	$(info   position_zed  - Launch ZED MAVROS VIO for GUIDED mode)
-	$(info   guided_master  - Launch GUIDED mode master control)
+	$(info   async-master  - Launch async control)
 	$(info   teleop        - Launch teleoperation)
 	$(info )
 	$(info Dashboard applications:)
@@ -180,4 +159,27 @@ help:
 # Delegate any unrecognised target to mira.py
 # Usage: make <task> [P=pkg] [LAPTOP_IP=x.x.x.x] [ARGS="extra args"]
 %:
-	python3 mira.py $@ $(P) $(LAPTOP_IP) $(ARGS)
+	$(PYTHON) mira.py $@ $(P) $(LAPTOP_IP) $(ARGS)
+
+.PHONY: config-check lint
+config-check:
+	python3 misc/tools/check_config.py
+
+# Explicit developer commands; neither target executes tests.
+lint:
+	git diff --check
+	python3 -m ruff check --select E9,F63,F7,F82 misc/infra src/mira2_hardware/mira2_hardware src/dependencies/utils/utils src/mira2_vision/mira2_vision
+
+# Sibling simulator integration; builds use mira_sim/.mira-stack, not this install/.
+MIRA_SIM_ROOT ?= ../mira_sim
+.PHONY: sim-build sim sim-actions sim-down sim-check
+sim-build:
+	$(MAKE) -C "$(MIRA_SIM_ROOT)" mira-stack-build MIRA_ROOT="$(CURDIR)"
+sim:
+	$(MAKE) -C "$(MIRA_SIM_ROOT)" bringup-mira MIRA_ROOT="$(CURDIR)"
+sim-actions:
+	$(MAKE) -C "$(MIRA_SIM_ROOT)" mira-actions MIRA_ROOT="$(CURDIR)"
+sim-down:
+	$(MAKE) -C "$(MIRA_SIM_ROOT)" mira-stack-down MIRA_ROOT="$(CURDIR)"
+sim-check:
+	$(MAKE) -C "$(MIRA_SIM_ROOT)" mira-stack-check MIRA_ROOT="$(CURDIR)"

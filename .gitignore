@@ -39,3 +39,5 @@ marker_results.txt
 *.tlog.raw
 
 .claude
+recordings/
+.pytest_cache/

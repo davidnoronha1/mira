@@ -19,6 +19,8 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
     usbutils \
     gstreamer1.0-plugins-base-apps \
     libgstreamer-plugins-good1.0-dev \
+    ros-jazzy-rmw-cyclonedds-cpp \
+    ros-jazzy-rmw-zenoh-cpp \
     vim
 
 # Install uv (Python package manager)

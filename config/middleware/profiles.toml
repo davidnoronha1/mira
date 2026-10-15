@@ -1,0 +1,18 @@
+# Deployment settings, never selected inside an application node.
+[cyclonedds]
+implementation = "rmw_cyclonedds_cpp"
+package = "ros-jazzy-rmw-cyclonedds-cpp"
+
+[fastdds]
+implementation = "rmw_fastrtps_cpp"
+package = "ros-jazzy-rmw-fastrtps-cpp"
+
+[zenoh]
+implementation = "rmw_zenoh_cpp"
+package = "ros-jazzy-rmw-zenoh-cpp"
+router = true
+
+[zenoh-client]
+implementation = "rmw_zenoh_cpp"
+package = "ros-jazzy-rmw-zenoh-cpp"
+remote_client = true

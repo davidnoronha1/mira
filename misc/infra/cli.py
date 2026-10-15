@@ -14,6 +14,7 @@ from misc.infra.tasks import TASKS
 from misc.infra.checks import check_ros
 from misc.infra.targets import *
 from misc.infra.config import WS_SOURCE
+from misc.infra.middleware import resolve_middleware, shell_exports, profiles
 
 
 def _print_targets():
@@ -28,7 +29,7 @@ def _print_targets():
 		alias_str = f"  ({', '.join(aliases)})" if aliases else ""
 		print(f"  {CYAN}{name:<26}{RESET}{alias_str:<14} {task_info['label']}")
 	print()
-	print(f"  {BOLD}Global flags:{RESET}  --dry-run   --docker   --list")
+	print(f"  {BOLD}Global flags:{RESET}  --dry-run   --docker   --list   --middleware PROFILE")
 	print()
 
 
@@ -38,6 +39,7 @@ def _build_autocomplete_parser() -> argparse.ArgumentParser:
 	parser.add_argument("--dry-run", action="store_true")
 	parser.add_argument("--docker", action="store_true")
 	parser.add_argument("--list", "-l", action="store_true")
+	parser.add_argument("--middleware", choices=list(profiles()))
 
 	sub = parser.add_subparsers(dest="command")
 
@@ -92,15 +94,12 @@ def _build_autocomplete_parser() -> argparse.ArgumentParser:
 	sp = sub.add_parser("camera")
 	sp.add_argument("name", nargs="?", choices=CAMERA_OPTIONS)
 
-	# alt-master — complete with /dev/ device paths
-	sp = sub.add_parser("alt-master")
+	# async-master — optional device address
+	sp = sub.add_parser("async-master")
 	a = sp.add_argument("port", nargs="?", default="/dev/Pixhawk")
 	if HAS_ARGCOMPLETE:
 		import argcomplete.completers as _ac
 		a.completer = _ac.FilesCompleter(directories=False)
-
-	# commands-normaliser — no args
-	sub.add_parser("commands-normaliser")
 
 	# proxy-pixhawk, view-rtsp-stream, install-mavproxy — free-form args
 	sub.add_parser("proxy-pixhawk").add_argument("laptop_ip", nargs="?")
@@ -110,7 +109,7 @@ def _build_autocomplete_parser() -> argparse.ArgumentParser:
 	# all remaining registered tasks (no specific arg completion needed)
 	_handled = {
 		"build", "b", "run", "r", "launch", "service", "svc",
-		"camera", "alt-master", "commands-normaliser", "proxy-pixhawk", "view-rtsp-stream", "install-mavproxy",
+		"camera", "async-master", "proxy-pixhawk", "view-rtsp-stream", "install-mavproxy",
 		"help", "h",
 	}
 	for _name in sorted(TASKS.keys()):
@@ -131,6 +130,29 @@ def main():
 		print(f"  {YELLOW}Tip: enable tab-completion →  python mira.py enable-autocomplete{RESET}", file=sys.stderr)
 
 	argv = sys.argv[1:]
+	selection = None
+	for i, argument in enumerate(argv):
+		if argument == "--middleware":
+			if i + 1 >= len(argv):
+				print("--middleware requires a profile", file=sys.stderr)
+				sys.exit(2)
+			selection = argv[i + 1]
+			del argv[i:i + 2]
+			break
+		if argument.startswith("--middleware="):
+			selection = argument.split("=", 1)[1]
+			del argv[i]
+			break
+	try:
+		middleware = resolve_middleware(selection)
+	except ValueError as exc:
+		print(str(exc), file=sys.stderr)
+		sys.exit(2)
+	# Pure shell output, suitable for eval, even on a machine without ROS.
+	if argv == ["middleware-env"]:
+		print(shell_exports(middleware))
+		return
+	os.environ.update(middleware)
 
 	# ── Strip global flags anywhere in argv ─────────────────
 	if "--dry-run" in argv:
@@ -203,19 +225,10 @@ def main():
 		target_camera(rest[0] if rest else None)
 		return
 
-	# alt-master / alt_master  — optional port as positional arg
-	if cmd in ("alt-master", "alt_master"):
-		target_alt_master(rest[0] if rest else "/dev/Pixhawk")
-		return
-
-	# commands-normaliser
-	if cmd in ("commands-normaliser", "commands_normaliser"):
-		target_commands_normaliser()
-		return
-
-	# alt-master-sitl
-	if cmd in ("alt-master-sitl", "alt_master_sitl"):
-		target_alt_master_sitl()
+	if cmd in ("async-master", "async_master"):
+		if len(rest) > 1:
+			raise SystemExit("Usage: mira.py async-master [device]")
+		target_master(rest[0] if rest else "/dev/Pixhawk")
 		return
 
 	# proxy-pixhawk  — optional laptop IP as positional arg

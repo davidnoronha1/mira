@@ -1,4 +1,5 @@
 import os
+import socket
 from misc.infra.shell import sh
 
 
@@ -56,5 +57,4 @@ COLCON_ARGS = (
 GSTREAMER_FIX = f"export LD_PRELOAD={sh('gcc -print-file-name=libunwind.so.8', hidden=True)}"
 WS_SOURCE     = "source .venv/bin/activate && source install/setup.bash"
 ROS_SOURCE    = "source /opt/ros/jazzy/setup.bash"
-
 

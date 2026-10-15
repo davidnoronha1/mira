@@ -8,6 +8,7 @@ from misc.infra.tui import tui_select, _find_all_ros_targets, _find_all_launch_f
 from misc.infra.tasks import task
 from misc.infra.config import ROS_SOURCE, COLCON_ARGS, WS_SOURCE, GSTREAMER_FIX, NPROC, MACHINE_IP, CMAKE_ARGS
 from misc.infra.checks import check_ros, check_uv, validate_packages
+from misc.infra.middleware import resolve_middleware, profiles
 
 
 def _print_build_issues() -> None:
@@ -83,6 +84,7 @@ def target_install_deps():
 	check_uv()
 	header("Installing build dependencies...")
 	run("sudo apt install -y lld ninja-build build-essential cmake")
+	target_install_middleware()
 	header("Installing Python dependencies...")
 	if not Path(".venv").exists():
 		run("uv venv --system-site-packages")
@@ -272,7 +274,7 @@ def target_camera(name: Optional[str] = None):
 		if name is None:
 			return
 	if name == "auto":
-		run(f"{WS_SOURCE} && {GSTREAMER_FIX} && ros2 launch mira2_perception camera_auto.launch.py")
+		run(f"{WS_SOURCE} && {GSTREAMER_FIX} && ros2 launch mira2_perception camera_auto.launch")
 	elif name == "bottomcam":
 		run(f"{WS_SOURCE} && {GSTREAMER_FIX} && ros2 launch mira2_perception camera_bottom.launch.py")
 	elif name == "frontcam":
@@ -283,23 +285,53 @@ def target_camera(name: Optional[str] = None):
 		error(f"Unknown camera: '{name}'. Valid options: {', '.join(CAMERA_OPTIONS)}")
 
 
-@task("Launch alternative master control")
-def target_alt_master(pixhawk_port: str = "/dev/Pixhawk"):
-	"""Launch alternative master control."""
+@task("Launch the async master (optional device)")
+def target_master(pixhawk_port: str = "/dev/Pixhawk"):
+	import shlex
 	check_ros()
-	run(f"{WS_SOURCE} && ros2 launch mira2_control_master alt_master.launch pixhawk_address:={pixhawk_port}")
+	run(f"{WS_SOURCE} && ros2 launch mira2_hardware async_master.launch "
+	    f"pixhawk_address:={shlex.quote(pixhawk_port)}")
 
-@task("Launch the normalized-command bridge (/master/commands_normalized -> /master/commands)")
-def target_commands_normaliser():
-	"""Launch the commands normaliser bridge node."""
-	check_ros()
-	run(f"{WS_SOURCE} && ros2 launch mira2_control_master commands_normaliser.launch")
+
+@task("Print the selected middleware environment (eval to apply in this shell)")
+def target_middleware_env():
+	# Handled by cli.main before dispatch to keep stdout shell-only.
+	from misc.infra.middleware import shell_exports
+	print(shell_exports(resolve_middleware()))
+
+
+@task("Check that the selected ROS middleware package is installed")
+def target_middleware_check():
+	import shlex
+	environment = resolve_middleware()
+	implementation = environment["RMW_IMPLEMENTATION"]
+	info(f"Middleware: {environment['MIRA_MIDDLEWARE']} ({implementation})")
+	run(f"{ROS_SOURCE} && ros2 pkg prefix {shlex.quote(implementation)}")
+	if implementation == "rmw_zenoh_cpp":
+		info("Start the onboard router separately with: python mira.py zenoh-router --middleware zenoh")
+	info("After switching middleware, restart nodes and run: ros2 daemon stop")
+
+
+@task("Install the selected Jazzy middleware package")
+def target_install_middleware():
+	import shlex
+	name = resolve_middleware()["MIRA_MIDDLEWARE"]
+	package = profiles()[name]["package"]
+	run(f"sudo apt-get update && sudo apt-get install -y {shlex.quote(package)}")
+
+
+@task("Run a Zenoh router in the foreground (select the zenoh profile)")
+def target_zenoh_router():
+	if resolve_middleware()["MIRA_MIDDLEWARE"] != "zenoh":
+		raise SystemExit("zenoh-router requires --middleware zenoh (not zenoh-client)")
+	run(f"{ROS_SOURCE} && ros2 run rmw_zenoh_cpp rmw_zenohd")
+
 
 @task("Launch teleoperation")
 def target_teleop():
 	"""Launch teleoperation."""
 	check_ros()
-	run(f"{WS_SOURCE} && ros2 launch mira2_rov teleop.launch")
+	run(f"{WS_SOURCE} && ros2 launch mira2_control teleop.launch")
 
 
 @task("Launch a ROS2 launch file or node — TUI picker if no args given")
@@ -488,12 +520,9 @@ def target_service(*args):
 	run(f"{WS_SOURCE} && ros2 service call {service_name} {service_type} '{payload}'")
 
 
-@task("Launch alt_master connected to ArduPilot SITL on localhost:5760")
-def target_alt_master_sitl():
-	"""Launch alt_master in SITL mode (ArduPilot SITL assumed on same host, port 5760)."""
-	check_ros()
-	run(f"{WS_SOURCE} && ros2 run mira2_control_master alt_master "
-	    f"--ros-args -p pixhawk_address:=tcp:127.0.0.1:5760")
+@task("Launch the unified master against an already running SITL")
+def target_master_sitl():
+	target_master("tcp:127.0.0.1:5760")
 
 
 @task("Open a root shell inside the mira Docker container", aliases=["docker"])
@@ -623,5 +652,3 @@ def target_setup():
 	target_install_udev()
 	target_fix_vscode()
 	info("🚀 Complete workspace setup finished!")
-
-
