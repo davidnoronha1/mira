@@ -15,7 +15,6 @@ find_package(geometry_msgs REQUIRED)
 # Generate messages in the 'msg' folder
 rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/Object2D.msg"
-  "msg/Commands.msg"
   "msg/CommandsNormalized.msg"
   "msg/Telemetry.msg"
   "msg/EmergencyKill.msg"
@@ -24,20 +23,8 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/ArucoPose.msg"
   "msg/ConfidenceLevel.msg"
   "msg/ValveDetection.msg"
+  "srv/ChangeMode.srv"
   DEPENDENCIES sensor_msgs std_msgs geometry_msgs
-)
-
-rosidl_get_typesupport_target(${PROJECT_NAME}_typesupport_c
-  ${PROJECT_NAME}
-  "msg/Commands"
-  "msg/Telemetry"
-  "msg/Object2D"
-  "msg/EmergencyKill.msg"
-  "msg/Depth.msg"
-  "msg/Heading.msg"
-  "msg/ArucoPose.msg"
-  "msg/ConfidenceLevel.msg"
-  DEPENDENCIES std_msgs
 )
 
 ###################################

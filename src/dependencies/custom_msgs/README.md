@@ -17,8 +17,8 @@ graph TD
     end
 
     subgraph Other ROS Packages
-        B(mira2_control_master)
-        C(mira2_rov)
+        B(mira2_hardware)
+        C(mira2_control)
     end
 
     A -- "used by" --> B;
@@ -34,7 +34,7 @@ graph TD
     -   `int16 servo1, servo2`: PWM values for auxiliary servos.
 
 -   **`Telemetry.msg`**: A comprehensive message published by the master controller, containing sensor data and state information.
-    -   Includes battery voltage, arm status, IMU (gyro, accelerometer, compass), orientation (quaternion, rates, Euler angles), pressure, heading, and thruster PWMs.
+    -   Uses standard ROS messages for battery state, IMU, magnetic field, pressure, attitude, heading, and thruster PWM data.
 
 -   **`EmergencyKill.msg`**: Used for the emergency killswitch system.
     -   `bool kill_master`: True to engage the kill state.

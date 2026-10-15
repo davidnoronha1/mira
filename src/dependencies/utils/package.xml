@@ -1,7 +1,7 @@
 <package format="3">
   <name>utils</name>
   <version>0.0.0</version>
-  <description>Shared utilities: ImageSource abstraction (Python + C++ headers), parameter tuner TUI, coordinate helpers.</description>
+  <description>Shared utilities: ImageSource abstraction (Python + C++ headers), coordinate helpers.</description>
   <maintainer email="your.email@example.com">Your Name</maintainer>
   <license>TODO: License declaration</license>
 
@@ -15,6 +15,12 @@
   <test_depend>ament_lint_common</test_depend>
   <test_depend>python3-pytest</test_depend>
 
+  <depend>rclcpp</depend>
+  <exec_depend>rclpy</exec_depend>
+  <depend>rcl_interfaces</depend>
+  <exec_depend>python3-yaml</exec_depend>
+  <depend>custom_msgs</depend>
+  <exec_depend>python3-numpy</exec_depend>
   <export>
     <build_type>ament_cmake</build_type>
   </export>

@@ -22,18 +22,26 @@ class ImageSource:
     def is_open(self) -> bool:
         return True
 
+    def grab_with_header(self):
+        """Frame, optional acquisition header, sequence; no consumer-side decode."""
+        frame = self.grab()
+        self._sequence = getattr(self, "_sequence", 0) + 1
+        return frame, None, self._sequence
+
 
 class OpenCVSource(ImageSource):
     """OpenCV VideoCapture — handles rtsp://, rtsps://, and file:// video."""
 
     def __init__(self, uri: str, logger=None):
         path = uri[len("file://"):] if uri.startswith("file://") else uri
-        self._cap = cv2.VideoCapture(path)
+        self._cap = cv2.VideoCapture(int(path) if path.isdigit() else path)
         if not self._cap.isOpened():
             if logger:
                 logger.error(f"Cannot open video source: {uri}")
-        elif logger:
-            logger.info(f"Opened video source: {uri}")
+        else:
+            self._cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+            if logger:
+                logger.info(f"Opened video source: {uri}")
 
     def grab(self) -> Optional[np.ndarray]:
         ret, frame = self._cap.read()
@@ -67,16 +75,18 @@ class ROS2TopicSource(ImageSource):
     def __init__(self, topic: str, node):
         from cv_bridge import CvBridge  # noqa: PLC0415
         from sensor_msgs.msg import Image  # noqa: PLC0415
-        from rclpy.qos import QoSPresetProfiles  # noqa: PLC0415
+        from rclpy.qos import QoSProfile, ReliabilityPolicy  # noqa: PLC0415
 
         self._bridge = CvBridge()
         self._frame: Optional[np.ndarray] = None
         self._lock = threading.Lock()
+        self._header = None
+        self._sequence = 0
         self._sub = node.create_subscription(
             Image,
             topic,
             self._callback,
-            QoSPresetProfiles.SENSOR_DATA.value,
+            QoSProfile(depth=1, reliability=ReliabilityPolicy.BEST_EFFORT),
         )
         node.get_logger().info(f"Subscribed to ROS2 image topic: {topic}")
 
@@ -85,12 +95,20 @@ class ROS2TopicSource(ImageSource):
             frame = self._bridge.imgmsg_to_cv2(msg, desired_encoding="bgr8")
             with self._lock:
                 self._frame = frame
+                self._header = msg.header
+                self._sequence += 1
         except Exception:
             pass
 
     def grab(self) -> Optional[np.ndarray]:
         with self._lock:
             return self._frame.copy() if self._frame is not None else None
+
+    def grab_with_header(self):
+        # Perception components share the same decoded frame. They must not
+        # mutate it; visualization uses a separate copy only when requested.
+        with self._lock:
+            return self._frame, self._header, self._sequence
 
 
 def build_image_source(uri: str, node=None) -> ImageSource:
@@ -115,8 +133,6 @@ def build_image_source(uri: str, node=None) -> ImageSource:
 
     if uri.startswith("ros2://"):
         topic = uri[len("ros2://"):]
-        if not topic.startswith("/"):
-            topic = "/" + topic
         if node is None:
             raise ValueError("ros2:// image source requires a ROS2 node instance")
         return ROS2TopicSource(topic, node)
