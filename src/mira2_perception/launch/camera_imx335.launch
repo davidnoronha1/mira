@@ -25,6 +25,9 @@
         <param name="frame_format"  value="$(var frame_format)"/>
         <param name="framerate"     value="$(var framerate)"/>
         <param name="port" value="$(var port)"/>
+        <param name="camera_frame_id" value="camera_front_optical"/>
+        <param name="ros_topic" value="/mira/sensors/camera/front"/>
+        <remap from="/mira/sensors/camera/front/image" to="/mira/sensors/camera/front/image_raw"/>
     </node>
       <executable cmd="sleep 5 ; gst-launch-1.0 rtspsrc location=rtsp://127.0.0.1:$(var port)/image_rtsp ! fakesink" cwd="/home" shell="true"/>
  </launch>

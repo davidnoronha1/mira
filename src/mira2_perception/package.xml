@@ -30,4 +30,5 @@
   <export>
     <build_type>ament_cmake</build_type>
   </export>
+  <exec_depend>utils</exec_depend>
 </package>

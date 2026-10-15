@@ -1,0 +1,5 @@
+<launch>
+    <node pkg="mira2_path_planning" exec="gate_navigator_exe" name="gate_balls" output="screen">
+        <param from="$(find-pkg-share mira2_path_planning)/config/gate.yaml"/>
+    </node>
+</launch>

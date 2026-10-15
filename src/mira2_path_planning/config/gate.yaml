@@ -1,0 +1,15 @@
+/**:
+  ros__parameters:
+    depth_pid_kp: 0.01375
+    depth_pid_ki: 0.000075
+    depth_pid_kd: 0.07875
+    depth_pid_base_offset: 0.2
+    yaw_pid_kp: 0.00795
+    yaw_pid_ki: 0.000025
+    yaw_pid_kd: 0.018
+    depth_setpoint: 1069.0
+    yaw_setpoint: 280
+    startup_duration: 5.0
+    sink_duration: 5.0
+    forward_duration: 10.0
+    forward_effort: 0.75

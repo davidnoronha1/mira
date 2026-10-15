@@ -18,7 +18,8 @@
   <depend>rclcpp</depend>
   <depend>rclpy</depend>
   <depend>vision_msgs</depend>
-  <depend>control_utils</depend>
+  <depend>utils</depend>
+  <depend>std_srvs</depend>
 
   <!-- Export information -->
   <export>

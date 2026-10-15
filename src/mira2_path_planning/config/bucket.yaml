@@ -1,0 +1,12 @@
+/**:
+  ros__parameters:
+    kp_sway: 0.5
+    kp_surge: 0.375
+    kp_yaw: 0.75
+    search_surge_effort: 0.25
+    search2_timer: 3.0
+    control_rate: 20.0
+    feedback_timeout: 1.0
+    descent_far_effort: 0.15
+    descent_near_effort: 0.075
+    search_lateral_effort: 0.125

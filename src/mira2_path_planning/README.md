@@ -106,7 +106,7 @@ Vision-based bucket approach for Phase 2 of the competition task. Aligns with a 
 
 ```bash
 # Gate navigation
-ros2 launch mira2_path_planning qauli.launch
+ros2 launch mira2_path_planning qualification.launch
 
 # Docking controller
 ros2 run mira2_path_planning dock_controller

@@ -1,0 +1,8 @@
+<root BTCPP_format="4" main_tree_to_execute="Demo">
+  <BehaviorTree ID="Demo">
+    <Sequence>
+      <SelectObject class_id="{target_class}" object="{target}"/>
+      <NavigateToPose object="{target}" stand_off="0.5"/>
+    </Sequence>
+  </BehaviorTree>
+</root>

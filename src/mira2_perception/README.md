@@ -74,27 +74,25 @@ graph TD
 
 ## Data Flow — Vision Pipeline
 
+Camera acquisition publishes raw images and CameraInfo under
+`/mira/sensors/camera/{front,bottom}`. `mira2_vision` decodes each ROS image once
+and passes the same frame to the detector/consumer plugins selected by its launch.
+YOLO results feed object and registered-depth consumers; ArUco results feed marker
+and docking-board consumers. The HSV pipeline detector runs independently.
+
 ```mermaid
 graph LR
-    subgraph mira2_perception
-        CAM["camera_bottom_driver"]
-    end
-
-    subgraph Downstream Consumers
-        BB["vision_boundingbox<br/>(YOLO detection)"]
-        AR["aruco_detector<br/>(ArUco marker detection)"]
-    end
-
-    subgraph Outputs
-        DET["/detectnet/detections"]
-        POSE["dock_pose / gate_pose"]
-    end
-
-    CAM -- "/camera_bottom/image_raw" --> BB
-    CAM -- "/camera_bottom/image_raw" --> AR
-    BB --> DET
-    AR --> POSE
+    CAM[Camera driver] -->|raw image| WORKER[mira2_vision: one process per camera]
+    WORKER --> YOLO[YOLO detector]
+    WORKER --> ARUCO[ArUco detector]
+    WORKER --> PIPE[HSV pipeline detector]
+    YOLO --> OBJECTS[Object / depth consumers]
+    ARUCO --> MARKERS[Marker / board consumers]
 ```
+
+See [mira2_vision](../mira2_vision/README.md) for plugin selection
+and extension examples. Consumers in that process share frame/result references;
+ROS publication to other processes still requires serialization.
 
 ## USB Port Identifiers
 

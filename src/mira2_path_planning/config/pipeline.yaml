@@ -1,0 +1,15 @@
+/**:
+  ros__parameters:
+    control_rate: 20.0
+    feedback_timeout: 0.5
+    forward_effort: 0.3
+    output_limit: 0.3
+    lateral_tolerance: 0.05
+    yaw_tolerance: 5.0
+    lateral.kp: 0.0
+    lateral.ki: 0.0
+    lateral.kd: 0.0
+    yaw.kp: 0.0
+    yaw.ki: 0.0
+    yaw.kd: 0.0
+    flight_mode: ALT_HOLD

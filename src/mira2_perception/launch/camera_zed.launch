@@ -9,8 +9,8 @@
     <arg name="image_height"  default="720"/>
     <arg name="frame_format"  default="MJPEG"/>
     <arg name="framerate"     default="30"/>
-    <arg name="port" default="2000" />
-    <arg name="camera_frame_id" default="camera_front" />
+    <arg name="port" default="2002" />
+    <arg name="camera_frame_id" default="camera_front_optical" />
     <!-- ZED publishes left+right side-by-side; select left half only -->
     <arg name="crop" default="0.0,0.0,0.5,1.0"/>
 
@@ -22,9 +22,11 @@
         <param name="image_height"  value="$(var image_height)"/>
         <param name="frame_format"  value="$(var frame_format)"/>
         <param name="framerate"     value="$(var framerate)" />
-        <param name="port" value="2002"/>
+        <param name="port" value="$(var port)"/>
         <param name="image_source" value="usb://usb-3610000.usb-1.4" />
         <param name="camera_frame_id" value="$(var camera_frame_id)"/>
+        <param name="ros_topic" value="/mira/sensors/camera/front"/>
+        <remap from="/mira/sensors/camera/front/image" to="/mira/sensors/camera/front/image_raw"/>
         <param name="crop" value="$(var crop)"/>
     </node>
       <executable cmd="sleep 2 ; gst-launch-1.0 rtspsrc location=rtsp://127.0.0.1:$(var port)/image_rtsp ! fakesink" cwd="/home" shell="true"/>

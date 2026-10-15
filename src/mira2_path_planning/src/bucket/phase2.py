@@ -1,14 +1,34 @@
 #!/usr/bin/env python3
 
+from dataclasses import dataclass
+
 import rclpy
 from rclpy.node import Node
 from geometry_msgs.msg import PoseStamped
-from custom_msgs.msg import Commands, Telemetry
+from custom_msgs.msg import CommandsNormalized, Telemetry
 from std_msgs.msg import String
 import math
 import time
+from utils.control import PIDController, publish_mission_command
+from utils.parameters import dataclass_config, positive
 import numpy as np
 from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy
+
+
+@dataclass(frozen=True)
+class BucketConfig:
+    """Local defaults for ROS parameter overrides."""
+
+    control_rate: float = 20.0
+    feedback_timeout: float = 1.0
+    descent_far_effort: float = 0.15
+    descent_near_effort: float = 0.075
+    search_lateral_effort: float = 0.125
+    kp_sway: float = 0.5
+    kp_surge: float = 0.375
+    kp_yaw: float = 0.75
+    search_surge_effort: float = 0.25
+    search2_timer: float = 3.0
 
 
 class State:
@@ -23,17 +43,14 @@ class BucketControls(Node):
 
     def __init__(self):
         super().__init__("bucket_control2")
-
-        #pid
-        self.kp_sway = 200.0
-        self.kp_surge = 150.0
-        self.kp_yaw = 300.0
+        self.config = dataclass_config(self, BucketConfig(), validators={
+            "control_rate": positive, "feedback_timeout": positive})
 
         # config
-        self.pwm_neutral = 1500
-        self.pwm_range = 400
-        self.search_surge_pwm = 1600
-        self.lower_to_bucket = None  
+        self.effort_neutral = 0.0
+        self.effort_limit = 1.0
+
+        self.lower_to_bucket = None
 
         # State Variables
         self.state = State.SEARCH
@@ -47,11 +64,10 @@ class BucketControls(Node):
         # 1 oe -1 for direction
         self.search2_direction = 1
         self.search2_start = None
-        self.search2_timer = 3.0
 
         # ROS
         self.cmd_pub = self.create_publisher(
-            Commands, "/master/commands", 10
+            CommandsNormalized, "mira/command", 10
         )
 
         qos_profile = QoSProfile(
@@ -62,14 +78,14 @@ class BucketControls(Node):
 
         self.create_subscription(
             PoseStamped,
-            "ellipsoid_pose",
+            "mira/perception/bottom/target_pose",
             self.pose_callback,
             qos_profile
         )
 
         self.create_subscription(
             Telemetry,
-            "/master/telemetry",
+            "mira/telemetry",
             self.telem_callback,
             10
         )
@@ -77,18 +93,18 @@ class BucketControls(Node):
         #add one more subscription according to name in perception node for colour of bucket
         self.create_subscription(
             String,
-            "bucket_clr",
+            "mira/perception/bottom/target_color",
             self.buck_callback,
             10
         )
 
         #loop
-        self.create_timer(0.05, self.control_loop)
+        self.create_timer(1.0 / self.config.control_rate, self.control_loop)
 
     #callbacks
 
     def telem_callback(self, msg):
-        self.current_heading = msg.heading
+        self.current_heading = msg.heading_ned_degrees.data
 
     def pose_callback(self, msg):
         self.last_pose_time = time.time()
@@ -101,36 +117,32 @@ class BucketControls(Node):
         }
 
     def buck_callback(self, msg):
-        if msg.data == "blue":
-            self.bucket_blue = True
-            self.bucket_orange = False
-        elif msg.data == "orange":
-            self.bucket_blue = False
-            self.bucket_orange = True
+        self.bucket_blue = msg.data == "blue"
+        self.bucket_orange = msg.data == "orange"
 
     # ---------------- Main Loop ----------------
 
     def control_loop(self):
 
-        cmd = Commands()
+        cmd = CommandsNormalized()
         cmd.mode = "ALT_HOLD"
-        cmd.arm = 1
+        cmd.arm = True
 
-        cmd.pitch = 1500
-        cmd.roll = 1500
-        cmd.thrust = 1500
-        cmd.yaw = 1500
-        cmd.forward = 1500
-        cmd.lateral = 1500
+        cmd.pitch = 0.0
+        cmd.roll = 0.0
+        cmd.thrust = 0.0
+        cmd.yaw = 0.0
+        cmd.forward = 0.0
+        cmd.lateral = 0.0
 
-        if time.time() - self.last_pose_time > 1.0:
+        if time.time() - self.last_pose_time > self.config.feedback_timeout:
             self.bucket_visible = False
 
         # -------- STATE MACHINE --------
 
         if self.state == State.SEARCH:
 
-            cmd.forward = self.search_surge_pwm
+            cmd.forward = self.config.search_surge_effort
             self.get_logger().info(
                 "Phase 1: Searching...", throttle_duration_sec=1
             )
@@ -145,7 +157,6 @@ class BucketControls(Node):
                 self.search2_direction = 1
                 self.state = State.SEARCH2
 
-
         elif self.state == State.ALIGN_XY:
 
             if not self.bucket_visible:
@@ -155,12 +166,12 @@ class BucketControls(Node):
             err_x = self.target_pose['x']
             err_y = self.target_pose['y']
 
-            cmd.lateral = self.apply_pid(err_x, self.kp_sway)
-            cmd.forward = self.apply_pid(err_y, self.kp_surge)
+            cmd.lateral = self.apply_pid(err_x, self.config.kp_sway)
+            cmd.forward = self.apply_pid(err_y, self.config.kp_surge)
 
             self.log_motion(cmd)
 
-            cmd.thrust = 1500
+            cmd.thrust = 0.0
 
             if abs(err_x) < 0.1 and abs(err_y) < 0.1:
                 self.get_logger().info(
@@ -189,26 +200,26 @@ class BucketControls(Node):
             err_x = self.target_pose['x']
             err_y = self.target_pose['y']
 
-            cmd.lateral = self.apply_pid(err_x, self.kp_sway)
-            cmd.forward = self.apply_pid(err_y, self.kp_surge)
+            cmd.lateral = self.apply_pid(err_x, self.config.kp_sway)
+            cmd.forward = self.apply_pid(err_y, self.config.kp_surge)
 
             if self.target_pose['z'] > 1.0:
-                cmd.thrust = 1560
+                cmd.thrust = self.config.descent_far_effort
             else:
-                cmd.thrust = 1530
+                cmd.thrust = self.config.descent_near_effort
 
         elif self.state == State.LOCK:
 
             elapsed = time.time() - self.blind_timer_start
 
-            cmd.forward = 1500
-            cmd.lateral = 1500
-            cmd.thrust = 1500
-            cmd.yaw = 1500
+            cmd.forward = 0.0
+            cmd.lateral = 0.0
+            cmd.thrust = 0.0
+            cmd.yaw = 0.0
 
             if elapsed > 3.0:
                 self.get_logger().info("Position locked over bucket")
-                
+
 # this is the sideway search for other buckets
         elif self.state == State.SEARCH2:
 
@@ -216,45 +227,45 @@ class BucketControls(Node):
                 self.get_logger().info("correct bucket found -> align XY")
                 self.state = State.ALIGN_XY
                 return
-            
+
             if self.bucket_visible and not self.bucket_blue:
                 self.get_logger().info("wrong bucket -> secondary search again")
-            
-            sway_pwm = 1500 + (self.search2_direction * 50)
-            cmd.lateral = sway_pwm
-            cmd.yaw = 1500 #just in case to keep it neutral
+
+            sway_effort = 0.0 + (self.search2_direction * self.config.search_lateral_effort)
+            cmd.lateral = sway_effort
+            cmd.yaw = 0.0 #just in case to keep it neutral
 
             elapsed= time.time() - self.search2_start
 
-            if elapsed > self.search2_timer:
+            if elapsed > self.config.search2_timer:
 
                 self.search2_direction = self.search2_direction * -1
                 self.get_logger().info("reversing direction, no buckets")
                 self.search2_start = time.time()
-            
-        self.cmd_pub.publish(cmd)
+
+        publish_mission_command(self, self.cmd_pub, cmd)
 
     #Helpers
 
     def log_motion(self, cmd):
-        if cmd.lateral > 1500:
+        if cmd.lateral > 0.0:
             self.get_logger().info("Sway RIGHT", throttle_duration_sec=0.5)
-        elif cmd.lateral < 1500:
+        elif cmd.lateral < 0.0:
             self.get_logger().info("Sway LEFT", throttle_duration_sec=0.5)
 
-        if cmd.forward > 1500:
+        if cmd.forward > 0.0:
             self.get_logger().info("Surge FORWARD", throttle_duration_sec=0.5)
-        elif cmd.forward < 1500:
+        elif cmd.forward < 0.0:
             self.get_logger().info("Surge BACKWARD", throttle_duration_sec=0.5)
 
-        if cmd.thrust > 1500:
+        if cmd.thrust > 0.0:
             self.get_logger().info("Heave UP/DOWN active", throttle_duration_sec=0.5)
 
 
     def apply_pid(self, error, kp):
-        output = int(error * kp)
-        output = max(min(output, self.pwm_range), -self.pwm_range)
-        return self.pwm_neutral + output
+        output = float(error * kp)
+        output = max(min(output, self.effort_limit), -self.effort_limit)
+        return self.effort_neutral + output
 
     def euler_from_quaternion(self, x, y, z, w):
 

@@ -12,7 +12,7 @@ find_package(rclcpp REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(custom_msgs REQUIRED)
 find_package(vision_msgs REQUIRED)
-find_package(control_utils REQUIRED)
+find_package(utils REQUIRED)
 find_package(std_srvs REQUIRED)
 
 # Include directories
@@ -30,7 +30,7 @@ ament_target_dependencies(gate_navigator_exe
   custom_msgs
   std_srvs
   vision_msgs
-  control_utils
+  utils
 )
 
 # Install the executable
@@ -43,7 +43,9 @@ install(TARGETS gate_navigator_exe
 install(PROGRAMS
 src/bucket/phase2.py
 src/docking/phase2_dock_controls.py
+src/pipeline/pipeline_controls.py
 DESTINATION lib/${PROJECT_NAME})
 
 # Export package
+install(DIRECTORY config launch DESTINATION share/${PROJECT_NAME})
 ament_package()

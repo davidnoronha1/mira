@@ -1,131 +1,50 @@
-# mira2_actions
+# Navigate to a detected object
 
-Behavior Tree-based autonomous task execution for the Mira2 AUV. Each mission (gate pass, docking, bucket task) is described as an XML behavior tree that composes reusable motion and detection leaf nodes.
+The single demo is `config/demo.xml`:
 
-## Architecture
-
-```mermaid
-graph TD
-    subgraph Perception
-        DET["/detectnet/detections<br/>(vision_msgs/Detection2DArray)"]
-        GP["gate_pose<br/>(geometry_msgs/PoseStamped)"]
-        DP["dock_pose<br/>(geometry_msgs/PoseStamped)"]
-        HDG["/master/heading<br/>(std_msgs/Float32)"]
-    end
-
-    subgraph Vehicle State
-        TEL["/master/telemetry<br/>(custom_msgs/Telemetry)"]
-    end
-
-    subgraph mira2_actions_exe
-        BT["BehaviorTree Factory<br/>(behaviortree_cpp)"]
-        subgraph Behaviour Leaves
-            DOB["DetectObjectBoundingBox"]
-            DTP["DetectTargetPoint"]
-        end
-        subgraph Motion Leaves
-            ABB["ApproachBoundingBox"]
-            AXY["AlignXY"]
-            AWD["ApproachWithDepth"]
-            HP["HoldPosition"]
-            LE["LateralEvasion"]
-            RTH["RotateToTargetHeading"]
-            YS["YawSweep"]
-        end
-    end
-
-    subgraph Output
-        CMD["/master/commands<br/>(custom_msgs/Commands)"]
-        G2["Groot2 Publisher<br/>(ZMQ port 1667)"]
-    end
-
-    DET --> DOB
-    GP  --> DTP
-    DP  --> ABB
-    HDG --> RTH
-    TEL --> ABB
-    TEL --> AXY
-    TEL --> AWD
-    TEL --> HP
-    TEL --> RTH
-    TEL --> YS
-
-    BT --> CMD
-    BT --> G2
+```xml
+<Sequence>
+  <SelectObject class_id="{target_class}" object="{target}"/>
+  <NavigateToPose object="{target}" stand_off="0.5"/>
+</Sequence>
 ```
 
-## Behavior Tree Nodes
+`SelectObject` selects the highest-confidence fresh, localized YOLO bounding box
+of the requested class from `mira/perception/front/objects`. It passes the actual
+`vision_msgs/Detection2D` through the blackboard: box, class, confidence, camera
+frame, acquisition stamp and the associated metric pose. It assumes the object
+is visible and allows one second to receive a sample; it does not search or move.
 
-### Behaviour (Condition / Action) Nodes
-| Node | Description |
-|---|---|
-| `DetectObjectBoundingBox` | Waits for a stable YOLO detection from `/detectnet/detections` with consistency checking |
-| `DetectTargetPoint` | Detects a target point from a configurable pose topic with optional color filtering |
+`mira2_vision` must run `yolo` with `depth_targets` and `objects` consumers.
+`depth_targets` samples registered depth inside each bounding box and projects
+its center using CameraInfo, enriching that same detection's hypothesis pose.
+This runs for every class, independent of the legacy `target_class`/`target_pose`
+output. A 2D box without valid matched depth cannot become a navigation goal.
 
-### Motion (Action) Nodes
-| Node | Description |
-|---|---|
-| `ApproachBoundingBox` | PID-controlled forward approach to a detected bounding box |
-| `AlignXY` | PD lateral/depth alignment to center a detection in frame |
-| `ApproachWithDepth` | Descends to a depth setpoint while maintaining heading |
-| `HoldPosition` | Holds the current position for a configurable duration |
-| `TimedForward` | Drives forward at fixed thrust for a fixed duration |
-| `LateralEvasion` | Moves laterally to avoid an obstacle |
-| `RotateToTargetHeading` | Rotates to an absolute heading via yaw PID |
-| `YawSweep` | Oscillates yaw to search for a target |
+`NavigateToPose` takes that **object**, extracts its associated pose, transforms
+it into `odom` at the detection timestamp, and sends the resulting goal to the
+hardware GUIDED bridge. It faces the object; YOLO boxes do not supply orientation.
+The goal is latched so other detections cannot replace it during travel.
+`stand_off` defaults to zero (navigate to the object position); the demo stops
+0.5 m short along the 3D approach ray.
 
-## Mission XML Files
+There are no raw waypoint coordinates, anonymous target-pose inputs, separate
+navigation YAML or task-specific PID settings. Pixhawk owns the shared GUIDED
+controllers. The action defaults to a 0.3 m arrival radius and 60 s timeout,
+overridable with `tolerance` and `timeout`. Arrival must hold for one second with
+heading within 0.15 radians. Feedback must be no more than 0.5 s old; timeout,
+lost feedback or cancellation request a hold.
 
-| File | Description |
-|---|---|
-| `config/default.xml` | Simple single-gate approach |
-| `config/docking.xml` | 4-phase docking: detect → align XY → align yaw → approach |
-| `config/bucket_task.xml` | Bucket detection and approach task |
-| `config/test_detect_adarsh.xml` | Detection smoke-test tree |
+Run the vision/hardware stack first, with registered RGB-D and camera-to-base TF:
 
-## Topics
-
-| Topic | Type | Direction |
-|---|---|---|
-| `/master/telemetry` | `custom_msgs/Telemetry` | Subscribed |
-| `/master/heading` | `std_msgs/Float32` | Subscribed |
-| `detectnet/detections` | `vision_msgs/Detection2DArray` | Subscribed |
-| `gate_pose` | `geometry_msgs/PoseStamped` | Subscribed |
-| `dock_pose` | `geometry_msgs/PoseStamped` | Subscribed |
-| `/master/commands` | `custom_msgs/Commands` | Published |
-| `<name>_pid_error` | `std_msgs/Float32` | Published (debug) |
-| `<name>_pid_output` | `std_msgs/Float32` | Published (debug) |
-
-## Docking Sequence
-
-```mermaid
-sequenceDiagram
-    participant BT as BehaviorTree
-    participant DET as DetectObjectBoundingBox
-    participant AXY as AlignXY
-    participant RTH as RotateToTargetHeading
-    participant ABB as ApproachBoundingBox
-    participant CMD as /master/commands
-
-    BT->>DET: tick — await stable dock detection
-    DET-->>BT: SUCCESS
-    BT->>AXY: tick — center dock in frame (lateral + depth PIDs)
-    AXY-->>CMD: PWM commands
-    AXY-->>BT: SUCCESS
-    BT->>RTH: tick — rotate to dock heading (yaw PID)
-    RTH-->>CMD: PWM commands
-    RTH-->>BT: SUCCESS
-    BT->>ABB: tick — close range approach (forward + lateral PIDs)
-    ABB-->>CMD: PWM commands
-    ABB-->>BT: SUCCESS
+```sh
+ros2 launch mira2_hardware guided.launch.py simulation:=true \
+  config:=$(ros2 pkg prefix --share mira2_vision)/config/guided_front.yaml
+ros2 launch mira2_actions mira2_actions_launch.py use_sim_time:=true
 ```
 
-## Usage
-
-```bash
-ros2 launch mira2_actions mira2_actions_launch.py
-```
-
-To visualize the running behavior tree, connect Groot2 to `localhost:1667`.
-
-To change the active mission, edit `mira2_actions_launch.py` and point the `tree_xml` parameter at the desired config file.
+The demo defaults to `dock`, matching the supplied model labels. Override with
+`target_class:=your_label` when using another model. Set `objects_topic` on
+`SelectObject` for another camera. Simulation requires explicit arming or the
+hardware launch's simulator-only `auto_arm:=true`. The demo executes once and
+exits; it does not claim to implement a complete docking or retrieval mission.

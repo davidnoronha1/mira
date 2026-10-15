@@ -13,44 +13,19 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(behaviortree_cpp REQUIRED)
-find_package(control_utils REQUIRED)
+find_package(utils REQUIRED)
 find_package(ament_index_cpp REQUIRED)
-find_package(custom_msgs REQUIRED)
 find_package(vision_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
-find_package(std_msgs REQUIRED)
+find_package(std_srvs REQUIRED)
+find_package(tf2_geometry_msgs REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(tf2_ros REQUIRED)
-find_package(zed_msgs REQUIRED)
 
 # Create executable
-add_executable(mira2_actions_exe 
-  src/main.cpp 
-  src/behaviours/DetectObjectBoundingbox.cpp
-  src/behaviours/DetectTargetPoint.cpp
-  src/motions/ApproachBoundingBox.cpp
-  src/motions/Approach3DBBox.cpp
-  src/motions/AlignXY.cpp
-  src/motions/ApproachWithDepth.cpp
-  src/motions/HoldPosition.cpp
-  src/motions/TimedForward.cpp
-  src/motions/LateralEvasion.cpp
-  src/motions/RotateToTargetHeading.cpp
-  src/motions/YawSweep.cpp
-)
-
-ament_target_dependencies(mira2_actions_exe
-  rclcpp
-  behaviortree_cpp
-  control_utils
-  custom_msgs
-  vision_msgs
-  geometry_msgs
-  std_msgs
-  ament_index_cpp
-  tf2
-  tf2_ros
-  zed_msgs)
+add_executable(mira2_actions_exe src/main.cpp)
+ament_target_dependencies(mira2_actions_exe rclcpp behaviortree_cpp utils
+  vision_msgs geometry_msgs std_srvs ament_index_cpp tf2 tf2_ros tf2_geometry_msgs)
 
 # Install executable
 install(TARGETS mira2_actions_exe

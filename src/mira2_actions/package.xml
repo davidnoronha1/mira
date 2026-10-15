@@ -10,12 +10,12 @@
   <depend>behaviortree_cpp</depend>
   <depend>rclcpp</depend>
   <depend>ament_index_cpp</depend>
-  <depend>control_utils</depend>
-  <depend>custom_msgs</depend>
+  <depend>utils</depend>
   <depend>vision_msgs</depend>
   <depend>geometry_msgs</depend>
-  <depend>std_msgs</depend>
-  <depend>zed_msgs</depend>
+  <depend>std_srvs</depend>
+  <depend>tf2</depend>
+  <depend>tf2_geometry_msgs</depend>
   <depend>tf2_ros</depend>
   <export>
     <build_type>ament_cmake</build_type>

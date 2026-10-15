@@ -1,0 +1,21 @@
+/**:
+  ros__parameters:
+    dir_sway: 1
+    dir_surge: -1
+    latch_duration: 10.0
+    ascend_duration: 2.0
+    ascend_effort: 0.25
+    blind_spot_z: 0.3
+    xy_tolerance: 0.05
+    control_rate: 20.0
+    feedback_timeout: 1.0
+    descent_far_effort: -0.125
+    descent_near_effort: -0.25
+    latch_effort: -0.375
+    descent_threshold: 0.6
+    sway.kp: 0.5
+    sway.ki: 0.0
+    sway.kd: 0.125
+    surge.kp: 0.5
+    surge.ki: 0.0
+    surge.kd: 0.125

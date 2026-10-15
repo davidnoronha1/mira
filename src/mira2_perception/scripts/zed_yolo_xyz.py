@@ -70,31 +70,7 @@ def get_xyz(pc: sl.Mat, cx: int, cy: int):
     return x, y, z
 
 
-def sample_bbox_points(pc: sl.Mat, x1, y1, x2, y2, steps=GRID_STEPS):
-    pts = []
-    for px in np.linspace(x1, x2, steps, dtype=int):
-        for py in np.linspace(y1, y2, steps, dtype=int):
-            r = get_xyz(pc, int(px), int(py))
-            if r:
-                pts.append(r)
-    return np.array(pts, dtype=np.float32) if pts else None
-
-
-# ── 3-D bbox ──────────────────────────────────────────────────────────────────
-
-def fit_3d_bbox(pts):
-    mn, mx   = pts.min(axis=0), pts.max(axis=0)
-    centroid = (mn + mx) / 2.0
-    half     = (mx - mn) / 2.0
-    sx, sy, sz = half
-    cx, cy, cz = centroid
-    corners = np.array([
-        [cx-sx, cy-sy, cz-sz], [cx+sx, cy-sy, cz-sz],
-        [cx+sx, cy+sy, cz-sz], [cx-sx, cy+sy, cz-sz],
-        [cx-sx, cy-sy, cz+sz], [cx+sx, cy-sy, cz+sz],
-        [cx+sx, cy+sy, cz+sz], [cx-sx, cy+sy, cz+sz],
-    ], dtype=np.float32)
-    return centroid, half, corners
+from utils.depth import sample_bbox_points, fit_3d_bbox
 
 
 def project_corners(corners, cam_info):
