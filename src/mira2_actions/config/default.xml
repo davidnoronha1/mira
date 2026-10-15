@@ -1,8 +1,0 @@
-<root>
-<BehaviorTree ID="gate_p1">
-    <Sequence>
-      <ApproachBoundingBox object="dock" />
-      <AlwaysSuccess/>
-    </Sequence>
-  </BehaviorTree>
-  </root>
