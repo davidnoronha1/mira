@@ -1,0 +1,14 @@
+<launch>
+  <!-- Declare an argument -->
+  <arg name="autorepeat_rate_arg" default="50.0" description="Autorepeat rate for joystick inputs"/>
+
+  <!-- joy_node -->
+  <node pkg="joy" exec="joy_node" name="joy_node" output="screen">
+    <param name="autorepeat_rate" value="$(var autorepeat_rate_arg)" />
+  </node>
+
+  <!-- base joystick controller node -->
+  <node pkg="mira2_control" exec="joystick_exe" name="joystick_control_node" output="screen">
+    <param from="$(find-pkg-share mira2_control)/config/teleop.yaml"/>
+  </node>
+</launch>

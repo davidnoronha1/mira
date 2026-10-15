@@ -1,0 +1,8 @@
+# Connection and startup settings for async_master.
+/**:
+  ros__parameters:
+    # MAVLink transport.
+    baudrate: 57600
+
+    # Flight-controller startup mode.
+    initial_mode: STABILIZE

@@ -1,0 +1,5 @@
+<launch>
+    <!-- Declare the argument -->
+    <node name="pymavlink_killswitch" pkg="mira2_hardware" exec="killswitch" output="screen">
+    </node>
+</launch>

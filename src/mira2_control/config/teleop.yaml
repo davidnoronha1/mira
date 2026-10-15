@@ -1,0 +1,7 @@
+/**:
+  ros__parameters:
+    sensitivity: 0.6
+    yaw_sensitivity: 0.5
+    pitch_sensitivity: 0.5
+    deadzone: 0.1
+    qgc_layout: false

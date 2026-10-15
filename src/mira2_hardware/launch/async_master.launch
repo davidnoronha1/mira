@@ -1,0 +1,8 @@
+<launch>
+    <arg name="pixhawk_address" default="/dev/Pixhawk"/>
+    <node name="async_master" namespace="mira" pkg="mira2_hardware" exec="async_master" output="screen">
+        <param from="$(find-pkg-share mira2_hardware)/config/master.yaml"/>
+        <param from="$(find-pkg-share mira2_hardware)/config/command_calibration.yaml"/>
+        <param name="pixhawk_address" value="$(var pixhawk_address)"/>
+    </node>
+</launch>
