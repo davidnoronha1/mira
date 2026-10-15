@@ -1,0 +1,20 @@
+/**:
+  ros__parameters:
+    simulation: true
+    use_sim_time: true
+    detectors: [yolo]
+    consumers: [depth_targets, objects, vision_bridge, obstacle_distance]
+    image_source: ros2:///vision/image
+    camera_info_topic: /vision/camera_info
+    camera_frame: front_camera_depth_optical
+    depth_topic: /vision/depth
+    model_name: best.onnx
+    target_class: dock
+    depth_max_skew: 0.01
+    depth_min: 0.1
+    depth_max: 20.0
+    # Simulator ground-truth detector (detectors: [gazebo_boxes]). Index = the
+    # Label system id in mira_sim's world files; names follow the YOLO classes.
+    gazebo_boxes:
+      classes: ['', 'gate', 'qual gate', 'flare', 'red pole', 'yellow pole', 'blue pole',
+                'blue_bucket', 'red_bucket', 'golf_ball', 'mat']

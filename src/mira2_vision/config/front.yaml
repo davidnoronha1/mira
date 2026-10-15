@@ -1,0 +1,26 @@
+/**:
+  ros__parameters:
+    detectors: [yolo]
+    consumers: [objects]
+    image_source: ros2:///mira/sensors/camera/front/image_raw
+    camera_info_topic: /mira/sensors/camera/front/camera_info
+    camera_frame: camera_front_optical
+    model_name: best.onnx
+    device: CPU
+    conf_threshold: 0.5
+    nms_threshold: 0.4
+    rate: 30.0
+    yolo_rate: 15.0
+    input_width: 640
+    input_height: 640
+    max_frame_age: 0.5
+    publish_image: true
+    preview_rate: 5.0
+    preview_width: 640
+    visualize: false
+    # Optional depth must be registered to the RGB optical frame and resolution.
+    depth_topic: ""
+    depth_max_skew: 0.1
+    depth_min: 0.1
+    depth_max: 20.0
+    target_class: blue_bucket

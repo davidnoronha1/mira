@@ -1,0 +1,6 @@
+ultralytics
+onnxruntime>=1.16.0
+opencv-contrib-python>=4.8.0
+numpy>=1.24.0
+scipy
+PyYAML
