@@ -54,6 +54,7 @@ inline constexpr const char *EMERGENCY_STOP = "/mira/safety/emergency_stop";
 inline constexpr const char *GROUND_TRUTH_ODOM = "/mira/sim/ground_truth/odom";
 inline constexpr const char *GROUND_TRUTH_PATH = "/mira/sim/ground_truth/path";
 inline constexpr const char *FRONT_BOXES = "/mira/sim/camera/front/boxes";
+inline constexpr const char *CHASE_IMAGE = "/mira/sim/camera/chase/image_raw";
 inline constexpr const char *THRUSTERS = "/mira/sim/thrusters";
 inline constexpr const char *MOTION_COMMAND = "/mira/sim/motion_command";
 

@@ -83,6 +83,7 @@ All entries in the main [bridge configuration](../../../mira_sim/src/dnt_simulat
 | `/mira/sensors/imu` | `sensor_msgs/Imu` | `/world/pool_world/model/bluerov2_heavy/link/base_link/sensor/imu_sensor/imu` | cuVSLAM when IMU fusion is enabled; tools |
 | `/mira/sensors/camera/bottom/image_raw` | `sensor_msgs/Image` | `/sim/bottom_camera/image` | Bottom optical-flow worker; tools |
 | `/mira/sensors/camera/bottom/camera_info` | `sensor_msgs/CameraInfo` | `/sim/bottom_camera/camera_info` | Bottom optical-flow worker; tools |
+| `/mira/sim/camera/chase/image_raw` | `sensor_msgs/Image` | `/sim/chase_camera/image` | Third-person demo video (`record_navigation.py`); rendered only while subscribed |
 
 ## Hardware camera topics
 
