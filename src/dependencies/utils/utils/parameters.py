@@ -91,6 +91,10 @@ def parameter(node, name, default, *, read_only=False):
     if not setting.dynamic_typing and resolved.type_ != expected:
         raise ValueError(f"{name}: expected {expected.name}, got {resolved.type_.name}")
     value = resolved.value
+    if value is None and setting.dynamic_typing and isinstance(setting.default, list):
+        # ROS cannot type an empty YAML array (e.g. detectors: []), so the
+        # override arrives unset; an absent parameter would have the default.
+        value = []
     if value is None:
         raise ValueError(f"{name}: parameter is not set")
     if setting.validate is not None:

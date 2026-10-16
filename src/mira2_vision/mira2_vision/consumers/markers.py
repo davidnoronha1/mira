@@ -1,3 +1,4 @@
+from utils.parameters import Setting, declare_config, positive
 import cv2
 import numpy as np
 from geometry_msgs.msg import PoseStamped, TransformStamped
@@ -14,11 +15,15 @@ class Markers(Plugin):
 
     def __init__(self, node):
         super().__init__(node)
-        half = self.settings['marker_size'] / 2
+        self.config = declare_config(node, {
+            'marker_size': Setting(0.15, positive),
+            'publish_tf': True,
+        }, namespace='markers')
+        half = self.config['marker_size'] / 2
         self.marker_points = np.array([[-half, half, 0], [half, half, 0], [half, -half, 0], [-half, -half, 0]], np.float32)
         self.markers_pub = node.create_publisher(ArucoPose, 'markers', 10)
         self.marker_ids_pub = node.create_publisher(String, 'pipeline/markers', 10)
-        self.tf_broadcaster = TransformBroadcaster(node) if self.settings['publish_tf'] else None
+        self.tf_broadcaster = TransformBroadcaster(node) if self.config['publish_tf'] else None
 
     def process(self, context):
         corners, visible = context.products['aruco']
@@ -42,7 +47,7 @@ class Markers(Plugin):
                     self.tf_broadcaster.sendTransform(transform)
                 if visualization is not None:
                     cv2.drawFrameAxes(visualization, matrix, self.node.dist_coeffs, rvec, tvec,
-                                     self.settings["marker_size"] / 2)
+                                     self.config["marker_size"] / 2)
 
     @staticmethod
     def make_pose(header, rvec, tvec):

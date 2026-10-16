@@ -26,6 +26,7 @@ setup(
     entry_points={
         'console_scripts': [
             'mira2_vision = mira2_vision.node:main',
+            'cuvslam_odometry = mira2_vision.cuvslam_node:main',
         ],
     },
 )

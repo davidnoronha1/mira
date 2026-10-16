@@ -40,3 +40,27 @@ def associate_depth(depth, bbox, matrix, min_depth=0.1, max_depth=20.0, min_poin
     if not np.isfinite(matrix).all() or fx <= 0 or fy <= 0:
         return None
     return ((cx - matrix[0, 2]) * z / fx, (cy - matrix[1, 2]) * z / fy, z)
+
+
+def associate_frame_depth(depth, bbox, matrix, min_depth=0.1, max_depth=20.0, min_points=6):
+    """Localize a hollow gate from its frame rather than background in the hole.
+
+    Sample a narrow perimeter band. Use the foreground depth percentile, which
+    tolerates background pixels around thin posts. This assumes a visible frame;
+    it does not recover gate orientation or validate a traversable aperture.
+    """
+    cx, cy, width, height = bbox
+    h, w = depth.shape
+    x1, x2 = max(0, int(cx-width/2)), min(w, int(cx+width/2)+1)
+    y1, y2 = max(0, int(cy-height/2)), min(h, int(cy+height/2)+1)
+    if x2 <= x1 or y2 <= y1:
+        return None
+    crop = depth[y1:y2, x1:x2]
+    yy, xx = np.indices(crop.shape)
+    band = max(2, round(min(width, height)*.025))
+    perimeter = (xx < band) | (xx >= crop.shape[1]-band) | (yy < band)
+    valid = crop[perimeter & np.isfinite(crop) & (crop >= min_depth) & (crop <= max_depth)]
+    if valid.size < min_points or not np.isfinite(matrix).all() or matrix[0, 0] <= 0 or matrix[1, 1] <= 0:
+        return None
+    z = float(np.percentile(valid, 10))
+    return ((cx-matrix[0, 2])*z/matrix[0, 0], (cy-matrix[1, 2])*z/matrix[1, 1], z)

@@ -1,3 +1,4 @@
+from utils.parameters import Setting, declare_config, positive
 import time
 from vision_msgs.msg import Detection2DArray, Detection2D, ObjectHypothesisWithPose
 from mira2_vision.plugin import Plugin
@@ -9,13 +10,22 @@ class Yolo(Plugin):
 
     def __init__(self, node):
         super().__init__(node)
+        self.config = declare_config(node, {
+            'model_name': "best.onnx",
+            'device': "CPU",
+            'conf_threshold': Setting(0.5, lambda v: 0 <= v <= 1),
+            'nms_threshold': Setting(0.4, lambda v: 0 <= v <= 1),
+            'input_height': Setting(640, positive),
+            'input_width': Setting(640, positive),
+            'rate': Setting(15.0, positive),
+        }, namespace='yolo')
         self.model = None
-        self.device = self.settings["device"].lower()
+        self.device = self.config["device"].lower()
         if self.device == "gpu":
             self.device = "0"
         # ArUco-only deployments do not import torch or load a YOLO model.
         from ultralytics import YOLO
-        model_path = node.resolve_file(self.settings["model_name"], "models")
+        model_path = node.resolve_file(self.config["model_name"], "models")
         if model_path.suffix in {".engine", ".trt"}:
             self.device = "0"
         if self.device != "cpu":
@@ -25,7 +35,7 @@ class Yolo(Plugin):
                 if model_path.suffix in {".engine", ".trt"}:
                     raise RuntimeError(f"{model_path.name} requires CUDA, which is unavailable")
                 node.get_logger().warning("YOLO device %s requested but CUDA is unavailable; using CPU"
-                                          % self.settings["device"])
+                                          % self.config["device"])
                 self.device = "cpu"
         self.model = YOLO(str(model_path))
 
@@ -33,12 +43,12 @@ class Yolo(Plugin):
 
     def process(self, context):
         now = time.monotonic()
-        if now - self.last_run < 1 / self.settings['yolo_rate']:
+        if now - self.last_run < 1 / self.config['rate']:
             return
         self.last_run = now
-        results = self.model.predict(context.image, conf=self.settings["conf_threshold"],
-                                     iou=self.settings["nms_threshold"],
-                                     imgsz=(self.settings["input_height"], self.settings["input_width"]),
+        results = self.model.predict(context.image, conf=self.config["conf_threshold"],
+                                     iou=self.config["nms_threshold"],
+                                     imgsz=(self.config["input_height"], self.config["input_width"]),
                                      device=self.device, verbose=False)
         detections = Detection2DArray(header=context.header)
         if results:

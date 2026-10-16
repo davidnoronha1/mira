@@ -1,3 +1,4 @@
+from utils.parameters import Setting, declare_config, positive
 import math
 import cv2
 import numpy as np
@@ -12,14 +13,22 @@ class Pipeline(Plugin):
 
     def __init__(self, node):
         super().__init__(node)
+        self.config = declare_config(node, {
+            'hsv_lower': [15, 30, 30],
+            'hsv_upper': [90, 255, 255],
+            'min_area': Setting(1000.0, positive),
+            'kernel_size': Setting(5, positive),
+        }, namespace='pipeline')
+        if len(self.config["hsv_lower"]) != 3 or len(self.config["hsv_upper"]) != 3:
+            raise ValueError("pipeline HSV thresholds must each have three components")
         self.pipeline_pub = node.create_publisher(Point, 'pipeline/offset', 10)
         self.angle_pub = node.create_publisher(Float32, 'pipeline/angle', 10)
 
     def process(self, context):
         frame, visualization = context.image, context.preview
         hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
-        mask = cv2.inRange(hsv, np.asarray(self.settings["hsv_lower"]), np.asarray(self.settings["hsv_upper"]))
-        kernel = np.ones((self.settings["pipeline_kernel_size"],) * 2, np.uint8)
+        mask = cv2.inRange(hsv, np.asarray(self.config["hsv_lower"]), np.asarray(self.config["hsv_upper"]))
+        kernel = np.ones((self.config["kernel_size"],) * 2, np.uint8)
         mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
         mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
         contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
@@ -29,7 +38,7 @@ class Pipeline(Plugin):
             return
         contour = max(contours, key=cv2.contourArea)
         moments = cv2.moments(contour)
-        if cv2.contourArea(contour) < self.settings["pipeline_min_area"] or not moments["m00"]:
+        if cv2.contourArea(contour) < self.config["min_area"] or not moments["m00"]:
             self.pipeline_pub.publish(Point(x=float("nan"), y=float("nan"), z=0.0))
             self.angle_pub.publish(Float32(data=float("nan")))
             return

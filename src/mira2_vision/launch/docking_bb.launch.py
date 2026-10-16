@@ -62,9 +62,9 @@ def generate_launch_description():
         name='mira2_vision_node',
         output='screen',
         parameters=[{
-            'model_name': LaunchConfiguration('model_name'),
-            'device': LaunchConfiguration('device'),
-            'conf_threshold': LaunchConfiguration('conf_threshold'),
+            'yolo.model_name': LaunchConfiguration('model_name'),
+            'yolo.device': LaunchConfiguration('device'),
+            'yolo.conf_threshold': LaunchConfiguration('conf_threshold'),
             'publish_image': LaunchConfiguration('publish_image'),
             'visualize': LaunchConfiguration('visualize'),
             'image_source': LaunchConfiguration('image_source'),

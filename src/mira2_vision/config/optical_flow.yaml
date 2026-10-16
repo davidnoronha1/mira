@@ -1,0 +1,40 @@
+# Downward-camera optical flow on the vehicle (navigation.launch.py starts this
+# node when pose_source=optical_flow or slam_optical_flow=true). Velocity only:
+# the hardware external_navigation plugin forwards it to the autopilot EKF. The simulator replaces the
+# camera topics and loads its scene file on top (mira_sim config/scenes/).
+#
+# Autopilot side: mira2_hardware/config/ardusub/external_nav.parm (EKF source
+# set 2 is the flow set). pixhawk_controller streams the raw IMU this node derotates
+# with (/mira/state/imu, SCALED_IMU at 100 Hz).
+/**:
+  ros__parameters:
+    detectors: []
+    consumers: [optical_flow]
+    image_source: ros2:///mira/sensors/camera/bottom/image_raw
+    camera_info_topic: /mira/sensors/camera/bottom/camera_info
+    camera_frame: camera_bottom_optical
+    rate: 15.0  # Hz; per-frame floor motion stays small for LK at AUV speeds
+    publish_image: false
+    optical_flow:
+      # --- Per pool (REQUIRED, startup fails without it) -------------------
+      # No range sensor: height above the floor = floor_depth - camera depth.
+      # The floor's depth AS THE PRESSURE SENSOR READS IT: rest on the bottom
+      # and read the depth. Or launch optical_flow_floor_depth:=. Assumes a
+      # flat floor.
+      # floor_depth: 0.0
+
+      # --- Floor-line heading: SCENE-SPECIFIC, off by default ---------------
+      # Holds the EKF heading to straight floor lines along the pool axes
+      # (tile grout / lane lines). Validated only in the simulated SAUVC pool.
+      # Enable only after checking the real pool floor; a floor without such
+      # lines gives a wrong heading. With it on, set EK3_SRC2_YAW 6 on the
+      # autopilot; with it off the flow set takes yaw from the compass.
+      floor_heading: false
+      line_heading_from_start: true  # first measurement defines the axis
+      line_heading: 0.0              # deg in odom ENU, when not from start
+      line_symmetry: 90.0            # tiles: 90, lane lines only: 180
+
+      # --- Tracking (generic) -----------------------------------------------
+      scale: 0.5
+      max_features: 200
+      max_speed: 2.0  # m/s; faster readings are tracking failures

@@ -1,10 +1,8 @@
 /**:
   ros__parameters:
     detectors: []
-    consumers: [vision_bridge, obstacle_distance]
+    consumers:
+    - obstacle_distance
     depth_max_skew: 0.01
     publish_image: false
     visualize: false
-    # Hardware MAVLink links are opt-in: vo.mavlink and obstacles.mavlink.
-    # Set vo.set_origin + vo.origin_configured with a surveyed geographic origin
-    # only when this consumer should establish the EKF origin on hardware.

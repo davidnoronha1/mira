@@ -1,97 +1,108 @@
-"""Camera-owned RGB-D consumers and a cuVSLAM (GPU) or RTAB-Map (CPU) estimator."""
-from pathlib import Path
-import subprocess
-import sys
+"""ROS-only perception, optical flow and native cuVSLAM/RTAB-Map odometry."""
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, LogInfo, OpaqueFunction
-from launch.substitutions import LaunchConfiguration
+from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
 from utils.parameters import string_list_argument
-from launch.substitutions import PathJoinSubstitution
+from mira2_vision.launch_config import NAVIGATION_ARGUMENTS, pose_source, select_backend
 
 
-PROBE = ('from mira2_vision.cuvslam_odometry import probe; reason = probe(); '
-         'print(reason or "", end=""); raise SystemExit(1 if reason else 0)')
+def camera_topics(value, simulation):
+    defaults = ('/vision/image', '/vision/depth', '/vision/camera_info') if simulation else (
+        '/mira/sensors/camera/front/image_raw', '/mira/sensors/camera/front/depth/image_raw',
+        '/mira/sensors/camera/front/camera_info')
+    return [value(name) or default for name, default in zip(
+        ('rgb_topic', 'depth_topic', 'camera_info_topic'), defaults)]
 
 
-def select_backend(requested):
-    """auto picks cuVSLAM when it can track here, else RTAB-Map on the CPU."""
-    if requested in ('rtabmap', 'cuvslam'):
-        return requested, f'{requested} requested explicitly'
-    if requested != 'auto':
-        raise ValueError('vo_backend must be auto, cuvslam or rtabmap')
-    # Probe in a child so the launch process never initializes CUDA.
-    try:
-        result = subprocess.run([sys.executable, '-c', PROBE], capture_output=True, text=True, timeout=60)
-    except subprocess.TimeoutExpired:
-        return 'rtabmap', 'cuVSLAM probe timed out'
-    if result.returncode == 0:
-        return 'cuvslam', 'cuVSLAM GPU tracker available'
-    reason = (result.stdout or result.stderr).strip().splitlines()
-    return 'rtabmap', f'cuVSLAM unavailable ({reason[-1] if reason else "probe failed"})'
+def perception(value, simulation, topics):
+    rgb, depth, info = topics
+    parameters = {
+        'simulation': simulation, 'use_sim_time': simulation,
+        'image_source': 'ros2://' + rgb, 'depth_topic': depth, 'camera_info_topic': info,
+        'depth_camera_info_topic': value('depth_camera_info_topic'),
+    }
+    if value('detectors'):
+        parameters['detectors'] = string_list_argument(value('detectors'))
+    for argument, name in (('yolo_device', 'device'), ('yolo_model', 'model_name')):
+        if value(argument):
+            parameters['yolo.' + name] = value(argument)
+    return Node(package='mira2_vision', executable='mira2_vision', name='perception',
+                namespace=value('namespace'), output='screen', parameters=[value('config'), parameters])
+
+
+def optical_flow(value, simulation):
+    parameters = {'simulation': simulation, 'use_sim_time': simulation}
+    if simulation:
+        parameters.update(image_source='ros2:///vision/bottom/image',
+                          camera_info_topic='/vision/bottom/camera_info', camera_frame='bottom_camera_optical')
+    if value('optical_flow_floor_depth'):
+        parameters['optical_flow.floor_depth'] = float(value('optical_flow_floor_depth'))
+    configs = [value('flow_config')]
+    if value('flow_scene_config'):
+        configs.append(value('flow_scene_config'))
+    return Node(package='mira2_vision', executable='mira2_vision', name='optical_flow',
+                namespace='mira/perception/bottom_flow', output='screen', parameters=[*configs, parameters])
+
+
+def imu_parameters(value, simulation):
+    """slam_imu:=true enables cuVSLAM visual-inertial fusion (experimental, off)."""
+    if value('slam_imu') != 'true':
+        return {}
+    imu = value('imu_topic') or ('/vision/imu' if simulation else '')
+    if not imu:
+        raise ValueError('slam_imu needs imu_topic on hardware')
+    return {'cuvslam.imu_topic': imu, 'cuvslam.tracking_mode': 'multisensor'}
+
+
+def odometry(value, simulation, topics, backend):
+    rgb, depth, info = topics
+    if backend == 'cuvslam':
+        return [Node(package='mira2_vision', executable='cuvslam_odometry',
+                     name='cuvslam_odometry', namespace='mira/visual_slam', output='screen',
+                     parameters=[value('rgbd_config'), value('vslam_config'), {
+                         'use_sim_time': simulation,
+                         **({'cuvslam.tracking_mode': 'multisensor'} if simulation else {}),
+                         **imu_parameters(value, simulation),
+                         'rgbd_inputs.rgb_topic': rgb, 'rgbd_inputs.depth_topic': depth,
+                         'rgbd_inputs.camera_info_topic': info,
+                     }])]
+    if value('slam_imu') == 'true':
+        raise ValueError('slam_imu requires slam_algorithm cuvslam')
+    if backend == 'rtabmap':
+        estimator = Node(package='rtabmap_odom', executable='rgbd_odometry', output='screen',
+            parameters=[{'use_sim_time': simulation, 'frame_id': 'base_link', 'odom_frame_id': 'vo_odom',
+                         'publish_tf': False, 'wait_for_transform': 0.2, 'approx_sync': True,
+                         'approx_sync_max_interval': 0.01, 'publish_null_when_lost': True,
+                         'Odom/ResetCountdown': '0'}],
+            remappings=[('rgb/image', rgb), ('depth/image', depth),
+                        ('rgb/camera_info', info), ('odom', '/vision/vo_odom')])
+    return [estimator]
 
 
 def launch_navigation(context):
     value = lambda key: LaunchConfiguration(key).perform(context)
     simulation = value('simulation') == 'true'
-    source = value('source') if simulation else 'vo'
-    rgb = value('rgb_topic') or ('/vision/image' if simulation else '/mira/sensors/camera/front/image_raw')
-    depth = value('depth_topic') or ('/vision/depth' if simulation else '/mira/sensors/camera/front/depth/image_raw')
-    info = value('camera_info_topic') or ('/vision/camera_info' if simulation else '/mira/sensors/camera/front/camera_info')
-    namespace = value('namespace').strip('/')
-    topic = lambda suffix: '/' + '/'.join(filter(None, (namespace, suffix)))
-    parameters = {
-        'simulation': simulation, 'use_sim_time': simulation,
-        'image_source': 'ros2://' + rgb, 'depth_topic': depth, 'camera_info_topic': info,
-        'depth_camera_info_topic': value('depth_camera_info_topic'),
-        'vo.source': source, 'vo.start_x': float(value('start_x')) if simulation else 0.0,
-        'vo.start_y': float(value('start_y')) if simulation else 0.0,
-    }
-    if source != 'vo':
-        backend, why = 'rtabmap', 'source is not vo'
-    elif value('start_vo') != 'true':
-        backend, why = 'rtabmap', 'start_vo=false, odometry comes from an external process'
-    else:
-        backend, why = select_backend(value('vo_backend'))
-    parameters['vo.backend'] = backend
-    if value('detectors'):
-        # e.g. detectors:=gazebo_boxes in simulation; blank keeps the config file's list.
-        parameters['detectors'] = string_list_argument(value('detectors'))
-    for arg, parameter in (('yolo_device', 'device'), ('yolo_model', 'model_name')):
-        if value(arg):
-            parameters[parameter] = value(arg)
-    # Blank links use plugin defaults: SITL ports in sim, no transport on hardware.
-    for arg, parameter in (('vision_link', 'vo.mavlink'), ('obstacle_link', 'obstacles.mavlink')):
-        if value(arg):
-            parameters[parameter] = value(arg)
-    gpu = backend == 'cuvslam'
-    banner = '#' * 72
-    nodes = [LogInfo(msg=f'\n{banner}\n##  VISUAL ODOMETRY: {"cuVSLAM on GPU" if gpu else "RTAB-Map on CPU"} - {why}\n{banner}')]
-    nodes += [Node(package='mira2_vision', executable='mira2_vision', namespace=namespace,
-                  name='perception', output='screen', parameters=[value('config'), parameters])]
-    if value('start_vo') == 'true' and source == 'vo' and backend == 'rtabmap':
-        nodes.append(Node(package='rtabmap_odom', executable='rgbd_odometry', output='screen',
-            parameters=[{'use_sim_time': simulation, 'frame_id': 'base_link',
-                'odom_frame_id': 'vo_odom', 'publish_tf': False, 'wait_for_transform': 0.2,
-                'approx_sync': True, 'approx_sync_max_interval': 0.01,
-                'publish_null_when_lost': True, 'Odom/ResetCountdown': '0'}],
-            remappings=[('rgb/image', topic('vo/rgb')), ('depth/image', topic('vo/depth')),
-                        ('rgb/camera_info', topic('vo/camera_info')), ('odom', '/vision/vo_odom')]))
+    source = pose_source(value)
+    topics = camera_topics(value, simulation)
+    nodes = [perception(value, simulation, topics)]
+    if source == 'optical_flow' or (source == 'slam' and value('slam_optical_flow') == 'true'):
+        nodes.append(optical_flow(value, simulation))
+    if source == 'slam' and value('start_vo') == 'true':
+        backend = select_backend(value('vo_backend') or value('slam_algorithm'))
+        nodes = [LogInfo(msg=f'ROS odometry backend: {backend}'), *nodes,
+                 *odometry(value, simulation, topics, backend)]
     return nodes
 
 
 def generate_launch_description():
-    defaults = {
-        'simulation': 'false', 'source': 'vo', 'start_vo': 'true', 'vo_backend': 'auto',
-        'yolo_device': '', 'yolo_model': '', 'detectors': '',
-        'namespace': 'mira/perception/front', 'start_x': '0', 'start_y': '0',
-        'vision_link': '', 'obstacle_link': '', 'rgb_topic': '', 'depth_topic': '',
-        'camera_info_topic': '', 'depth_camera_info_topic': '',
-    }
+    config = lambda name: PathJoinSubstitution([FindPackageShare('mira2_vision'), 'config', name])
     return LaunchDescription([
-        *[DeclareLaunchArgument(k, default_value=v) for k, v in defaults.items()],
-        DeclareLaunchArgument('config', default_value=PathJoinSubstitution(
-            [FindPackageShare('mira2_vision'), 'config', 'navigation.yaml'])),
+        *[DeclareLaunchArgument(key, default_value=value) for key, value in NAVIGATION_ARGUMENTS.items()],
+        DeclareLaunchArgument('config', default_value=config('navigation.yaml')),
+        DeclareLaunchArgument('flow_config', default_value=config('optical_flow.yaml')),
+        DeclareLaunchArgument('vslam_config', default_value=config('cuvslam.yaml')),
+        DeclareLaunchArgument('rgbd_config', default_value=config('rgbd_inputs.yaml')),
         OpaqueFunction(function=launch_navigation),
     ])

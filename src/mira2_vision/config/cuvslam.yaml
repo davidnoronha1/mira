@@ -1,0 +1,24 @@
+/**:
+  ros__parameters:
+    cuvslam:
+      odom_topic: /vision/vo_odom
+      odom_frame: vo_odom
+      base_frame: base_link
+      # Continuous VO goes to Pixhawk; loop-corrected poses use /slam_pose.
+      enable_slam: true
+      tracking_mode: rgbd
+      # Opt-in visual-inertial fusion (multisensor only; launch slam_imu:=true).
+      # Off by default: on a recorded gate run cuVSLAM's experimental
+      # Multisensor IMU path gave 0.8-15 m ATE versus 0.04-0.09 m RGB-D only,
+      # with a verified mount (gravity estimate 0,0,-9.81). ArduSub's EKF3
+      # already fuses its IMU with this odometry for navigation. The frame
+      # defaults to the message frame_id and must exist in TF.
+      imu_topic: ''
+      imu_frame: ''
+      # Continuous-time noise densities / random walks; replace with measured
+      # Allan-variance values for the vehicle IMU.
+      imu_noise:
+        gyroscope_noise_density: 1.7e-4
+        gyroscope_random_walk: 1.9e-5
+        accelerometer_noise_density: 2.0e-3
+        accelerometer_random_walk: 3.0e-3

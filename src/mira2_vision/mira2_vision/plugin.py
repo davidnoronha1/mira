@@ -43,8 +43,8 @@ class Plugin:
 
 def load_plugin(spec, node):
     builtins = {
-        'vision_bridge': 'mira2_vision.consumers.vision_bridge:VisionBridge',
         'obstacle_distance': 'mira2_vision.consumers.obstacle_distance:ObstacleDistance',
+        'optical_flow': 'mira2_vision.consumers.optical_flow:OpticalFlow',
         'yolo': 'mira2_vision.detectors.yolo:Yolo',
         'gazebo_boxes': 'mira2_vision.detectors.gazebo_boxes:GazeboBoxes',
         'aruco': 'mira2_vision.detectors.aruco:Aruco',

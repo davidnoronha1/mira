@@ -1,35 +1,38 @@
 /**:
   ros__parameters:
-    detectors: [pipeline, aruco]
-    consumers: [markers]
+    detectors:
+    - pipeline
+    - aruco
+    consumers:
+    - markers
     image_source: ros2:///mira/sensors/camera/bottom/image_raw
     camera_info_topic: /mira/sensors/camera/bottom/camera_info
     camera_frame: camera_bottom_optical
     calibration_file: package://mira2_perception/config/bottomcam.ini
     rate: 30.0
-    aruco_rate: 30.0
-    marker_size: 0.15
-    aruco_dictionary: DICT_ARUCO_ORIGINAL
-    board_ids: [28, 7, 19, 96]
-    board_offsets: [-0.29, -0.49, 0.0, 0.29, -0.49, 0.0, -0.29, 0.49, 0.0, 0.29, 0.49, 0.0]
-    pose_filter_alpha: 0.6
-    pose_filter_max_jump: 0.6
-    pose_filter_reset_after: 5
-    clahe_clip_limit: 2.5
-    clahe_grid_size: 8
-    hsv_lower: [15, 30, 30]
-    hsv_upper: [90, 255, 255]
-    pipeline_min_area: 1000.0
-    pipeline_kernel_size: 5
     max_frame_age: 0.5
     publish_image: true
     preview_rate: 5.0
     preview_width: 640
     visualize: false
-    # Optional depth must be registered to the RGB optical frame and resolution.
-    depth_topic: ""
+    depth_topic: ''
     depth_max_skew: 0.1
-    depth_min: 0.1
-    depth_max: 20.0
-    target_class: blue_bucket
     raw_image_topic: /mira/sensors/camera/bottom/image_raw
+    aruco:
+      dictionary: DICT_ARUCO_ORIGINAL
+      clahe_clip_limit: 2.5
+      clahe_grid_size: 8
+      rate: 30.0
+    markers:
+      marker_size: 0.15
+    pipeline:
+      hsv_lower:
+      - 15
+      - 30
+      - 30
+      hsv_upper:
+      - 90
+      - 255
+      - 255
+      min_area: 1000.0
+      kernel_size: 5

@@ -1,3 +1,4 @@
+from utils.parameters import Setting, declare_config, positive
 import time
 import cv2
 import numpy as np
@@ -12,11 +13,21 @@ class DockingBoard(Plugin):
 
     def __init__(self, node):
         super().__init__(node)
-        half = self.settings["marker_size"] / 2
+        self.config = declare_config(node, {
+            'marker_size': Setting(0.15, positive),
+            'ids': [28, 7, 19, 96],
+            'offsets': [-0.29, -0.49, 0.0, 0.29, -0.49, 0.0, -0.29, 0.49, 0.0, 0.29, 0.49, 0.0],
+            'filter_alpha': Setting(0.6, lambda v: 0 < v <= 1),
+            'filter_max_jump': Setting(0.6, positive),
+            'filter_reset_after': Setting(5, positive),
+        }, namespace='docking_board')
+        if len(self.config["offsets"]) != 3 * len(self.config["ids"]):
+            raise ValueError("docking_board.offsets must have three coordinates per ID")
+        half = self.config["marker_size"] / 2
         board_base = np.array([[-half, -half, 0], [half, -half, 0],
                                [half, half, 0], [-half, half, 0]], np.float32)
-        offsets = np.asarray(self.settings["board_offsets"], np.float32).reshape(-1, 3)
-        self.board_points = {mid: board_base + offset for mid, offset in zip(self.settings["board_ids"], offsets)}
+        offsets = np.asarray(self.config["offsets"], np.float32).reshape(-1, 3)
+        self.board_points = {mid: board_base + offset for mid, offset in zip(self.config["ids"], offsets)}
         self.previous_board = None
         self.board_rejections = 0
 
@@ -51,12 +62,12 @@ class DockingBoard(Plugin):
         if self.previous_board is not None:
             old_position, old_quaternion, old_time = self.previous_board
             if now - old_time < self.settings["max_frame_age"]:
-                if np.linalg.norm(position - old_position) > self.settings["pose_filter_max_jump"] and \
-                        self.board_rejections < self.settings["pose_filter_reset_after"]:
+                if np.linalg.norm(position - old_position) > self.config["filter_max_jump"] and \
+                        self.board_rejections < self.config["filter_reset_after"]:
                     self.board_rejections += 1
                     return
                 if not self.board_rejections:
-                    alpha = self.settings["pose_filter_alpha"]
+                    alpha = self.config["filter_alpha"]
                     position = alpha * position + (1 - alpha) * old_position
                     quaternion = Slerp([0, 1], Rotation.from_quat([old_quaternion, quaternion]))([alpha])[0].as_quat()
         self.previous_board = (position, quaternion, now)

@@ -3,10 +3,9 @@
 
 from collections import deque
 import json
-import math
 from pathlib import Path
 import re
-import time
+import utils.time as utime
 
 import cv2
 import numpy as np
@@ -25,50 +24,36 @@ from mira2_vision.plugin import Frame, load_plugin, order_plugins
 
 
 class MiraVisionNode(Node):
-    def __init__(self):
-        super().__init__("perception")
-        defaults = {
-            "image_source": "ros2:///mira/sensors/camera/front/image_raw",
-            "camera_info_topic": "/mira/sensors/camera/front/camera_info",
-            "raw_image_topic": "/mira/sensors/camera/front/image_raw",
-            "simulation": False,
-            "depth_camera_info_topic": "",
-            "depth_topic": "", "depth_max_skew": 0.1, "depth_min": 0.1, "depth_max": 20.0,
-            "target_class": "blue_bucket",
-            "camera_frame": "camera_front_optical", "calibration_file": "",
-            "detectors": Setting(["yolo"], string_list, dynamic_typing=True),
-            "consumers": Setting(["objects"], string_list, dynamic_typing=True),
-            "model_name": "best.onnx", "device": "CPU", "conf_threshold": 0.5,
-            "nms_threshold": 0.4, "input_height": 640, "input_width": 640,
-            "rate": Setting(30.0, positive), "yolo_rate": Setting(15.0, positive), "aruco_rate": Setting(30.0, positive),
-            "max_frame_age": Setting(0.5, positive), "publish_image": True, "visualize": False,
-            "publish_tf": True,
-            "preview_rate": Setting(5.0, positive), "preview_width": 640,
-            "is_stereo_image": False, "aruco_dictionary": "DICT_ARUCO_ORIGINAL",
-            "marker_size": Setting(0.15, positive), "clahe_clip_limit": 2.5,
-            "clahe_grid_size": 8,
-            "board_ids": [28, 7, 19, 96],
-            "board_offsets": [-0.29, -0.49, 0.0, 0.29, -0.49, 0.0,
-                              -0.29, 0.49, 0.0, 0.29, 0.49, 0.0],
-            "pose_filter_alpha": 0.6, "pose_filter_max_jump": 0.6,
-            "pose_filter_reset_after": 5,
-            "hsv_lower": [15, 30, 30], "hsv_upper": [90, 255, 255],
-            "pipeline_min_area": 1000.0, "pipeline_kernel_size": 5,
-        }
-        self.settings = declare_config(self, defaults)
-        if not 0 < self.settings["pose_filter_alpha"] <= 1:
-            raise ValueError("pose_filter_alpha must be in (0, 1]")
-        if len(self.settings["board_offsets"]) != 3 * len(self.settings["board_ids"]):
-            raise ValueError("board_offsets must have three coordinates per board ID")
-        if self.settings["preview_width"] < 0:
-            raise ValueError("preview_width must be nonnegative; 0 means native resolution")
-        for name in ("clahe_grid_size", "pipeline_kernel_size", "input_width", "input_height"):
-            if self.settings[name] <= 0:
-                raise ValueError(f"{name} must be positive")
-        if len(self.settings["hsv_lower"]) != 3 or len(self.settings["hsv_upper"]) != 3:
-            raise ValueError("HSV thresholds must each have three components")
-        if not self.settings['simulation'] and self.get_parameter('use_sim_time').value:
+    def __init__(self, **node_options):
+        super().__init__("perception", **node_options)
+        self.plugins = []
+        self.source = None
+        self.settings = self._load_settings()
+        self._initialize_camera()
+        self._load_plugins()
+        self._create_interfaces()
+        self._start_processing()
+
+    def _load_settings(self):
+        settings = declare_config(self, {
+            'image_source': 'ros2:///mira/sensors/camera/front/image_raw',
+            'camera_info_topic': '/mira/sensors/camera/front/camera_info',
+            'raw_image_topic': '/mira/sensors/camera/front/image_raw',
+            'camera_frame': 'camera_front_optical', 'calibration_file': '',
+            'simulation': False, 'depth_camera_info_topic': '', 'depth_topic': '',
+            'depth_max_skew': Setting(0.1, positive),
+            'detectors': Setting(['yolo'], string_list, dynamic_typing=True),
+            'consumers': Setting(['objects'], string_list, dynamic_typing=True),
+            'rate': Setting(30.0, positive), 'max_frame_age': Setting(0.5, positive),
+            'publish_image': True, 'visualize': False,
+            'preview_rate': Setting(5.0, positive),
+            'preview_width': Setting(640, lambda v: v >= 0), 'is_stereo_image': False,
+        })
+        if not settings['simulation'] and self.get_parameter('use_sim_time').value:
             raise ValueError('use_sim_time requires simulation=true')
+        return settings
+
+    def _initialize_camera(self):
         self.depth_frame = None
         self.depth_frames = deque(maxlen=8)
         self.depth_info = None
@@ -81,10 +66,14 @@ class MiraVisionNode(Node):
                                  self.camera_info_callback, qos_profile_sensor_data)
         if self.settings["calibration_file"]:
             self.load_calibration(self.resolve_file(self.settings["calibration_file"], "config"))
+
+    def _load_plugins(self):
         specifications = self.settings['detectors'] + self.settings['consumers']
         if len(specifications) != len(set(specifications)):
             raise ValueError('A vision plugin may only be attached once')
         self.plugins = order_plugins([load_plugin(spec, self) for spec in specifications])
+
+    def _create_interfaces(self):
         self.depth_pub = self.create_publisher(Image, 'depth', qos_profile_sensor_data)
         if self.settings['depth_topic']:
             self.create_subscription(Image, self.settings['depth_topic'], self.depth_callback,
@@ -97,13 +86,15 @@ class MiraVisionNode(Node):
         self.raw_pub = None
         if not self.settings["image_source"].startswith("ros2://"):
             self.raw_pub = self.create_publisher(Image, self.settings["raw_image_topic"], qos_profile_sensor_data)
+
+    def _start_processing(self):
         self.source = build_image_source(self.settings["image_source"], self)
         self.sequence = None
         self.last_frame = 0.0
         self.last_preview = 0.0
         self.processed = 0
         self.last_inference_ms = 0.0
-        self.create_timer(1 / self.settings["rate"], self.process)
+        self.create_timer(utime.seconds_from_rate(self.settings["rate"]), self.process)
         self.create_timer(1.0, self.publish_diagnostics)
 
     @staticmethod
@@ -156,8 +147,7 @@ class MiraVisionNode(Node):
         self.depth_info = msg
 
     def depth_callback(self, msg):
-        age = (self.get_clock().now().nanoseconds * 1e-9 -
-               msg.header.stamp.sec - msg.header.stamp.nanosec * 1e-9)
+        age = utime.stamp_age(self.get_clock(), msg.header.stamp)
         if not msg.header.frame_id or not -0.05 <= age <= self.settings['max_frame_age']:
             return
         try:
@@ -185,72 +175,90 @@ class MiraVisionNode(Node):
         self.dist_coeffs = np.asarray(msg.d, np.float64)
         self.calibration_size = (msg.width, msg.height) if msg.width and msg.height else None
 
-    def process(self):
-        frame, header, sequence = self.source.grab_with_header()
-        if frame is None or sequence == self.sequence:
-            return
-        now = self.get_clock().now()
-        if header is not None:
-            stamp_ns = header.stamp.sec * 1000000000 + header.stamp.nanosec
-            age = (now.nanoseconds - stamp_ns) / 1e9
-            if age > self.settings["max_frame_age"] or age < -self.settings["max_frame_age"]:
-                return
-        else:
-            header = Header(stamp=now.to_msg(), frame_id=self.settings["camera_frame"])
+    def _acquire_frame(self):
+        image, header, sequence = self.source.grab_with_header()
+        if image is None or sequence == self.sequence:
+            return None
+        if header is None:
+            header = Header(stamp=self.get_clock().now().to_msg(), frame_id=self.settings['camera_frame'])
+        elif abs(utime.stamp_age(self.get_clock(), header.stamp)) > self.settings['max_frame_age']:
+            return None
         if not header.frame_id:
-            header.frame_id = self.settings["camera_frame"]
-        if self.settings["is_stereo_image"]:
-            frame = frame[:, :frame.shape[1] // 2]
-        matching_depth = next((sample for sample in reversed(self.depth_frames)
-                               if matches(sample, header, frame.shape[:2], self.settings['depth_max_skew'])), None)
-        # Let the paired depth callback arrive before consuming this RGB sequence.
-        age = (now.nanoseconds - header.stamp.sec * 1000000000 - header.stamp.nanosec) / 1e9
-        if (self.settings['depth_topic'] and matching_depth is None and
-                age < self.settings['depth_max_skew'] + 1 / self.settings['rate']):
-            return
+            header.frame_id = self.settings['camera_frame']
+        if self.settings['is_stereo_image']:
+            image = image[:, :image.shape[1] // 2]
+        depth = self._matching_depth(header, image.shape[:2])
+        wait = self.settings['depth_max_skew'] + utime.seconds_from_rate(self.settings['rate'])
+        if self.settings['depth_topic'] and depth is None and utime.stamp_age(self.get_clock(), header.stamp) < wait:
+            return None  # Keep this sequence available until its depth callback arrives.
         self.sequence = sequence
-        height, width = frame.shape[:2]
-        self.frame_dimensions = (width, height)
-        if self.raw_pub is not None and self.raw_pub.get_subscription_count() > 0:
-            raw = self.bridge.cv2_to_imgmsg(frame, encoding="bgr8")
-            raw.header = header
-            self.raw_pub.publish(raw)
+        self.frame_dimensions = (image.shape[1], image.shape[0])
+        return Frame(image, header, self._scaled_intrinsics(image.shape[:2]), depth=depth)
+
+    def _matching_depth(self, header, shape):
+        return next((sample for sample in reversed(self.depth_frames)
+                     if matches(sample, header, shape, self.settings['depth_max_skew'])), None)
+
+    def _scaled_intrinsics(self, shape):
         matrix = None if self.camera_matrix is None else self.camera_matrix.copy()
         if matrix is not None and self.calibration_size:
-            cw, ch = self.calibration_size
-            matrix[0, :] *= width / cw
-            matrix[1, :] *= height / ch
-        start = time.monotonic()
-        want_image = self.settings["publish_image"] and self.image_pub.get_subscription_count() > 0 and \
-            start - self.last_preview >= 1 / self.settings["preview_rate"]
-        visualization = frame.copy() if want_image or self.settings["visualize"] else None
-        context = Frame(frame, header, matrix, visualization)
-        context.depth = matching_depth
+            height, width = shape
+            calibration_width, calibration_height = self.calibration_size
+            matrix[0, :] *= width / calibration_width
+            matrix[1, :] *= height / calibration_height
+        return matrix
+
+    def _publish_raw(self, context):
+        if self.raw_pub is not None and self.raw_pub.get_subscription_count():
+            message = self.bridge.cv2_to_imgmsg(context.image, encoding='bgr8')
+            message.header = context.header
+            self.raw_pub.publish(message)
+
+    def _preview_due(self, now):
+        return (self.settings['publish_image'] and self.image_pub.get_subscription_count() > 0
+                and utime.elapsed(self.last_preview, now) >= utime.seconds_from_rate(self.settings['preview_rate']))
+
+    def _process_plugins(self, context):
         for plugin in self.plugins:
             if all(key in context.products for key in plugin.requires):
                 plugin.process(context)
-        visualization = context.preview
-        if visualization is not None:
-            if want_image:
-                preview = visualization
-                preview_width = self.settings["preview_width"]
-                if 0 < preview_width < width:
-                    preview = cv2.resize(preview, (preview_width, max(1, int(height * preview_width / width))),
-                                         interpolation=cv2.INTER_AREA)
-                image = self.bridge.cv2_to_imgmsg(preview, encoding="bgr8")
-                image.header = header
-                self.image_pub.publish(image)
-                self.last_preview = start
-            if self.settings["visualize"]:
-                cv2.imshow(self.get_fully_qualified_name(), visualization)
-                cv2.waitKey(1)
-        self.last_frame = time.monotonic()
-        self.last_inference_ms = (self.last_frame - start) * 1000
+
+    def _publish_preview(self, context, publish, now):
+        if context.preview is None:
+            return
+        if publish:
+            preview = context.preview
+            height, width = preview.shape[:2]
+            target_width = self.settings['preview_width']
+            if 0 < target_width < width:
+                preview = cv2.resize(preview, (target_width, max(1, int(height * target_width / width))),
+                                     interpolation=cv2.INTER_AREA)
+            message = self.bridge.cv2_to_imgmsg(preview, encoding='bgr8')
+            message.header = context.header
+            self.image_pub.publish(message)
+            self.last_preview = now
+        if self.settings['visualize']:
+            cv2.imshow(self.get_fully_qualified_name(), context.preview)
+            cv2.waitKey(1)
+
+    def process(self):
+        context = self._acquire_frame()
+        if context is None:
+            return
+        self._publish_raw(context)
+        start = utime.monotonic_now()
+        publish = self._preview_due(start)
+        if publish or self.settings['visualize']:
+            context.preview = context.image.copy()
+        self._process_plugins(context)
+        self._publish_preview(context, publish, start)
+        self.last_frame = utime.monotonic_now()
+        self.last_inference_ms = utime.elapsed(start, self.last_frame) * 1000
         self.processed += 1
 
     def publish_diagnostics(self):
         status = DiagnosticStatus(name=self.get_fully_qualified_name(), hardware_id=self.settings["camera_frame"])
-        age = time.monotonic() - self.last_frame if self.last_frame else float("inf")
+        age = utime.elapsed(self.last_frame) if self.last_frame else float("inf")
         missing_calibration = any("aruco" in plugin.provides for plugin in self.plugins) and self.camera_matrix is None
         status.level = DiagnosticStatus.WARN if age > self.settings["max_frame_age"] or missing_calibration else DiagnosticStatus.OK
         status.message = "Missing/stale images or calibration" if status.level else "Processing"
@@ -264,7 +272,8 @@ class MiraVisionNode(Node):
     def destroy_node(self):
         for plugin in reversed(self.plugins):
             plugin.close()
-        self.source.release()
+        if self.source is not None:
+            self.source.release()
         if self.settings["visualize"]:
             cv2.destroyAllWindows()
         return super().destroy_node()

@@ -1,0 +1,6 @@
+/**:
+  ros__parameters:
+    rgbd_inputs:
+      max_depth: 8.0
+      max_skew: 0.01
+      max_age: 0.5

@@ -8,9 +8,7 @@ from tf2_ros import Buffer, TransformListener
 from utils.navigation import quat_to_rot
 from utils.parameters import declare_config, Setting, positive
 from mira2_vision.plugin import Plugin
-from mira2_vision.consumers.mavlink import SensorLink, mavutil
 
-M = mavutil.mavlink
 SECTORS, STRIDE = 72, 2
 
 
@@ -20,23 +18,20 @@ class ObstacleDistance(Plugin):
         if not self.settings['depth_topic']:
             raise ValueError('obstacle_distance requires a depth_topic')
         self.args = SimpleNamespace(**declare_config(node, {
-            'mavlink': 'udpin:0.0.0.0:14558' if self.settings['simulation'] else '',
+            'topic': '/mira/perception/front/obstacles',
             'band': Setting(0.25, positive), 'min_range': Setting(0.2, positive),
             'max_range': Setting(8.0, positive),
-        }, namespace='obstacles'))
+        }, namespace='obstacle_distance'))
         if not self.args.min_range < self.args.max_range < 655.34:
             raise ValueError('Obstacle range must satisfy 0 < min < max < 655.34 m')
         self.geom = self.geometry_key = self.info = None
         self.sent = 0
         self.tf_buffer = Buffer()
         self.tf_listener = TransformListener(self.tf_buffer, node)
-        self.pub_scan = node.create_publisher(LaserScan, 'obstacles', 1)
-        self.link = SensorLink(node, self.args.mavlink, M.MAV_COMP_ID_OBSTACLE_AVOIDANCE)
-        self.mav = self.link.connection
+        self.pub_scan = node.create_publisher(LaserScan, self.args.topic, 1)
 
     def close(self):
         self.tf_listener.unregister()
-        self.link.close()
 
     def _setup(self, frame_id):
         """Precompute per-pixel body-frame rays and sector bins (once)."""
@@ -80,7 +75,6 @@ class ObstacleDistance(Plugin):
             return
         g = self.geom
         depth = sample.image[::STRIDE, ::STRIDE]
-        msg = sample.message
         valid = np.isfinite(depth) & (depth > 0.05)
         if not valid.any():
             return  # Missing depth is not a clear path.
@@ -96,26 +90,12 @@ class ObstacleDistance(Plugin):
         sectors = np.full(SECTORS, np.inf)
         np.minimum.at(sectors, sector_idx, rng[keep])
 
-        max_cm = int(self.args.max_range * 100)
-        dist_cm = np.where(sectors <= self.args.max_range, np.round(sectors * 100), max_cm + 1).astype(int)
-
         inc_deg = math.degrees(g['hfov']) / SECTORS
-        stamp_us = msg.header.stamp.sec * 1_000_000 + msg.header.stamp.nanosec // 1000
-        if self.link.ready:
-            self.mav.mav.obstacle_distance_send(
-                stamp_us, M.MAV_DISTANCE_SENSOR_LASER, [int(d) for d in dist_cm], 0,
-                int(self.args.min_range * 100), max_cm,
-                # ArduPilot puts sector j at angle_offset + j*increment, so offset
-                # to the centre of sector 0
-                inc_deg, -math.degrees(half) + inc_deg / 2, M.MAV_FRAME_BODY_FRD)
-            self.sent += 1
-
-        # Same data for RViz: LaserScan is counter-clockwise from angle_min,
-        # so reverse the clockwise MAVLink sector order.
+        # ROS scans are counter-clockwise; reverse the clockwise body bearings.
         if not self.pub_scan.get_subscription_count():
-            return  # MAVLink above is always sent, even without visualization.
+            return
         scan = LaserScan()
-        scan.header.stamp = msg.header.stamp
+        scan.header.stamp = sample.header.stamp
         scan.header.frame_id = 'base_link'
         scan.angle_increment = math.radians(inc_deg)
         scan.angle_min = -half + scan.angle_increment / 2
