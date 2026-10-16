@@ -6,6 +6,8 @@ services:
       dockerfile: Dockerfile
       args:
         CUVSLAM_WHEEL_URL: "${CUVSLAM_WHEEL_URL:-}"
+        # MIRA_EXTRAS=vision adds YOLO (ultralytics + PyTorch).
+        MIRA_EXTRAS: "${MIRA_EXTRAS:-}"
     tty: true
     volumes:
       - .:/workspace
@@ -36,6 +38,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        MIRA_EXTRAS: "${MIRA_EXTRAS:-}"
     tty: true
     volumes:
       - .:/workspace
