@@ -1,6 +1,6 @@
 """ROS parameter schema; deployment overrides live in config/*.yaml."""
 
-from utils.parameters import dataclass_config, declare_config
+from utils.parameters import dataclass_config
 from utils.control import COMMAND_FIELDS, PWMCalibration
 
 
@@ -21,9 +21,8 @@ DEFAULTS = {
 }
 
 
-def load_master_config(node):
-    """Declare connection/startup parameters and load per-axis calibration."""
-    declare_config(node, DEFAULTS)
+def load_command_calibration(node):
+    """Load per-axis calibration only when the RC plugin is selected."""
     calibration = {}
 
     # Load each axis; inversion is specified in command_calibration.yaml.
@@ -31,6 +30,6 @@ def load_master_config(node):
         calibration[axis] = dataclass_config(
             node,
             PWMCalibration(),
-            namespace=axis,
+            namespace=f"rc.{axis}",
         )
     return calibration

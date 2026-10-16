@@ -1,0 +1,1 @@
+"""Loadable Pixhawk controller capabilities."""

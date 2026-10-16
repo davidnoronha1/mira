@@ -14,6 +14,7 @@ setup(
         ('share/' + package_name, ['package.xml']),
         (os.path.join('share', package_name, 'launch'), [path for path in glob('launch/*') if os.path.isfile(path)]),
         (os.path.join('share', package_name, 'config'), glob('config/*.yaml')),
+        (os.path.join('share', package_name, 'config', 'ardusub'), glob('config/ardusub/*.parm')),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
@@ -24,8 +25,7 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'goal_bridge = mira2_hardware.goal_bridge:main',
-            'async_master = mira2_hardware.async_master:main',
+            'pixhawk_controller = mira2_hardware.pixhawk_controller:main',
             'killswitch = mira2_hardware.killswitch:main',
         ],
     },

@@ -1,8 +1,9 @@
-# Connection and startup settings for async_master.
+# Connection, capability selection and RC startup settings for pixhawk_controller.
 /**:
   ros__parameters:
     # MAVLink transport.
     baudrate: 57600
+    plugins: [rc, telemetry]
 
     # Flight-controller startup mode.
     initial_mode: STABILIZE

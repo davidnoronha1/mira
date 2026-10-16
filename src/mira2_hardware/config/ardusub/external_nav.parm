@@ -1,0 +1,43 @@
+# ArduSub parameters for Mira's vision navigation (load on the Pixhawk once,
+# e.g. Mission Planner / QGC "load from file", or MAVProxy `param load`).
+# The simulator loads this same file, then its own sim overrides on top
+# (mira_sim config/ardupilot/sim.parm).
+#
+# Two EKF3 source sets; hardware external_navigation plugin selects one at runtime with
+# MAV_CMD_SET_EKF_SOURCE_SET (not saved), from navigation.launch.py pose_source:
+#   set 1  pose_source=slam          SLAM pose + yaw as ExternalNav (MAVLink ODOMETRY)
+#   set 2  pose_source=optical_flow  downward-flow body odometry (VISION_POSITION_DELTA)
+# Depth always comes from the pressure sensor (baro).
+
+# No GPS underwater; external navigation through MAVLink.
+GPS1_TYPE        0
+EK3_ENABLE       1
+AHRS_EKF_TYPE    3
+VISO_TYPE        1
+# Camera-to-autopilot latency. 30 ms is the simulator value; measure on the
+# vehicle (camera exposure + transport + processing) and adjust.
+VISO_DELAY_MS    30
+# 0: ArduSub passes quality 0 ("unknown") for VISION_SPEED_ESTIMATE, which
+# carries flow velocity alongside SLAM (slam_optical_flow:=true); 1 would
+# silently drop it. hardware external_navigation plugin withholds lost-tracking poses itself.
+VISO_QUAL_MIN    0
+
+# Set 1: SLAM. Yaw from SLAM too, so XY and heading stay in one continuous
+# frame (a compass re-alignment would rotate the controller independently).
+EK3_SRC1_POSXY   6
+EK3_SRC1_VELXY   6
+EK3_SRC1_POSZ    1
+EK3_SRC1_VELZ    0
+EK3_SRC1_YAW     6
+
+# Set 2: optical flow only. No absolute XY: the EKF dead-reckons from flow
+# body velocity (needs VELXY 6 for body odometry to be fused).
+EK3_SRC2_POSXY   0
+EK3_SRC2_VELXY   6
+EK3_SRC2_POSZ    1
+EK3_SRC2_VELZ    0
+# Yaw: 1 = compass (default here). 6 = ExternalNav, ONLY together with the
+# scene-specific floor-line heading (mira2_vision optical_flow.floor_heading:
+# true), which is validated only in the simulated SAUVC pool. 6 without that
+# heading leaves the EKF with no yaw source.
+EK3_SRC2_YAW     1

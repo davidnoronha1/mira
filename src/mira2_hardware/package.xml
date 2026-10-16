@@ -3,7 +3,7 @@
 <package format="3">
   <name>mira2_hardware</name>
   <version>0.0.0</version>
-  <description>Primary MAVLink interface to the Pixhawk flight controller. Publishes vehicle telemetry and relays ROS 2 commands as RC overrides. Includes emergency kill-switch monitor and docking state machine.</description>
+  <description>Plugin-based Pixhawk controller with one MAVLink connection, RC or GUIDED control, navigation feedback, telemetry, and emergency stop.</description>
   <maintainer email="davidnoronha@outlook.in">david</maintainer>
   <license>Apache-2.0</license>
 
@@ -12,7 +12,6 @@
   <test_depend>ament_pep257</test_depend>
   <test_depend>python3-pytest</test_depend>
   <exec_depend>nav_msgs</exec_depend>
-  <exec_depend>mira2_vision</exec_depend>
   <exec_depend>launch_ros</exec_depend>
   <exec_depend>rclpy</exec_depend>
   <exec_depend>rcl_interfaces</exec_depend>
@@ -24,6 +23,7 @@
   <exec_depend>std_srvs</exec_depend>
   <exec_depend>custom_msgs</exec_depend>
   <exec_depend>python3-numpy</exec_depend>
+  <exec_depend>python3-scipy</exec_depend>
   <exec_depend>python3-pymavlink</exec_depend>
   <exec_depend>mavros</exec_depend>
   <exec_depend>mavros_extras</exec_depend>

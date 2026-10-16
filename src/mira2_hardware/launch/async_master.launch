@@ -1,6 +1,7 @@
 <launch>
     <arg name="pixhawk_address" default="/dev/Pixhawk"/>
-    <node name="async_master" namespace="mira" pkg="mira2_hardware" exec="async_master" output="screen">
+    <!-- Compatibility launch; the only controller executable is pixhawk_controller. -->
+    <node name="pixhawk_controller" namespace="mira" pkg="mira2_hardware" exec="pixhawk_controller" output="screen">
         <param from="$(find-pkg-share mira2_hardware)/config/master.yaml"/>
         <param from="$(find-pkg-share mira2_hardware)/config/command_calibration.yaml"/>
         <param name="pixhawk_address" value="$(var pixhawk_address)"/>

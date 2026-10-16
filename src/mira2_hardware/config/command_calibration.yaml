@@ -1,40 +1,41 @@
 # Body-FLU effort [-1, 1] to RC PWM calibration at the vehicle boundary.
-# ROS expands nested axis fields into parameters such as forward.minimum.
+# ROS expands nested axis fields into parameters such as rc.forward.minimum.
 /**:
   ros__parameters:
-    forward:
-      minimum: 1100
-      neutral: 1500
-      maximum: 1900
-      inverted: false
-      deadband: 0.0
-    lateral:
-      minimum: 1100
-      neutral: 1500
-      maximum: 1900
-      inverted: true
-      deadband: 0.0
-    thrust:
-      minimum: 1100
-      neutral: 1500
-      maximum: 1900
-      inverted: false
-      deadband: 0.0
-    pitch:
-      minimum: 1100
-      neutral: 1500
-      maximum: 1900
-      inverted: true
-      deadband: 0.0
-    roll:
-      minimum: 1100
-      neutral: 1500
-      maximum: 1900
-      inverted: false
-      deadband: 0.0
-    yaw:
-      minimum: 1100
-      neutral: 1500
-      maximum: 1900
-      inverted: true
-      deadband: 0.0
+    rc:
+      forward:
+        minimum: 1100
+        neutral: 1500
+        maximum: 1900
+        inverted: false
+        deadband: 0.0
+      lateral:
+        minimum: 1100
+        neutral: 1500
+        maximum: 1900
+        inverted: true
+        deadband: 0.0
+      thrust:
+        minimum: 1100
+        neutral: 1500
+        maximum: 1900
+        inverted: false
+        deadband: 0.0
+      pitch:
+        minimum: 1100
+        neutral: 1500
+        maximum: 1900
+        inverted: true
+        deadband: 0.0
+      roll:
+        minimum: 1100
+        neutral: 1500
+        maximum: 1900
+        inverted: false
+        deadband: 0.0
+      yaw:
+        minimum: 1100
+        neutral: 1500
+        maximum: 1900
+        inverted: true
+        deadband: 0.0
