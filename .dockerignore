@@ -1,16 +1,30 @@
+# Context for Dockerfile: COPY . /workspace, then `make install-deps` and
+# `make build` inside the image. Patterns are relative to this directory; a
+# bare pattern matches only at the top level, so use **/ for any depth.
+
+# VCS and editor state
+.git/
+.vscode/
+.cache/
+**/.mypy_cache/
+**/__pycache__/
+**/.pytest_cache/
+**/*.py[codz]
+
+# Host build outputs and environments; the image builds its own
 build/
 install/
 log/
 .venv/
-.cache/
-.git/
-.vscode/
 misc/bin/
-__pycache__/
-*.py[codz]
-*.mypy_cache/
-*.mov
-*.mp4
-*.mpg
-*.pt
-*.onnx
+
+# Local data and validation (tests/ is excluded from commits too)
+recordings/
+tests/
+**/*.mov
+**/*.mp4
+**/*.mpg
+
+# Downloaded weights at the top level only; src/*/models ships with the image
+/*.pt
+/*.onnx
