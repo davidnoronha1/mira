@@ -7,6 +7,11 @@
 #include <cmath>
 #include <optional>
 
+// Seconds of continuous EKF silence before a motion node gives up and holds.
+// Shorter MAVLink delivery stalls only pause decisions. pixhawk_controller's own 1 s
+// watchdog disarms on a real feedback loss.
+inline constexpr double kStaleLimit = 1.5;
+
 // mira2_vision enriches each YOLO hypothesis with the registered-depth position
 // in the detection header's optical frame. An unlocalized box has zero range.
 inline std::optional<geometry_msgs::msg::PoseStamped>
@@ -70,12 +75,14 @@ class SelectObject : public BT::StatefulActionNode {
       const double age = (node_->now() - rclcpp::Time(selected_->header.stamp)).seconds();
       if (age >= 0 && age <= 0.5) {
         setOutput("object", *selected_);
+        RCLCPP_INFO(node_->get_logger(), "Selected localized object '%s'", label_.c_str());
         subscription_.reset();
         return BT::NodeStatus::SUCCESS;
       }
     }
     // A visible target is assumed. This is a short acquisition window, not a search maneuver.
     if ((node_->now() - start_).seconds() >= 1.0) {
+      RCLCPP_WARN(node_->get_logger(), "No fresh localized object for '%s'", label_.c_str());
       subscription_.reset();
       return BT::NodeStatus::FAILURE;
     }
