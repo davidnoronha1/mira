@@ -7,6 +7,7 @@ from rclpy.node import Node
 from geometry_msgs.msg import PoseStamped
 from custom_msgs.msg import CommandsNormalized, Telemetry
 import time
+from utils import topics
 from utils.control import PIDController, publish_mission_command
 from utils.parameters import dataclass_config, declare_config, positive
 
@@ -82,9 +83,9 @@ class Phase2Controller(Node):
         self.is_armed = False
 
         # --- ROS Interfaces ---
-        self.cmd_pub = self.create_publisher(CommandsNormalized, "mira/command", 10)
-        self.create_subscription(PoseStamped, "mira/perception/bottom/dock_pose", self.pose_callback, 10)
-        self.create_subscription(Telemetry, "mira/telemetry", self.telem_callback, 10)
+        self.cmd_pub = self.create_publisher(CommandsNormalized, topics.COMMAND, 10)
+        self.create_subscription(PoseStamped, topics.BOTTOM_DOCK_POSE, self.pose_callback, 10)
+        self.create_subscription(Telemetry, topics.TELEMETRY, self.telem_callback, 10)
 
         # Run loop at 20Hz (0.05s)
         self.create_timer(1.0 / self.config.control_rate, self.control_loop)

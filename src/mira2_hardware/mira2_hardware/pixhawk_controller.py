@@ -12,6 +12,7 @@ from pymavlink import mavutil
 from rclpy.node import Node
 from std_srvs.srv import SetBool
 from utils.parameters import Setting, declare_config, positive, string_list
+from utils import topics
 
 from mira2_hardware.config import DEFAULTS
 from mira2_hardware.controller_plugin import resolve_plugins
@@ -60,7 +61,7 @@ class PixhawkController(MavlinkIO, Node):
             # Validate plugins and ROS interfaces before opening a serial device.
             self.master = connection or mavutil.mavlink_connection(
                 config['pixhawk_address'], baud=config['baudrate'], source_system=253)
-            self.create_service(SetBool, 'emergency_stop', self.set_emergency_stop)
+            self.create_service(SetBool, topics.EMERGENCY_STOP, self.set_emergency_stop)
             self.create_timer(0.02, self.tick)
             self.get_logger().info(f"Plugins: {', '.join(self.plugins) or '(none)'}; waiting for autopilot heartbeat")
         except Exception:

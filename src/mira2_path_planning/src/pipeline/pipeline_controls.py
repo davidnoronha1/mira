@@ -9,6 +9,7 @@ from geometry_msgs.msg import Point
 from std_msgs.msg import Float32
 from std_srvs.srv import SetBool
 from custom_msgs.msg import CommandsNormalized, Telemetry
+from utils import topics
 from utils.control import PIDController
 from utils.parameters import Setting, declare_config, positive
 
@@ -35,11 +36,11 @@ class PipelineControlsNode(Node):
         self.offset = self.angle = None
         self.offset_time = self.angle_time = self.telemetry_time = 0.0
         self.last_tick = time.monotonic()
-        self.publisher = self.create_publisher(CommandsNormalized, "mira/command", 1)
-        self.create_subscription(Point, "mira/perception/bottom/pipeline/offset", self.on_offset, 1)
-        self.create_subscription(Float32, "mira/perception/bottom/pipeline/angle", self.on_angle, 1)
-        self.create_subscription(Telemetry, "mira/telemetry", self.on_telemetry, 1)
-        self.create_service(SetBool, "mira/control/pipeline/enable", self.set_enabled)
+        self.publisher = self.create_publisher(CommandsNormalized, topics.COMMAND, 1)
+        self.create_subscription(Point, topics.BOTTOM_PIPELINE_OFFSET, self.on_offset, 1)
+        self.create_subscription(Float32, topics.BOTTOM_PIPELINE_ANGLE, self.on_angle, 1)
+        self.create_subscription(Telemetry, topics.TELEMETRY, self.on_telemetry, 1)
+        self.create_service(SetBool, topics.PIPELINE_ENABLE, self.set_enabled)
         self.create_timer(1 / self.settings["control_rate"], self.tick)
 
     def on_offset(self, msg):

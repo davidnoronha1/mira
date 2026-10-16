@@ -11,6 +11,7 @@ from collections import deque
 from rclpy.qos import qos_profile_sensor_data
 from vision_msgs.msg import Detection2D, Detection2DArray, ObjectHypothesisWithPose
 
+from utils import topics
 from utils.parameters import Setting, declare_config, nonnegative, string_list
 from mira2_vision.plugin import Plugin
 
@@ -28,7 +29,7 @@ class GazeboBoxes(Plugin):
         if not self.settings['simulation']:
             raise ValueError('gazebo_boxes reads simulator ground truth; use yolo on hardware')
         self.config = declare_config(node, {
-            'topic': '/vision/boxes',
+            'topic': topics.FRONT_BOXES,
             'classes': Setting([''], string_list, dynamic_typing=True),
             'min_area': Setting(16.0, nonnegative),  # pixels^2; drops sliver boxes at frame edges
         }, namespace='gazebo_boxes')

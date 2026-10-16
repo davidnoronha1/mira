@@ -8,10 +8,10 @@
     - depth_targets
     - objects
     - obstacle_distance
-    image_source: ros2:///vision/image
-    camera_info_topic: /vision/camera_info
+    image_source: ros2:///mira/sensors/camera/front/image_raw
+    camera_info_topic: /mira/sensors/camera/front/camera_info
     camera_frame: front_camera_depth_optical
-    depth_topic: /vision/depth
+    depth_topic: /mira/sensors/camera/front/depth/image_raw
     depth_max_skew: 0.01
     gazebo_boxes:
       classes:

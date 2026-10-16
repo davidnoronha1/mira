@@ -1,7 +1,7 @@
 /**:
   ros__parameters:
     cuvslam:
-      odom_topic: /vision/vo_odom
+      odom_topic: /mira/odometry/visual
       odom_frame: vo_odom
       base_frame: base_link
       # Continuous VO goes to Pixhawk; loop-corrected poses use /slam_pose.

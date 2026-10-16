@@ -9,6 +9,7 @@ from sensor_msgs.msg import Imu
 from pymavlink import mavutil
 from tf2_ros import TransformBroadcaster
 from utils.navigation import ENU_TO_NED, FLU_TO_FRD, rot_to_quat_wxyz
+from utils import topics
 
 from mira2_hardware.controller_plugin import ControllerPlugin
 from mira2_hardware.path_history import PathHistory
@@ -48,25 +49,25 @@ class NavigationFeedback(ControllerPlugin):
         self.ekf_path = PathHistory(self.options.path_max_points, PATH_STEP)
         self.gt_path = PathHistory(self.options.path_max_points, PATH_STEP)
         self.last_paths = self.last_pressure_request = 0.0
-        self.pub_pose = self.create_publisher(PoseStamped, '/vision/ekf_pose', 10)
+        self.pub_pose = self.create_publisher(PoseStamped, topics.POSE, 10)
         # Attitude and depth even while the EKF has no horizontal position (x, y
         # are NaN): optical flow needs them to produce the velocity that gives
         # the EKF its first horizontal estimate.
-        self.pub_attitude = self.create_publisher(PoseStamped, '/vision/ekf_attitude', 10)
+        self.pub_attitude = self.create_publisher(PoseStamped, topics.ATTITUDE, 10)
         # Raw depth-sensor height (point.z = -depth, m), zeroed with ArduSub's own
         # surface calibration (BARO1_GND_PRESS). Independent of the EKF.
-        self.pub_pressure = self.create_publisher(PointStamped, '/vision/pressure_depth', 10)
+        self.pub_pressure = self.create_publisher(PointStamped, topics.DEPTH, 10)
         # Raw autopilot IMU (SCALED_IMU, base_link FLU), without the EKF's bias
         # estimate: optical flow removes rotation with it. Derotating with EKF
         # attitude changes instead closed a loop (a wrong EKF gyro bias became
         # fake flow velocity, which the EKF fused) that diverged at boot.
-        self.pub_imu = self.create_publisher(Imu, '/mira/state/imu', 50)
+        self.pub_imu = self.create_publisher(Imu, topics.STATE_IMU, 50)
         self.ground_pressure = None
-        self.pub_ekf_path = self.create_publisher(Path, '/vision/ekf_path', 1)
-        self.pub_gt_path = self.create_publisher(Path, '/vision/gt_path', 1) if self.options.simulation else None
+        self.pub_ekf_path = self.create_publisher(Path, topics.PATH, 1)
+        self.pub_gt_path = self.create_publisher(Path, topics.GROUND_TRUTH_PATH, 1) if self.options.simulation else None
         self.tf = TransformBroadcaster(controller)
         if self.visualize and self.options.simulation:
-            self.create_subscription(Odometry, '/vision/gt_odom', self._on_gt, 1)
+            self.create_subscription(Odometry, topics.GROUND_TRUTH_ODOM, self._on_gt, 1)
 
     def on_connect(self):
         self.latest_pose = None

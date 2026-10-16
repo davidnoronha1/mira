@@ -1,7 +1,8 @@
 # Downward-camera optical flow on the vehicle (navigation.launch.py starts this
 # node when pose_source=optical_flow or slam_optical_flow=true). Velocity only:
-# the hardware external_navigation plugin forwards it to the autopilot EKF. The simulator replaces the
-# camera topics and loads its scene file on top (mira_sim config/scenes/).
+# the hardware external_navigation plugin forwards it to the autopilot EKF. The simulator bridge
+# publishes the same camera topics; it overrides the optical frame and loads its scene file on top
+# (mira_sim config/scenes/).
 #
 # Autopilot side: mira2_hardware/config/ardusub/external_nav.parm (EKF source
 # set 2 is the flow set). pixhawk_controller streams the raw IMU this node derotates

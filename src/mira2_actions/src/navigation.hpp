@@ -10,6 +10,7 @@
 #include <cmath>
 #include <algorithm>
 #include <optional>
+#include <utils/topics.hpp>
 
 // All missions share Pixhawk's GUIDED position/velocity/attitude controllers.
 // This leaf only resolves a target and observes completion; it never sends effort.
@@ -18,10 +19,10 @@ class NavigateToPose : public BT::StatefulActionNode {
   NavigateToPose(const std::string& name, const BT::NodeConfiguration& config,
                  rclcpp::Node::SharedPtr node, std::shared_ptr<tf2_ros::Buffer> tf)
       : BT::StatefulActionNode(name, config), node_(node), tf_(std::move(tf)) {
-    goals_ = node_->create_publisher<geometry_msgs::msg::PoseStamped>("goal_pose", 1);
-    hold_ = node_->create_client<std_srvs::srv::Trigger>("mira/guidance/hold");
+    goals_ = node_->create_publisher<geometry_msgs::msg::PoseStamped>(utils::topics::GOAL, 1);
+    hold_ = node_->create_client<std_srvs::srv::Trigger>(utils::topics::HOLD);
     feedback_ = node_->create_subscription<geometry_msgs::msg::PoseStamped>(
-        "vision/ekf_pose", 1, [this](geometry_msgs::msg::PoseStamped::SharedPtr p) { if (p->header.frame_id == "odom") pose_ = *p; });
+        utils::topics::POSE, 1, [this](geometry_msgs::msg::PoseStamped::SharedPtr p) { if (p->header.frame_id == "odom") pose_ = *p; });
   }
 
   static BT::PortsList providedPorts() {

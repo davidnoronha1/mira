@@ -7,6 +7,7 @@
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/joy.hpp>
 #include <utils/parameters.hpp>
+#include <utils/topics.hpp>
 
 namespace {
 
@@ -47,7 +48,7 @@ public:
     }
 
     publisher_ = create_publisher<custom_msgs::msg::CommandsNormalized>(
-        "mira/command", 1);
+        utils::topics::COMMAND, 1);
     subscription_ = create_subscription<sensor_msgs::msg::Joy>(
         "joy", 1, [this](sensor_msgs::msg::Joy::SharedPtr joy) { callback(*joy); });
     command_.mode = "STABILIZE";

@@ -3,8 +3,8 @@
     plugins: [rc, navigation, guided, telemetry, external_navigation, obstacle_distance]
     # All sensor forwarding shares pixhawk_address and the controller receive loop.
     external_navigation:
-      odom_topic: /vision/vo_odom
-      gt_topic: /vision/gt_odom
+      odom_topic: /mira/odometry/visual
+      gt_topic: /mira/sim/ground_truth/odom
       # Set origin_configured + set_origin with surveyed values on hardware.
       origin_configured: false
     obstacle_distance:

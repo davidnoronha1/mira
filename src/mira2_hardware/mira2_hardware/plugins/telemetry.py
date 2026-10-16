@@ -2,6 +2,7 @@
 import utils.units as uunits
 from custom_msgs.msg import Telemetry
 from pymavlink import mavutil
+from utils import topics
 
 from mira2_hardware.controller_plugin import ControllerPlugin
 from mira2_hardware.mavlink_io import populate_scaled_imu
@@ -21,7 +22,7 @@ class TelemetryPublisher(ControllerPlugin):
     def __init__(self, controller):
         super().__init__(controller)
         self.last_telem = 0.0
-        self.telemetry_pub = self.create_publisher(Telemetry, 'telemetry', 10)
+        self.telemetry_pub = self.create_publisher(Telemetry, topics.TELEMETRY, 10)
 
     def tick(self, now):
         if now - self.last_telem >= 0.1:

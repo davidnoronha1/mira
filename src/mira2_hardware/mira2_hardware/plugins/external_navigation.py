@@ -12,6 +12,7 @@ from pymavlink import mavutil
 from utils.navigation import ENU_TO_NED, FLU_TO_FRD, quat_to_rot, rot_to_quat_wxyz, rot_z, wrap_pi
 from utils.parameters import declare_config, Setting, choices
 from utils import time as utime
+from utils import topics
 from mira2_hardware.controller_plugin import ControllerPlugin
 
 SRC_TO_NED = {'gt': ENU_TO_NED, 'vo': FLU_TO_FRD}
@@ -50,7 +51,7 @@ class ExternalNavigation(ControllerPlugin):
             # EKF3 source set selected at runtime (MAV_CMD_SET_EKF_SOURCE_SET, not
             # saved to storage); 0 leaves the autopilot's choice alone.
             'ekf_source_set': Setting(0, choices(0, 1, 2, 3)),
-            'odom_topic': '/vision/vo_odom', 'gt_topic': '/vision/gt_odom',
+            'odom_topic': topics.VISUAL_ODOMETRY, 'gt_topic': topics.GROUND_TRUTH_ODOM,
             'start_x': 0.0, 'start_y': 0.0, 'no_align': False,
             'set_origin': simulation, 'origin_configured': False,
             'origin_lat': 63.52 if simulation else 0.0,

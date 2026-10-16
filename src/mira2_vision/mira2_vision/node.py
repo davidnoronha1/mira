@@ -19,6 +19,7 @@ from sensor_msgs.msg import Image, CameraInfo
 from std_msgs.msg import Header
 from diagnostic_msgs.msg import DiagnosticArray, DiagnosticStatus, KeyValue
 from utils.image_source import build_image_source
+from utils import topics
 from mira2_vision.depth import DepthFrame, decode_depth, matches
 from mira2_vision.plugin import Frame, load_plugin, order_plugins
 
@@ -36,9 +37,9 @@ class MiraVisionNode(Node):
 
     def _load_settings(self):
         settings = declare_config(self, {
-            'image_source': 'ros2:///mira/sensors/camera/front/image_raw',
-            'camera_info_topic': '/mira/sensors/camera/front/camera_info',
-            'raw_image_topic': '/mira/sensors/camera/front/image_raw',
+            'image_source': f'ros2://{topics.FRONT_IMAGE}',
+            'camera_info_topic': topics.FRONT_CAMERA_INFO,
+            'raw_image_topic': topics.FRONT_IMAGE,
             'camera_frame': 'camera_front_optical', 'calibration_file': '',
             'simulation': False, 'depth_camera_info_topic': '', 'depth_topic': '',
             'depth_max_skew': Setting(0.1, positive),

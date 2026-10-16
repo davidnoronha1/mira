@@ -6,6 +6,7 @@ from sensor_msgs.msg import LaserScan
 from rclpy.qos import qos_profile_sensor_data
 from utils.parameters import Setting, declare_config, positive
 from utils import time as utime
+from utils import topics
 
 from mira2_hardware.controller_plugin import ControllerPlugin
 
@@ -14,7 +15,7 @@ class ObstacleDistance(ControllerPlugin):
     def __init__(self, controller):
         super().__init__(controller)
         self.config = declare_config(controller, {
-            'topic': '/mira/perception/front/obstacles',
+            'topic': topics.FRONT_OBSTACLES,
             'max_age': Setting(0.5, positive),
         }, namespace='obstacle_distance')
         self.create_subscription(LaserScan, self.config['topic'], self.on_scan, qos_profile_sensor_data)

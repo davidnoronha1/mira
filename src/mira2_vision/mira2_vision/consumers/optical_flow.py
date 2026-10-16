@@ -7,9 +7,9 @@ zoom caused by a depth change with the depth sensor. Rotation from EKF attitude
 changes is NOT used: an EKF gyro-bias error then shows up as flow velocity,
 which the EKF fuses into a larger error - at boot this loop diverged on about
 two of three starts (tilt 20 deg, velocity 30 m/s while stationary). The EKF
-attitude is used only for the absolute camera tilt. Attitude comes from /vision/ekf_attitude, which the goal bridge
+attitude is used only for the absolute camera tilt. Attitude comes from /mira/state/attitude, which the hardware navigation plugin
 publishes even before the EKF has any horizontal position. Height comes from
-the raw depth sensor (/vision/pressure_depth, low-pass filtered), not the EKF:
+the raw depth sensor (/mira/state/depth, low-pass filtered), not the EKF:
 in a recorded flow-only run the EKF depth scattered 0.27 m (0.67 m worst) and
 made the flow 0.23 m/s RMS wrong, versus 0.03 m/s with true height. The
 remaining translational flow of each feature is scaled to
@@ -56,6 +56,7 @@ from scipy.spatial.transform import Rotation, Slerp
 from tf2_ros import Buffer, TransformListener
 
 from mira2_vision.plugin import Plugin
+from utils import topics
 from utils.parameters import choices, declare_config, Setting, nonnegative, positive
 
 MIN_TRACKS = 25         # fewer usable floor features: no measurement this frame
@@ -87,9 +88,9 @@ class OpticalFlow(Plugin):
         self.args = declare_config(node, {
             # Per pool (see module doc); configs/scene files set it, 0 fails startup.
             'floor_depth': Setting(0.0, nonnegative),
-            'topic': '/vision/flow_velocity',
-            'attitude_topic': '/vision/ekf_attitude',
-            'pressure_topic': '/vision/pressure_depth',
+            'topic': topics.FLOW_VELOCITY,
+            'attitude_topic': topics.ATTITUDE,
+            'pressure_topic': topics.DEPTH,
             'height_source': Setting('pressure', choices('pressure', 'ekf')),
             'base_frame': 'base_link',
             'scale': Setting(0.5, positive),  # image downscale for tracking
@@ -99,10 +100,10 @@ class OpticalFlow(Plugin):
             # Floor-line heading, SCENE-SPECIFIC (see module doc). Off unless the
             # pool is known to have straight floor lines along its axes.
             'floor_heading': False,
-            'heading_topic': '/mira/perception/bottom/floor_heading',
+            'heading_topic': topics.FLOOR_HEADING,
             # Raw autopilot IMU (sensor_msgs/Imu, base_link FLU) for derotation.
             # '' falls back to EKF attitude differences (see module doc).
-            'gyro_topic': '/mira/state/imu',
+            'gyro_topic': topics.STATE_IMU,
             # SCENE-SPECIFIC: direction of the pool's lines in odom (ENU, deg
             # from +x, mod line_symmetry). Surveyed per pool, or
             # line_heading_from_start: the first measurement defines it

@@ -8,6 +8,7 @@ from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription, Opaq
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch_ros.substitutions import FindPackageShare
+from utils import topics
 
 
 def include_navigation(context):
@@ -24,8 +25,8 @@ def include_navigation(context):
 
 
 DEFAULTS = {
-    'rgb_topic': '/vision/image', 'depth_topic': '/vision/depth',
-    'camera_info_topic': '/vision/camera_info', 'imu_topic': '/vision/imu',
+    'rgb_topic': topics.FRONT_IMAGE, 'depth_topic': topics.FRONT_DEPTH,
+    'camera_info_topic': topics.FRONT_CAMERA_INFO, 'imu_topic': topics.IMU,
     'pose_source': 'slam', 'slam_algorithm': 'cuvslam',
     'slam_optical_flow': 'false', 'slam_imu': 'false',
     'flow_scene_config': '', 'optical_flow_floor_depth': '',

@@ -195,8 +195,8 @@ def main():
     # ── ROS 2 setup ───────────────────────────────────────────────────────
     rclpy.init()
     ros_node = Node('valve_3d_bbox_node')
-    det_pub  = ros_node.create_publisher(ValveDetection, 'mira/perception/front/valve', 10)
-    pose_pub = ros_node.create_publisher(PoseStamped,    'mira/perception/front/valve_pose',      10)
+    det_pub  = ros_node.create_publisher(ValveDetection, '/mira/perception/front/valve', 10)
+    pose_pub = ros_node.create_publisher(PoseStamped,    '/mira/perception/front/valve_pose',      10)
 
     state = SharedState()
     t     = threading.Thread(target=zed_worker, args=(args, state), daemon=True)

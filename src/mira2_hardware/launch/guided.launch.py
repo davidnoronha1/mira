@@ -4,6 +4,7 @@ from launch.actions import DeclareLaunchArgument, OpaqueFunction
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
+from utils import topics
 
 
 def guided(context):
@@ -25,8 +26,8 @@ def guided(context):
         'external_navigation.start_x': float(value('start_x')) if simulation else 0.0,
         'external_navigation.start_y': float(value('start_y')) if simulation else 0.0,
         'external_navigation.ekf_source_set': 2 if source == 'optical_flow' else 1,
-        'external_navigation.flow_topic': '/vision/flow_velocity' if flow else '',
-        'external_navigation.heading_topic': '/mira/perception/bottom/floor_heading' if source == 'optical_flow' else '',
+        'external_navigation.flow_topic': topics.FLOW_VELOCITY if flow else '',
+        'external_navigation.heading_topic': topics.FLOOR_HEADING if source == 'optical_flow' else '',
     }
     return [Node(package='mira2_hardware', executable='pixhawk_controller',
                         namespace='mira', output='screen', parameters=[PathJoinSubstitution(

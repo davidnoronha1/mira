@@ -4,6 +4,7 @@
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 #include <tf2_ros/buffer.h>
 #include <algorithm>
+#include <utils/topics.hpp>
 
 // Survey a configurable circle about the actual starting EKF pose. radius=0
 // rotates in place. Viewpoints are passed through without stopping: the next
@@ -16,10 +17,10 @@ class ScanArea : public BT::StatefulActionNode {
   ScanArea(const std::string& name, const BT::NodeConfiguration& config,
            rclcpp::Node::SharedPtr node, std::shared_ptr<tf2_ros::Buffer> tf)
       : BT::StatefulActionNode(name, config), node_(node), tf_(std::move(tf)) {
-    goals_ = node_->create_publisher<geometry_msgs::msg::PoseStamped>("goal_pose", 1);
-    hold_ = node_->create_client<std_srvs::srv::Trigger>("mira/guidance/hold");
+    goals_ = node_->create_publisher<geometry_msgs::msg::PoseStamped>(utils::topics::GOAL, 1);
+    hold_ = node_->create_client<std_srvs::srv::Trigger>(utils::topics::HOLD);
     feedback_ = node_->create_subscription<geometry_msgs::msg::PoseStamped>(
-        "vision/ekf_pose", 1, [this](geometry_msgs::msg::PoseStamped::SharedPtr p) {
+        utils::topics::POSE, 1, [this](geometry_msgs::msg::PoseStamped::SharedPtr p) {
           if (p->header.frame_id == "odom") pose_ = *p;
         });
   }
@@ -32,7 +33,7 @@ class ScanArea : public BT::StatefulActionNode {
             BT::InputPort<double>("dwell", .3, "Seconds of stable sensing per viewpoint"),
             BT::InputPort<double>("timeout", 150.0, "Maximum seconds"),
             BT::InputPort<std::string>("face_class", "", "Optional detected class to face after returning to spawn"),
-            BT::InputPort<std::string>("objects_topic", "mira/perception/front/objects", "Depth detections")};
+            BT::InputPort<std::string>("objects_topic", utils::topics::FRONT_OBJECTS, "Depth detections")};
   }
   BT::NodeStatus onStart() override {
     start_ = node_->now();

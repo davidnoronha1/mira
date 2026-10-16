@@ -7,12 +7,13 @@ import rclpy
 
 from rclpy.node import Node
 from std_srvs.srv import SetBool
+from utils import topics
 
 
 class KillSwitchPublisher(Node):
     SERIAL_DEVICE = "/dev/Arduino"
     BAUDRATE = 9600
-    EMERGENCY_SERVICE = "/mira/emergency_stop"
+    EMERGENCY_SERVICE = topics.EMERGENCY_STOP
 
     def __init__(self):
         super().__init__("kill_switch_pub_node")

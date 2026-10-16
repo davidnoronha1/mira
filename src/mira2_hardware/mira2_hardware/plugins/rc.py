@@ -6,6 +6,7 @@ from custom_msgs.msg import CommandsNormalized
 from custom_msgs.srv import ChangeMode
 from std_srvs.srv import SetBool
 from utils.control import COMMAND_FIELDS
+from utils import topics
 
 from mira2_hardware.config import load_command_calibration
 from mira2_hardware.controller_plugin import ControllerPlugin
@@ -14,7 +15,7 @@ from mira2_hardware.controller_plugin import ControllerPlugin
 class RCControl(ControllerPlugin):
     GUIDED_MODE = 4
     COMMAND_TIMEOUT_SECONDS = 0.5
-    COMMAND_INPUT_TOPIC = 'command'
+    COMMAND_INPUT_TOPIC = topics.COMMAND
     RC_CHANNEL_FIELDS = ('pitch', 'roll', 'thrust', 'yaw', 'forward', 'lateral')
     UNUSED_RC_CHANNEL = 65535
 
@@ -26,8 +27,8 @@ class RCControl(ControllerPlugin):
         self.last_command = None
         self.update_channels()
         self.create_subscription(CommandsNormalized, self.COMMAND_INPUT_TOPIC, self.command_callback, 1)
-        self.create_service(SetBool, 'arm', self.set_arm)
-        self.create_service(ChangeMode, 'change_mode', self.set_mode)
+        self.create_service(SetBool, topics.ARM, self.set_arm)
+        self.create_service(ChangeMode, topics.CHANGE_MODE, self.set_mode)
 
     def on_connect(self):
         self.last_command = None

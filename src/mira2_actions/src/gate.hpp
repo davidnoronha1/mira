@@ -5,13 +5,14 @@
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 #include <tf2_ros/buffer.h>
 #include <algorithm>
+#include <utils/topics.hpp>
 
 // Gate-specific visual approach. Fresh depth detections are averaged into the
 // mapped gate while moving; geometry is latched before close-range occlusion.
 // The vehicle heads for a staging point on the gate axis, so an obstacle detour
 // (e.g. around a flare in front of the gate) leaves room to realign, then crosses
 // as soon as it is aligned. The crossing itself is a straight line on Pixhawk's
-// position controller (goal_pose_direct): obstacle avoidance would otherwise
+// position controller (goal_direct): obstacle avoidance would otherwise
 // route around a post of the narrow, visually verified aperture. Pixhawk owns OA
 // for the approach and all motion control. No simulator coordinates enter this
 // routine.
@@ -20,18 +21,18 @@ class TraverseGate : public BT::StatefulActionNode {
   TraverseGate(const std::string& name, const BT::NodeConfiguration& config,
                rclcpp::Node::SharedPtr node, std::shared_ptr<tf2_ros::Buffer> tf)
       : BT::StatefulActionNode(name, config), node_(node), tf_(std::move(tf)) {
-    goals_ = node_->create_publisher<geometry_msgs::msg::PoseStamped>("goal_pose", 1);
-    direct_ = node_->create_publisher<geometry_msgs::msg::PoseStamped>("goal_pose_direct", 1);
-    hold_ = node_->create_client<std_srvs::srv::Trigger>("mira/guidance/hold");
+    goals_ = node_->create_publisher<geometry_msgs::msg::PoseStamped>(utils::topics::GOAL, 1);
+    direct_ = node_->create_publisher<geometry_msgs::msg::PoseStamped>(utils::topics::GOAL_DIRECT, 1);
+    hold_ = node_->create_client<std_srvs::srv::Trigger>(utils::topics::HOLD);
     feedback_ = node_->create_subscription<geometry_msgs::msg::PoseStamped>(
-        "vision/ekf_pose", 1, [this](geometry_msgs::msg::PoseStamped::SharedPtr p) {
+        utils::topics::POSE, 1, [this](geometry_msgs::msg::PoseStamped::SharedPtr p) {
           if (p->header.frame_id == "odom") pose_ = *p;
         });
   }
   static BT::PortsList providedPorts() {
     return {BT::InputPort<vision_msgs::msg::Detection2D>("object"),
             BT::InputPort<std::string>("class_id", "gate", "Target class"),
-            BT::InputPort<std::string>("objects_topic", "mira/perception/front/objects", "Depth detections"),
+            BT::InputPort<std::string>("objects_topic", utils::topics::FRONT_OBJECTS, "Depth detections"),
             BT::InputPort<double>("through_distance", 1.5, "Distance beyond the gate"),
             BT::InputPort<double>("stage_distance", 2.0, "Alignment point before the gate"),
             BT::InputPort<double>("timeout", 90.0, "Maximum seconds")};

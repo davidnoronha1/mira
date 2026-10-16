@@ -6,6 +6,7 @@
 #include <vision_msgs/msg/detection2_d_array.hpp>
 #include <cmath>
 #include <optional>
+#include <utils/topics.hpp>
 
 // Seconds of continuous EKF silence before a motion node gives up and holds.
 // Shorter MAVLink delivery stalls only pause decisions. pixhawk_controller's own 1 s
@@ -37,7 +38,7 @@ class SelectObject : public BT::StatefulActionNode {
 
   static BT::PortsList providedPorts() {
     return {BT::InputPort<std::string>("class_id"),
-            BT::InputPort<std::string>("objects_topic", "mira/perception/front/objects", "Depth-enriched YOLO detections"),
+            BT::InputPort<std::string>("objects_topic", utils::topics::FRONT_OBJECTS, "Depth-enriched YOLO detections"),
             BT::OutputPort<vision_msgs::msg::Detection2D>("object")};
   }
 

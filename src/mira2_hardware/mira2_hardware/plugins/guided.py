@@ -9,6 +9,7 @@ from tf2_ros import Buffer, TransformListener
 import tf2_geometry_msgs  # Registers PoseStamped transforms.
 from pymavlink import mavutil
 from utils.navigation import quat_to_rot
+from utils import topics
 
 from mira2_hardware.controller_plugin import ControllerPlugin
 
@@ -33,10 +34,10 @@ class GuidedControl(ControllerPlugin):
         self.visualize = self.options.visualize
         self.tf_buffer = Buffer()
         self.tf_listener = TransformListener(self.tf_buffer, controller)
-        self.pub_goal = self.create_publisher(PoseStamped, '/vision/goal', 10)
-        self.create_subscription(PoseStamped, '/goal_pose', self._on_goal, 10)
-        self.create_subscription(PoseStamped, '/goal_pose_direct', self._on_direct, 10)
-        self.create_service(Trigger, '/mira/guidance/hold', self._hold)
+        self.pub_goal = self.create_publisher(PoseStamped, topics.ACTIVE_GOAL, 10)
+        self.create_subscription(PoseStamped, topics.GOAL, self._on_goal, 10)
+        self.create_subscription(PoseStamped, topics.GOAL_DIRECT, self._on_direct, 10)
+        self.create_service(Trigger, topics.HOLD, self._hold)
         self.goal = self.direct = None
         self.goal_reached = self.allow_arm = False
         self.travel_sends = self.heading_sends = 0

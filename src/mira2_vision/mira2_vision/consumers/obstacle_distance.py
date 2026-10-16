@@ -5,6 +5,7 @@ import numpy as np
 from rclpy.time import Time
 from sensor_msgs.msg import LaserScan
 from tf2_ros import Buffer, TransformListener
+from utils import topics
 from utils.navigation import quat_to_rot
 from utils.parameters import declare_config, Setting, positive
 from mira2_vision.plugin import Plugin
@@ -18,7 +19,7 @@ class ObstacleDistance(Plugin):
         if not self.settings['depth_topic']:
             raise ValueError('obstacle_distance requires a depth_topic')
         self.args = SimpleNamespace(**declare_config(node, {
-            'topic': '/mira/perception/front/obstacles',
+            'topic': topics.FRONT_OBSTACLES,
             'band': Setting(0.25, positive), 'min_range': Setting(0.2, positive),
             'max_range': Setting(8.0, positive),
         }, namespace='obstacle_distance'))

@@ -9,6 +9,7 @@ from custom_msgs.msg import CommandsNormalized, Telemetry
 from std_msgs.msg import String
 import math
 import time
+from utils import topics
 from utils.control import PIDController, publish_mission_command
 from utils.parameters import dataclass_config, positive
 import numpy as np
@@ -67,7 +68,7 @@ class BucketControls(Node):
 
         # ROS
         self.cmd_pub = self.create_publisher(
-            CommandsNormalized, "mira/command", 10
+            CommandsNormalized, topics.COMMAND, 10
         )
 
         qos_profile = QoSProfile(
@@ -78,14 +79,14 @@ class BucketControls(Node):
 
         self.create_subscription(
             PoseStamped,
-            "mira/perception/bottom/target_pose",
+            topics.BOTTOM_TARGET_POSE,
             self.pose_callback,
             qos_profile
         )
 
         self.create_subscription(
             Telemetry,
-            "mira/telemetry",
+            topics.TELEMETRY,
             self.telem_callback,
             10
         )
@@ -93,7 +94,7 @@ class BucketControls(Node):
         #add one more subscription according to name in perception node for colour of bucket
         self.create_subscription(
             String,
-            "mira/perception/bottom/target_color",
+            topics.BOTTOM_TARGET_COLOR,
             self.buck_callback,
             10
         )

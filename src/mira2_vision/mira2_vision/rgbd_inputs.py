@@ -5,6 +5,7 @@ from rclpy.qos import qos_profile_sensor_data
 from message_filters import Subscriber, ApproximateTimeSynchronizer
 from cv_bridge import CvBridge
 from sensor_msgs.msg import Image, CameraInfo
+from utils import topics
 from utils.parameters import Setting, declare_config, positive
 from utils import time as utime
 
@@ -13,9 +14,9 @@ class RGBDInputs(Node):
     def __init__(self, name):
         super().__init__(name)
         self.config = declare_config(self, {
-            'rgb_topic': '/mira/sensors/camera/front/image_raw',
-            'depth_topic': '/mira/sensors/camera/front/depth/image_raw',
-            'camera_info_topic': '/mira/sensors/camera/front/camera_info',
+            'rgb_topic': topics.FRONT_IMAGE,
+            'depth_topic': topics.FRONT_DEPTH,
+            'camera_info_topic': topics.FRONT_CAMERA_INFO,
             'max_depth': Setting(8.0, lambda v: positive(v) and v < 65.535),
             'max_skew': Setting(0.01, positive), 'max_age': Setting(0.5, positive),
         }, namespace='rgbd_inputs')

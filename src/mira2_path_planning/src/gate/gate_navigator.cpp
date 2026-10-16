@@ -7,6 +7,7 @@
 #include <utils/control.hpp>
 #include <cmath>
 #include <memory>
+#include <utils/topics.hpp>
 
 class GateNavigator {
 public:
@@ -22,13 +23,13 @@ public:
         initializePIDControllers();
 
         // Setup communications
-        effort_publisher_ = node_->create_publisher<custom_msgs::msg::CommandsNormalized>("mira/command", 1);
+        effort_publisher_ = node_->create_publisher<custom_msgs::msg::CommandsNormalized>(utils::topics::COMMAND, 1);
         telemetry_sub_ = node_->create_subscription<custom_msgs::msg::Telemetry>(
-            "mira/telemetry", 1, std::bind(&GateNavigator::telemetryCallback, this, std::placeholders::_1));
+            utils::topics::TELEMETRY, 1, std::bind(&GateNavigator::telemetryCallback, this, std::placeholders::_1));
         detection_sub_ = node_->create_subscription<vision_msgs::msg::Detection2DArray>(
-            "mira/perception/front/objects", 1, std::bind(&GateNavigator::detectionCallback, this, std::placeholders::_1));
+            utils::topics::FRONT_OBJECTS, 1, std::bind(&GateNavigator::detectionCallback, this, std::placeholders::_1));
         pose_sub_ = node_->create_subscription<geometry_msgs::msg::PoseStamped>(
-            "gate_pose", 1, std::bind(&GateNavigator::poseCallback, this, std::placeholders::_1));
+            utils::topics::FRONT_GATE_POSE, 1, std::bind(&GateNavigator::poseCallback, this, std::placeholders::_1));
 
         // Timer for main loop
         timer_ = node_->create_wall_timer(

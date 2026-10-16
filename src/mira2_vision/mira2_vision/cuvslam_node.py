@@ -4,6 +4,7 @@ from types import SimpleNamespace
 import numpy as np
 import rclpy
 from cv_bridge import CvBridgeError
+from utils import topics
 from utils.parameters import Setting, declare_config, choices, positive
 
 from mira2_vision.rgbd_inputs import RGBDInputs
@@ -15,7 +16,7 @@ class CuVslamNode(RGBDInputs):
     def __init__(self):
         super().__init__('cuvslam_odometry')
         config = declare_config(self, {
-            'odom_topic': '/vision/vo_odom', 'odom_frame': 'vo_odom',
+            'odom_topic': topics.VISUAL_ODOMETRY, 'odom_frame': 'vo_odom',
             'base_frame': 'base_link', 'enable_slam': True,
             'tracking_mode': Setting('rgbd', choices('rgbd', 'multisensor')),
             'imu_topic': '', 'imu_frame': '',
