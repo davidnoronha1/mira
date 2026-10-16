@@ -197,11 +197,10 @@ The source CSV also lists vendored aircraft/gimbal/parachute/zoom/GStreamer topi
 
 ## Diagnostic and replay topics
 
-Diagnostic tools mostly subscribe to the guided topics already listed. `record_gate_slam.py` additionally creates/uses these configurable estimator and observer paths:
+Diagnostic tools mostly subscribe to the guided topics already listed. `record_gate_slam.py` records the chase camera (`/mira/sim/camera/chase/image_raw`) for its third-person panel and additionally uses these replay estimator paths:
 
 | Topic | Type | Purpose |
 | --- | --- | --- |
-| `/mira/sim/demo/third_person` | `sensor_msgs/Image` | Spawned observer camera → temporary bridge → recorder |
 | `/mira/replay/cuvslam` | `nav_msgs/Odometry` | Replay estimator → recorder |
 | `/mira/replay/cuvslam/slam_pose` | `geometry_msgs/PoseStamped` | Replay estimator native SLAM output when enabled |
 | `/mira/replay/cuvslam_rgbd` | `nav_msgs/Odometry` | Optional RGB-D-only comparison estimator → recorder |
