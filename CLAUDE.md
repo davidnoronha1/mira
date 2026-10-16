@@ -82,12 +82,22 @@ Perception (mira2_vision plugins) ───────────┘
 
 ### Key Topics / Interfaces
 
-- `/mira/control/{autonomy,teleop,tuning}/command` — Stamped normalized body-FLU effort (`custom_msgs/CommandsNormalized`)
-- `/mira/control/command` — Selected normalized command, published by the master for recording
+Every Mira-owned topic and service is `/mira/<domain>/<subject>[/<name>]`, with
+domains `sensors`, `perception`, `odometry`, `state`, `guidance`, `control`,
+`safety`, `sim` and `replay`. Names live in `utils.topics` (Python) and
+`utils/topics.hpp` (C++); use those constants instead of string literals, and
+keep the two files in sync. The simulator bridge publishes the same
+`/mira/sensors/...` names as the hardware drivers. `make check-topics` flags
+literals outside the schema. Full inventory: `misc/docs/system_topics.md`.
+
+- `/mira/control/command` — Stamped normalized body-FLU effort (`custom_msgs/CommandsNormalized`) into the RC plugin
 - `/mira/state/telemetry` — Pixhawk state (`custom_msgs/Telemetry`); depth feedback is external pressure in hPa
+- `/mira/state/{pose,attitude,depth,imu}` — Autopilot EKF pose, attitude, pressure depth and IMU
+- `/mira/guidance/{goal,goal_direct}` — GUIDED goals (`geometry_msgs/PoseStamped`); `/mira/guidance/hold` service
+- `/mira/odometry/{visual,flow_velocity,floor_heading}` — Estimates forwarded to the autopilot EKF
 - `/mira/perception/front/objects` — YOLO (`vision_msgs/Detection2DArray`), normalized bounding boxes
 - `/mira/perception/bottom/markers` — Marker ID and optical-frame pose (`custom_msgs/ArucoPose`)
-- `/mira/safety/kill` — Emergency signal (`custom_msgs/EmergencyKill`)
+- `/mira/safety/emergency_stop` — Emergency stop service (`std_srvs/SetBool`)
 
 ### Behavior Tree (mira2_actions)
 

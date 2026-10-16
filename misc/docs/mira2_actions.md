@@ -10,7 +10,7 @@ The single demo is `config/demo.xml`:
 ```
 
 `SelectObject` selects the highest-confidence fresh, localized YOLO bounding box
-of the requested class from `mira/perception/front/objects`. It passes the actual
+of the requested class from `/mira/perception/front/objects`. It passes the actual
 `vision_msgs/Detection2D` through the blackboard: box, class, confidence, camera
 frame, acquisition stamp and the associated metric pose. It assumes the object
 is visible and allows one second to receive a sample; it does not search or move.

@@ -66,14 +66,14 @@ ros2 launch mira2_vision navigation.launch.py slam_algorithm:=rtabmap
 ```
 
 The native Python estimator publishes continuous body-FLU `nav_msgs/Odometry`
-on `/vision/vo_odom`, with base-to-camera extrinsics from TF. Pixhawk's EKF owns
+on `/mira/odometry/visual`, with base-to-camera extrinsics from TF. Pixhawk's EKF owns
 `odom -> base_link`; neither backend publishes navigation TF. Tracking failures,
 nonfinite estimates and fewer than 15 observations produce covariance 9999 and
 clear velocity history. Duplicate or backward acquisition stamps are discarded;
 a simulator clock reset requires restarting the estimator to establish a new origin.
 
 Native mapping runs alongside VO. Loop-corrected `PoseStamped` measurements use
-`/vision/vo_odom/slam_pose` in `vo_odom_map`, so map corrections never jump the
+`/mira/odometry/visual/slam_pose` in `vo_odom_map`, so map corrections never jump the
 EKF input. The tracker also exposes native map saving and optimized pose history
 through NVIDIA's API for offline reconstruction. The restored wrapper retains
 camera extrinsics for the existing replay renderer, and replays may request
@@ -86,7 +86,7 @@ experimental depth-constrained solver and requires an official cuNLS-enabled
 wheel and rectified pinhole inputs.
 
 Visual-inertial fusion is opt-in and off by default: `slam_imu:=true` sets
-`cuvslam.imu_topic` (`imu_topic`, or `/vision/imu` in simulation; required on
+`cuvslam.imu_topic` (`imu_topic`, or `/mira/sensors/imu` in simulation; required on
 hardware) and forces `multisensor`. IMU extrinsics come from TF (`imu_frame`, or
 the message frame), the rate from the observed stream, and noise from
 `cuvslam.imu_noise.*`. Samples are registered in time order before each frame.

@@ -9,7 +9,7 @@ Three causes, fixed:
 1. Heading drift: floor-line heading. optical_flow projects strong floor edges
    onto the floor with EKF attitude, takes the dominant direction mod 90 deg,
    compares with line_heading (sim 0; vehicle: from start pose) and publishes a
-   corrected heading on /mira/perception/bottom/floor_heading. vision_bridge
+   corrected heading on /mira/odometry/floor_heading. vision_bridge
    sends it as VISION_POSITION_ESTIMATE yaw (EK3_SRC2_YAW 6 in
    ardusub_vision.parm - the real Pixhawk needs this too). Offline 1.8 deg RMS.
 2. Dummy position: that message must carry a position; (0,0) was fused while
@@ -29,8 +29,8 @@ Run 1 (before fix 3) failed after the flare detour left it 0.8 m off-axis and a
 close one-post gate sighting fed the latch - not seen since; watch for it.
 Untested: SLAM+flow mode with gyro derotation; the per-message flow-vs-truth
 comparison in diagnose telemetry looks frame/timing-skewed (EKF path is 2 %).
-Topic naming: guided_master still publishes legacy /vision/ekf_attitude,
-/vision/pressure_depth (and flow on /vision/flow_velocity); candidates to move
+Topic naming: guided_master still publishes legacy /mira/state/attitude,
+/mira/state/depth (and flow on /mira/odometry/flow_velocity); candidates to move
 under /mira/state and /mira/perception.
 
 # Latest: flow-only diagnosis, SLAM+flow demo video (2026-10-15, latest)
@@ -45,7 +45,7 @@ Changes since the section below:
 - Substitution test on recorded flow-only data (util: scratch scripts, not in
   repo): live attitude fine (0.031 vs 0.020 m/s RMS with truth); EKF depth was
   the error (0.27 m scatter, offset differs by mode). Flow height now from raw
-  pressure: guided_master publishes /vision/pressure_depth (SCALED_PRESSURE,
+  pressure: guided_master publishes /mira/state/depth (SCALED_PRESSURE,
   zeroed by BARO1_GND_PRESS), flow low-passes it (0.5 s). Floor 2.32 confirmed
   (raw pressure offset 0.119 m).
 - Flow skipped while |vertical speed| > 0.15 m/s (descent zoom leak caused
@@ -76,11 +76,11 @@ VISION_SOURCE/VO_BACKEND still map over.
 
 Pieces: `consumers/optical_flow.py` (bottom camera, LK + fwd/back check,
 rotation and depth-zoom compensation, per-point floor depth, median,
-TwistWithCovarianceStamped /vision/flow_velocity); separate bottom node from
+TwistWithCovarianceStamped /mira/odometry/flow_velocity); separate bottom node from
 config/optical_flow.yaml. vision_bridge `source: none`, `flow_topic` (sends
 VISION_POSITION_DELTA, vertical from SCALED_PRESSURE rate), `ekf_source_set`
 (runtime MAV_CMD_SET_EKF_SOURCE_SET). guided_master publishes
-/vision/ekf_attitude (attitude + depth, x/y NaN) even without horizontal
+/mira/state/attitude (attitude + depth, x/y NaN) even without horizontal
 position. Sim: bottom camera bridged (/vision/bottom/*), gz_frame_id
 bottom_camera_optical in model.sdf, static TF in bridge.sh, EK3_SRC2_* (no
 POSXY, VELXY ExtNav, baro, yaw 0 = gyro only). utils declare_config treats an
@@ -118,7 +118,7 @@ waypoints, and suggested IMU in odometry. Changes:
   360 deg scan is one steady 30 deg/s turn, ~12 s (was ~45 s pulsed).
 - guided_master: every target carries position AND yaw (no path-facing yaw and
   no separate arrival turn); hold keeps the current heading.
-- guided_master `/goal_pose_direct`: straight-line carrot streamed at 20 Hz as
+- guided_master `/mira/guidance/goal_direct`: straight-line carrot streamed at 20 Hz as
   position+velocity targets (ArduSub posvel controller, bypasses wp_nav and
   so BendyRuler), trapezoidal speed (--direct-speed 0.8, --direct-accel 0.3),
   continues from current speed, carrot capped 1 m ahead of the vehicle.
@@ -129,7 +129,7 @@ waypoints, and suggested IMU in odometry. Changes:
 - objects.hpp `kStaleLimit` 1.5 s: Scan/Gate pause on stale EKF and only fail
   on sustained loss. SITL->MAVProxy delivers EKF with ~0.25 s stalls even
   idle; recorder load pushed one past 0.5 s and aborted a run.
-- IMU: sim bridge now publishes /vision/imu (1 kHz, frame
+- IMU: sim bridge now publishes /mira/sensors/imu (1 kHz, frame
   bluerov2_heavy/base_link/imu_sensor, static TF roll pi in bridge.sh).
   CuVslamOdometry supports `imu_topic`/`imu_frame` (Multisensor). Recorder
   captures IMU and replays with and without it. RESULT: IMU fusion is worse

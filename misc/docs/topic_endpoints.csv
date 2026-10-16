@@ -4,79 +4,79 @@ mira,src/dependencies/camera_driver/src/publishers/ros2_publisher.cpp,42,adverti
 mira,src/dependencies/camera_driver/src/publishers/ros2_publisher.cpp,45,create_publisher,,"topic_ + ""/camera_info""",sensor_msgs::msg::CameraInfo,application; relative/dynamic names require configuration
 mira,src/dependencies/camera_driver/test/ros2_smoke.py,27,create_subscription,main,/camera/image,Image,test/example
 mira,src/dependencies/utils/utils/image_source.py,85,create_subscription,ROS2TopicSource.__init__,topic,Image,application; expression resolved by config/launch
-mira,src/mira2_actions/src/gate.hpp,23,create_publisher,,"""goal_pose""",geometry_msgs::msg::PoseStamped,application; relative/dynamic names require configuration
-mira,src/mira2_actions/src/gate.hpp,24,create_publisher,,"""goal_pose_direct""",geometry_msgs::msg::PoseStamped,application; relative/dynamic names require configuration
-mira,src/mira2_actions/src/gate.hpp,25,create_client,,"""mira/guidance/hold"");",std_srvs::srv::Trigger,application; relative/dynamic names require configuration
-mira,src/mira2_actions/src/gate.hpp,26,create_subscription,,"""vision/ekf_pose""",geometry_msgs::msg::PoseStamped,application; relative/dynamic names require configuration
-mira,src/mira2_actions/src/gate.hpp,57,create_subscription,,"getInput<std::string>(""objects_topic"").value()",vision_msgs::msg::Detection2DArray,application; relative/dynamic names require configuration
-mira,src/mira2_actions/src/navigation.hpp,21,create_publisher,,"""goal_pose""",geometry_msgs::msg::PoseStamped,application; relative/dynamic names require configuration
-mira,src/mira2_actions/src/navigation.hpp,22,create_client,,"""mira/guidance/hold"");",std_srvs::srv::Trigger,application; relative/dynamic names require configuration
-mira,src/mira2_actions/src/navigation.hpp,23,create_subscription,,"""vision/ekf_pose""",geometry_msgs::msg::PoseStamped,application; relative/dynamic names require configuration
-mira,src/mira2_actions/src/objects.hpp,50,create_subscription,,"getInput<std::string>(""objects_topic"").value()",vision_msgs::msg::Detection2DArray,application; relative/dynamic names require configuration
-mira,src/mira2_actions/src/scan.hpp,19,create_publisher,,"""goal_pose""",geometry_msgs::msg::PoseStamped,application; relative/dynamic names require configuration
-mira,src/mira2_actions/src/scan.hpp,20,create_client,,"""mira/guidance/hold"");",std_srvs::srv::Trigger,application; relative/dynamic names require configuration
-mira,src/mira2_actions/src/scan.hpp,21,create_subscription,,"""vision/ekf_pose""",geometry_msgs::msg::PoseStamped,application; relative/dynamic names require configuration
-mira,src/mira2_actions/src/scan.hpp,61,create_subscription,,"getInput<std::string>(""objects_topic"").value()",vision_msgs::msg::Detection2DArray,application; relative/dynamic names require configuration
-mira,src/mira2_control/src/joystick_main.cpp,49,create_publisher,,"""mira/command""",custom_msgs::msg::CommandsNormalized,application; relative/dynamic names require configuration
-mira,src/mira2_control/src/joystick_main.cpp,51,create_subscription,,"""joy""",sensor_msgs::msg::Joy,application; relative/dynamic names require configuration
-mira,src/mira2_hardware/config/guided.yaml,6,configured topic reference,odom_topic,/vision/vo_odom,,application
-mira,src/mira2_hardware/config/guided.yaml,7,configured topic reference,gt_topic,/vision/gt_odom,,application
+mira,src/mira2_actions/src/gate.hpp,24,create_publisher,,/mira/guidance/goal,geometry_msgs::msg::PoseStamped,application; relative/dynamic names require configuration
+mira,src/mira2_actions/src/gate.hpp,25,create_publisher,,/mira/guidance/goal_direct,geometry_msgs::msg::PoseStamped,application; relative/dynamic names require configuration
+mira,src/mira2_actions/src/gate.hpp,26,create_client,,/mira/guidance/hold,std_srvs::srv::Trigger,application; relative/dynamic names require configuration
+mira,src/mira2_actions/src/gate.hpp,27,create_subscription,,/mira/state/pose,geometry_msgs::msg::PoseStamped,application; relative/dynamic names require configuration
+mira,src/mira2_actions/src/gate.hpp,58,create_subscription,,"getInput<std::string>(""objects_topic"").value()",vision_msgs::msg::Detection2DArray,application; relative/dynamic names require configuration
+mira,src/mira2_actions/src/navigation.hpp,22,create_publisher,,/mira/guidance/goal,geometry_msgs::msg::PoseStamped,application; relative/dynamic names require configuration
+mira,src/mira2_actions/src/navigation.hpp,23,create_client,,/mira/guidance/hold,std_srvs::srv::Trigger,application; relative/dynamic names require configuration
+mira,src/mira2_actions/src/navigation.hpp,24,create_subscription,,/mira/state/pose,geometry_msgs::msg::PoseStamped,application; relative/dynamic names require configuration
+mira,src/mira2_actions/src/objects.hpp,51,create_subscription,,"getInput<std::string>(""objects_topic"").value()",vision_msgs::msg::Detection2DArray,application; relative/dynamic names require configuration
+mira,src/mira2_actions/src/scan.hpp,20,create_publisher,,/mira/guidance/goal,geometry_msgs::msg::PoseStamped,application; relative/dynamic names require configuration
+mira,src/mira2_actions/src/scan.hpp,21,create_client,,/mira/guidance/hold,std_srvs::srv::Trigger,application; relative/dynamic names require configuration
+mira,src/mira2_actions/src/scan.hpp,22,create_subscription,,/mira/state/pose,geometry_msgs::msg::PoseStamped,application; relative/dynamic names require configuration
+mira,src/mira2_actions/src/scan.hpp,62,create_subscription,,"getInput<std::string>(""objects_topic"").value()",vision_msgs::msg::Detection2DArray,application; relative/dynamic names require configuration
+mira,src/mira2_control/src/joystick_main.cpp,50,create_publisher,,/mira/control/command,custom_msgs::msg::CommandsNormalized,application; relative/dynamic names require configuration
+mira,src/mira2_control/src/joystick_main.cpp,52,create_subscription,,"""joy""",sensor_msgs::msg::Joy,application; relative/dynamic names require configuration
+mira,src/mira2_hardware/config/guided.yaml,6,configured topic reference,odom_topic,/mira/odometry/visual,,application
+mira,src/mira2_hardware/config/guided.yaml,7,configured topic reference,gt_topic,/mira/sim/ground_truth/odom,,application
 mira,src/mira2_hardware/config/guided.yaml,11,configured topic reference,topic,/mira/perception/front/obstacles,,application
-mira,src/mira2_hardware/mira2_hardware/killswitch.py,20,create_client,KillSwitchPublisher.__init__,self.EMERGENCY_SERVICE,SetBool,application; expression resolved by config/launch
-mira,src/mira2_hardware/mira2_hardware/pixhawk_controller.py,63,create_service,PixhawkController.__init__,emergency_stop,SetBool,application; relative names use node namespace
-mira,src/mira2_hardware/mira2_hardware/plugins/external_navigation.py,76,create_subscription,ExternalNavigation.__init__,topic,Odometry,application; expression resolved by config/launch
-mira,src/mira2_hardware/mira2_hardware/plugins/external_navigation.py,78,create_subscription,ExternalNavigation.__init__,self.args.flow_topic,TwistWithCovarianceStamped,application; expression resolved by config/launch
-mira,src/mira2_hardware/mira2_hardware/plugins/external_navigation.py,80,create_subscription,ExternalNavigation.__init__,self.args.heading_topic,PoseWithCovarianceStamped,application; expression resolved by config/launch
-mira,src/mira2_hardware/mira2_hardware/plugins/guided.py,36,create_publisher,GuidedControl.__init__,/vision/goal,PoseStamped,application
-mira,src/mira2_hardware/mira2_hardware/plugins/guided.py,37,create_subscription,GuidedControl.__init__,/goal_pose,PoseStamped,application
-mira,src/mira2_hardware/mira2_hardware/plugins/guided.py,38,create_subscription,GuidedControl.__init__,/goal_pose_direct,PoseStamped,application
-mira,src/mira2_hardware/mira2_hardware/plugins/guided.py,39,create_service,GuidedControl.__init__,/mira/guidance/hold,Trigger,application
-mira,src/mira2_hardware/mira2_hardware/plugins/navigation.py,51,create_publisher,NavigationFeedback.__init__,/vision/ekf_pose,PoseStamped,application
-mira,src/mira2_hardware/mira2_hardware/plugins/navigation.py,55,create_publisher,NavigationFeedback.__init__,/vision/ekf_attitude,PoseStamped,application
-mira,src/mira2_hardware/mira2_hardware/plugins/navigation.py,58,create_publisher,NavigationFeedback.__init__,/vision/pressure_depth,PointStamped,application
-mira,src/mira2_hardware/mira2_hardware/plugins/navigation.py,63,create_publisher,NavigationFeedback.__init__,/mira/state/imu,Imu,application
-mira,src/mira2_hardware/mira2_hardware/plugins/navigation.py,65,create_publisher,NavigationFeedback.__init__,/vision/ekf_path,Path,application
-mira,src/mira2_hardware/mira2_hardware/plugins/navigation.py,66,create_publisher,NavigationFeedback.__init__,/vision/gt_path,Path,application
-mira,src/mira2_hardware/mira2_hardware/plugins/navigation.py,69,create_subscription,NavigationFeedback.__init__,/vision/gt_odom,Odometry,application
-mira,src/mira2_hardware/mira2_hardware/plugins/obstacle_distance.py,20,create_subscription,ObstacleDistance.__init__,self.config['topic'],LaserScan,application; expression resolved by config/launch
-mira,src/mira2_hardware/mira2_hardware/plugins/rc.py,28,create_subscription,RCControl.__init__,self.COMMAND_INPUT_TOPIC,CommandsNormalized,application; expression resolved by config/launch
-mira,src/mira2_hardware/mira2_hardware/plugins/rc.py,29,create_service,RCControl.__init__,arm,SetBool,application; relative names use node namespace
-mira,src/mira2_hardware/mira2_hardware/plugins/rc.py,30,create_service,RCControl.__init__,change_mode,ChangeMode,application; relative names use node namespace
-mira,src/mira2_hardware/mira2_hardware/plugins/telemetry.py,24,create_publisher,TelemetryPublisher.__init__,telemetry,Telemetry,application; relative names use node namespace
-mira,src/mira2_path_planning/src/bucket/phase2.py,69,create_publisher,BucketControls.__init__,mira/command,CommandsNormalized,application; relative names use node namespace
-mira,src/mira2_path_planning/src/bucket/phase2.py,79,create_subscription,BucketControls.__init__,mira/perception/bottom/target_pose,PoseStamped,application; relative names use node namespace
-mira,src/mira2_path_planning/src/bucket/phase2.py,86,create_subscription,BucketControls.__init__,mira/telemetry,Telemetry,application; relative names use node namespace
-mira,src/mira2_path_planning/src/bucket/phase2.py,94,create_subscription,BucketControls.__init__,mira/perception/bottom/target_color,String,application; relative names use node namespace
-mira,src/mira2_path_planning/src/docking/phase2_dock_controls.py,85,create_publisher,Phase2Controller.__init__,mira/command,CommandsNormalized,application; relative names use node namespace
-mira,src/mira2_path_planning/src/docking/phase2_dock_controls.py,86,create_subscription,Phase2Controller.__init__,mira/perception/bottom/dock_pose,PoseStamped,application; relative names use node namespace
-mira,src/mira2_path_planning/src/docking/phase2_dock_controls.py,87,create_subscription,Phase2Controller.__init__,mira/telemetry,Telemetry,application; relative names use node namespace
-mira,src/mira2_path_planning/src/gate/gate_navigator.cpp,25,create_publisher,,"""mira/command""",custom_msgs::msg::CommandsNormalized,application; relative/dynamic names require configuration
-mira,src/mira2_path_planning/src/gate/gate_navigator.cpp,26,create_subscription,,"""mira/telemetry""",custom_msgs::msg::Telemetry,application; relative/dynamic names require configuration
-mira,src/mira2_path_planning/src/gate/gate_navigator.cpp,28,create_subscription,,"""mira/perception/front/objects""",vision_msgs::msg::Detection2DArray,application; relative/dynamic names require configuration
-mira,src/mira2_path_planning/src/gate/gate_navigator.cpp,30,create_subscription,,"""gate_pose""",geometry_msgs::msg::PoseStamped,application; relative/dynamic names require configuration
-mira,src/mira2_path_planning/src/pipeline/pipeline_controls.py,38,create_publisher,PipelineControlsNode.__init__,mira/command,CommandsNormalized,application; relative names use node namespace
-mira,src/mira2_path_planning/src/pipeline/pipeline_controls.py,39,create_subscription,PipelineControlsNode.__init__,mira/perception/bottom/pipeline/offset,Point,application; relative names use node namespace
-mira,src/mira2_path_planning/src/pipeline/pipeline_controls.py,40,create_subscription,PipelineControlsNode.__init__,mira/perception/bottom/pipeline/angle,Float32,application; relative names use node namespace
-mira,src/mira2_path_planning/src/pipeline/pipeline_controls.py,41,create_subscription,PipelineControlsNode.__init__,mira/telemetry,Telemetry,application; relative names use node namespace
-mira,src/mira2_path_planning/src/pipeline/pipeline_controls.py,42,create_service,PipelineControlsNode.__init__,mira/control/pipeline/enable,SetBool,application; relative names use node namespace
+mira,src/mira2_hardware/mira2_hardware/killswitch.py,21,create_client,KillSwitchPublisher.__init__,/mira/safety/emergency_stop,SetBool,application; expression resolved by config/launch
+mira,src/mira2_hardware/mira2_hardware/pixhawk_controller.py,64,create_service,PixhawkController.__init__,/mira/safety/emergency_stop,SetBool,application; relative names use node namespace
+mira,src/mira2_hardware/mira2_hardware/plugins/external_navigation.py,77,create_subscription,ExternalNavigation.__init__,topic,Odometry,application; expression resolved by config/launch
+mira,src/mira2_hardware/mira2_hardware/plugins/external_navigation.py,79,create_subscription,ExternalNavigation.__init__,self.args.flow_topic,TwistWithCovarianceStamped,application; expression resolved by config/launch
+mira,src/mira2_hardware/mira2_hardware/plugins/external_navigation.py,81,create_subscription,ExternalNavigation.__init__,self.args.heading_topic,PoseWithCovarianceStamped,application; expression resolved by config/launch
+mira,src/mira2_hardware/mira2_hardware/plugins/guided.py,37,create_publisher,GuidedControl.__init__,/mira/guidance/active_goal,PoseStamped,application
+mira,src/mira2_hardware/mira2_hardware/plugins/guided.py,38,create_subscription,GuidedControl.__init__,/mira/guidance/goal,PoseStamped,application
+mira,src/mira2_hardware/mira2_hardware/plugins/guided.py,39,create_subscription,GuidedControl.__init__,/mira/guidance/goal_direct,PoseStamped,application
+mira,src/mira2_hardware/mira2_hardware/plugins/guided.py,40,create_service,GuidedControl.__init__,/mira/guidance/hold,Trigger,application
+mira,src/mira2_hardware/mira2_hardware/plugins/navigation.py,52,create_publisher,NavigationFeedback.__init__,/mira/state/pose,PoseStamped,application
+mira,src/mira2_hardware/mira2_hardware/plugins/navigation.py,56,create_publisher,NavigationFeedback.__init__,/mira/state/attitude,PoseStamped,application
+mira,src/mira2_hardware/mira2_hardware/plugins/navigation.py,59,create_publisher,NavigationFeedback.__init__,/mira/state/depth,PointStamped,application
+mira,src/mira2_hardware/mira2_hardware/plugins/navigation.py,64,create_publisher,NavigationFeedback.__init__,/mira/state/imu,Imu,application
+mira,src/mira2_hardware/mira2_hardware/plugins/navigation.py,66,create_publisher,NavigationFeedback.__init__,/mira/state/path,Path,application
+mira,src/mira2_hardware/mira2_hardware/plugins/navigation.py,67,create_publisher,NavigationFeedback.__init__,/mira/sim/ground_truth/path,Path,application
+mira,src/mira2_hardware/mira2_hardware/plugins/navigation.py,70,create_subscription,NavigationFeedback.__init__,/mira/sim/ground_truth/odom,Odometry,application
+mira,src/mira2_hardware/mira2_hardware/plugins/obstacle_distance.py,21,create_subscription,ObstacleDistance.__init__,self.config['topic'],LaserScan,application; expression resolved by config/launch
+mira,src/mira2_hardware/mira2_hardware/plugins/rc.py,29,create_subscription,RCControl.__init__,/mira/control/command,CommandsNormalized,application; expression resolved by config/launch
+mira,src/mira2_hardware/mira2_hardware/plugins/rc.py,30,create_service,RCControl.__init__,/mira/control/arm,SetBool,application; relative names use node namespace
+mira,src/mira2_hardware/mira2_hardware/plugins/rc.py,31,create_service,RCControl.__init__,/mira/control/change_mode,ChangeMode,application; relative names use node namespace
+mira,src/mira2_hardware/mira2_hardware/plugins/telemetry.py,25,create_publisher,TelemetryPublisher.__init__,/mira/state/telemetry,Telemetry,application; relative names use node namespace
+mira,src/mira2_path_planning/src/bucket/phase2.py,70,create_publisher,BucketControls.__init__,/mira/control/command,CommandsNormalized,application; relative names use node namespace
+mira,src/mira2_path_planning/src/bucket/phase2.py,80,create_subscription,BucketControls.__init__,/mira/perception/bottom/target_pose,PoseStamped,application; relative names use node namespace
+mira,src/mira2_path_planning/src/bucket/phase2.py,87,create_subscription,BucketControls.__init__,/mira/state/telemetry,Telemetry,application; relative names use node namespace
+mira,src/mira2_path_planning/src/bucket/phase2.py,95,create_subscription,BucketControls.__init__,/mira/perception/bottom/target_color,String,application; relative names use node namespace
+mira,src/mira2_path_planning/src/docking/phase2_dock_controls.py,86,create_publisher,Phase2Controller.__init__,/mira/control/command,CommandsNormalized,application; relative names use node namespace
+mira,src/mira2_path_planning/src/docking/phase2_dock_controls.py,87,create_subscription,Phase2Controller.__init__,/mira/perception/bottom/dock_pose,PoseStamped,application; relative names use node namespace
+mira,src/mira2_path_planning/src/docking/phase2_dock_controls.py,88,create_subscription,Phase2Controller.__init__,/mira/state/telemetry,Telemetry,application; relative names use node namespace
+mira,src/mira2_path_planning/src/gate/gate_navigator.cpp,26,create_publisher,,/mira/control/command,custom_msgs::msg::CommandsNormalized,application; relative/dynamic names require configuration
+mira,src/mira2_path_planning/src/gate/gate_navigator.cpp,27,create_subscription,,/mira/state/telemetry,custom_msgs::msg::Telemetry,application; relative/dynamic names require configuration
+mira,src/mira2_path_planning/src/gate/gate_navigator.cpp,29,create_subscription,,/mira/perception/front/objects,vision_msgs::msg::Detection2DArray,application; relative/dynamic names require configuration
+mira,src/mira2_path_planning/src/gate/gate_navigator.cpp,31,create_subscription,,/mira/perception/front/gate_pose,geometry_msgs::msg::PoseStamped,application; relative/dynamic names require configuration
+mira,src/mira2_path_planning/src/pipeline/pipeline_controls.py,39,create_publisher,PipelineControlsNode.__init__,/mira/control/command,CommandsNormalized,application; relative names use node namespace
+mira,src/mira2_path_planning/src/pipeline/pipeline_controls.py,40,create_subscription,PipelineControlsNode.__init__,/mira/perception/bottom/pipeline/offset,Point,application; relative names use node namespace
+mira,src/mira2_path_planning/src/pipeline/pipeline_controls.py,41,create_subscription,PipelineControlsNode.__init__,/mira/perception/bottom/pipeline/angle,Float32,application; relative names use node namespace
+mira,src/mira2_path_planning/src/pipeline/pipeline_controls.py,42,create_subscription,PipelineControlsNode.__init__,/mira/state/telemetry,Telemetry,application; relative names use node namespace
+mira,src/mira2_path_planning/src/pipeline/pipeline_controls.py,43,create_service,PipelineControlsNode.__init__,/mira/control/pipeline/enable,SetBool,application; relative names use node namespace
 mira,src/mira2_perception/launch/camera_auto.launch,11,ROS remap,,/mira/sensors/camera/front/image,,to: /mira/sensors/camera/front/image_raw
 mira,src/mira2_perception/launch/camera_imx335.launch,30,ROS remap,,/mira/sensors/camera/front/image,,to: /mira/sensors/camera/front/image_raw
 mira,src/mira2_perception/launch/camera_zed.launch,29,ROS remap,,/mira/sensors/camera/front/image,,to: /mira/sensors/camera/front/image_raw
-mira,src/mira2_perception/scripts/zed_3d_bbox.py,198,create_publisher,main,mira/perception/front/valve,ValveDetection,application; relative names use node namespace
-mira,src/mira2_perception/scripts/zed_3d_bbox.py,199,create_publisher,main,mira/perception/front/valve_pose,PoseStamped,application; relative names use node namespace
+mira,src/mira2_perception/scripts/zed_3d_bbox.py,198,create_publisher,main,/mira/perception/front/valve,ValveDetection,application; relative names use node namespace
+mira,src/mira2_perception/scripts/zed_3d_bbox.py,199,create_publisher,main,/mira/perception/front/valve_pose,PoseStamped,application; relative names use node namespace
 mira,src/mira2_vision/config/bottom.yaml,8,configured topic reference,image_source,ros2:///mira/sensors/camera/bottom/image_raw,,application
 mira,src/mira2_vision/config/bottom.yaml,9,configured topic reference,camera_info_topic,/mira/sensors/camera/bottom/camera_info,,application
 mira,src/mira2_vision/config/bottom.yaml,20,configured topic reference,raw_image_topic,/mira/sensors/camera/bottom/image_raw,,application
 mira,src/mira2_vision/config/bucket_front.yaml,8,configured topic reference,image_source,ros2:///mira/sensors/camera/front/image_raw,,application
 mira,src/mira2_vision/config/bucket_front.yaml,9,configured topic reference,camera_info_topic,/mira/sensors/camera/front/camera_info,,application
-mira,src/mira2_vision/config/cuvslam.yaml,4,configured topic reference,odom_topic,/vision/vo_odom,,application
+mira,src/mira2_vision/config/cuvslam.yaml,4,configured topic reference,odom_topic,/mira/odometry/visual,,application
 mira,src/mira2_vision/config/front.yaml,7,configured topic reference,image_source,ros2:///mira/sensors/camera/front/image_raw,,application
 mira,src/mira2_vision/config/front.yaml,8,configured topic reference,camera_info_topic,/mira/sensors/camera/front/camera_info,,application
-mira,src/mira2_vision/config/guided_front.yaml,11,configured topic reference,image_source,ros2:///vision/image,,application
-mira,src/mira2_vision/config/guided_front.yaml,12,configured topic reference,camera_info_topic,/vision/camera_info,,application
-mira,src/mira2_vision/config/guided_front.yaml,14,configured topic reference,depth_topic,/vision/depth,,application
-mira,src/mira2_vision/config/optical_flow.yaml,13,configured topic reference,image_source,ros2:///mira/sensors/camera/bottom/image_raw,,application
-mira,src/mira2_vision/config/optical_flow.yaml,14,configured topic reference,camera_info_topic,/mira/sensors/camera/bottom/camera_info,,application
+mira,src/mira2_vision/config/guided_front.yaml,11,configured topic reference,image_source,ros2:///mira/sensors/camera/front/image_raw,,application
+mira,src/mira2_vision/config/guided_front.yaml,12,configured topic reference,camera_info_topic,/mira/sensors/camera/front/camera_info,,application
+mira,src/mira2_vision/config/guided_front.yaml,14,configured topic reference,depth_topic,/mira/sensors/camera/front/depth/image_raw,,application
+mira,src/mira2_vision/config/optical_flow.yaml,14,configured topic reference,image_source,ros2:///mira/sensors/camera/bottom/image_raw,,application
+mira,src/mira2_vision/config/optical_flow.yaml,15,configured topic reference,camera_info_topic,/mira/sensors/camera/bottom/camera_info,,application
 mira,src/mira2_vision/config/pipeline.yaml,8,configured topic reference,image_source,ros2:///mira/sensors/camera/bottom/image_raw,,application
 mira,src/mira2_vision/config/pipeline.yaml,9,configured topic reference,camera_info_topic,/mira/sensors/camera/bottom/camera_info,,application
 mira,src/mira2_vision/config/pipeline.yaml,20,configured topic reference,raw_image_topic,/mira/sensors/camera/bottom/image_raw,,application
@@ -88,71 +88,71 @@ mira,src/mira2_vision/mira2_vision/consumers/docking_board.py,35,create_publishe
 mira,src/mira2_vision/mira2_vision/consumers/markers.py,24,create_publisher,Markers.__init__,markers,ArucoPose,application; relative names use node namespace
 mira,src/mira2_vision/mira2_vision/consumers/markers.py,25,create_publisher,Markers.__init__,pipeline/markers,String,application; relative names use node namespace
 mira,src/mira2_vision/mira2_vision/consumers/objects.py,12,create_publisher,Objects.__init__,objects,Detection2DArray,application; relative names use node namespace
-mira,src/mira2_vision/mira2_vision/consumers/obstacle_distance.py,31,create_publisher,ObstacleDistance.__init__,self.args.topic,LaserScan,application; expression resolved by config/launch
-mira,src/mira2_vision/mira2_vision/consumers/optical_flow.py,117,create_publisher,OpticalFlow.__init__,self.args['topic'],TwistWithCovarianceStamped,application; expression resolved by config/launch
-mira,src/mira2_vision/mira2_vision/consumers/optical_flow.py,118,create_publisher,OpticalFlow.__init__,self.args['heading_topic'],PoseWithCovarianceStamped,application; expression resolved by config/launch
-mira,src/mira2_vision/mira2_vision/consumers/optical_flow.py,128,create_subscription,OpticalFlow.__init__,self.args['attitude_topic'],PoseStamped,application; expression resolved by config/launch
-mira,src/mira2_vision/mira2_vision/consumers/optical_flow.py,131,create_subscription,OpticalFlow.__init__,self.args['pressure_topic'],PointStamped,application; expression resolved by config/launch
-mira,src/mira2_vision/mira2_vision/consumers/optical_flow.py,133,create_subscription,OpticalFlow.__init__,self.args['gyro_topic'],Imu,application; expression resolved by config/launch
+mira,src/mira2_vision/mira2_vision/consumers/obstacle_distance.py,32,create_publisher,ObstacleDistance.__init__,self.args.topic,LaserScan,application; expression resolved by config/launch
+mira,src/mira2_vision/mira2_vision/consumers/optical_flow.py,118,create_publisher,OpticalFlow.__init__,self.args['topic'],TwistWithCovarianceStamped,application; expression resolved by config/launch
+mira,src/mira2_vision/mira2_vision/consumers/optical_flow.py,119,create_publisher,OpticalFlow.__init__,self.args['heading_topic'],PoseWithCovarianceStamped,application; expression resolved by config/launch
+mira,src/mira2_vision/mira2_vision/consumers/optical_flow.py,129,create_subscription,OpticalFlow.__init__,self.args['attitude_topic'],PoseStamped,application; expression resolved by config/launch
+mira,src/mira2_vision/mira2_vision/consumers/optical_flow.py,132,create_subscription,OpticalFlow.__init__,self.args['pressure_topic'],PointStamped,application; expression resolved by config/launch
+mira,src/mira2_vision/mira2_vision/consumers/optical_flow.py,134,create_subscription,OpticalFlow.__init__,self.args['gyro_topic'],Imu,application; expression resolved by config/launch
 mira,src/mira2_vision/mira2_vision/cuvslam_odometry.py,97,create_publisher,CuVslamOdometry.__init__,odom_topic,Odometry,application; expression resolved by config/launch
 mira,src/mira2_vision/mira2_vision/cuvslam_odometry.py,98,create_publisher,CuVslamOdometry.__init__,odom_topic + '/slam_pose',PoseStamped,application; expression resolved by config/launch
 mira,src/mira2_vision/mira2_vision/cuvslam_odometry.py,109,create_subscription,CuVslamOdometry.__init__,imu_topic,Imu,application; expression resolved by config/launch
-mira,src/mira2_vision/mira2_vision/detectors/gazebo_boxes.py,37,create_subscription,GazeboBoxes.__init__,self.config['topic'],Detection2DArray,application; expression resolved by config/launch
+mira,src/mira2_vision/mira2_vision/detectors/gazebo_boxes.py,38,create_subscription,GazeboBoxes.__init__,self.config['topic'],Detection2DArray,application; expression resolved by config/launch
 mira,src/mira2_vision/mira2_vision/detectors/pipeline.py,24,create_publisher,Pipeline.__init__,pipeline/offset,Point,application; relative names use node namespace
 mira,src/mira2_vision/mira2_vision/detectors/pipeline.py,25,create_publisher,Pipeline.__init__,pipeline/angle,Float32,application; relative names use node namespace
-mira,src/mira2_vision/mira2_vision/node.py,65,create_subscription,MiraVisionNode._initialize_camera,self.settings['camera_info_topic'],CameraInfo,application; expression resolved by config/launch
-mira,src/mira2_vision/mira2_vision/node.py,77,create_publisher,MiraVisionNode._create_interfaces,depth,Image,application; relative names use node namespace
-mira,src/mira2_vision/mira2_vision/node.py,79,create_subscription,MiraVisionNode._create_interfaces,self.settings['depth_topic'],Image,application; expression resolved by config/launch
-mira,src/mira2_vision/mira2_vision/node.py,82,create_subscription,MiraVisionNode._create_interfaces,self.settings['depth_camera_info_topic'],CameraInfo,application; expression resolved by config/launch
-mira,src/mira2_vision/mira2_vision/node.py,84,create_publisher,MiraVisionNode._create_interfaces,image,Image,application; relative names use node namespace
-mira,src/mira2_vision/mira2_vision/node.py,85,create_publisher,MiraVisionNode._create_interfaces,/diagnostics,DiagnosticArray,application
-mira,src/mira2_vision/mira2_vision/node.py,88,create_publisher,MiraVisionNode._create_interfaces,self.settings['raw_image_topic'],Image,application; expression resolved by config/launch
-mira,src/mira2_vision/mira2_vision/rgbd_inputs.py,24,create_subscription,RGBDInputs.__init__,self.config['camera_info_topic'],CameraInfo,application; expression resolved by config/launch
-mira,src/mira2_vision/mira2_vision/rgbd_inputs.py,26,message_filters subscriber,RGBDInputs.__init__,self.config['rgb_topic'],Image,application
-mira,src/mira2_vision/mira2_vision/rgbd_inputs.py,27,message_filters subscriber,RGBDInputs.__init__,self.config['depth_topic'],Image,application
-mira_sim,misc/tools/diagnose_gate.py,58,create_subscription,main,/vision/flow_velocity,TwistWithCovarianceStamped,application
+mira,src/mira2_vision/mira2_vision/node.py,66,create_subscription,MiraVisionNode._initialize_camera,self.settings['camera_info_topic'],CameraInfo,application; expression resolved by config/launch
+mira,src/mira2_vision/mira2_vision/node.py,78,create_publisher,MiraVisionNode._create_interfaces,depth,Image,application; relative names use node namespace
+mira,src/mira2_vision/mira2_vision/node.py,80,create_subscription,MiraVisionNode._create_interfaces,self.settings['depth_topic'],Image,application; expression resolved by config/launch
+mira,src/mira2_vision/mira2_vision/node.py,83,create_subscription,MiraVisionNode._create_interfaces,self.settings['depth_camera_info_topic'],CameraInfo,application; expression resolved by config/launch
+mira,src/mira2_vision/mira2_vision/node.py,85,create_publisher,MiraVisionNode._create_interfaces,image,Image,application; relative names use node namespace
+mira,src/mira2_vision/mira2_vision/node.py,86,create_publisher,MiraVisionNode._create_interfaces,/diagnostics,DiagnosticArray,application
+mira,src/mira2_vision/mira2_vision/node.py,89,create_publisher,MiraVisionNode._create_interfaces,self.settings['raw_image_topic'],Image,application; expression resolved by config/launch
+mira,src/mira2_vision/mira2_vision/rgbd_inputs.py,25,create_subscription,RGBDInputs.__init__,self.config['camera_info_topic'],CameraInfo,application; expression resolved by config/launch
+mira,src/mira2_vision/mira2_vision/rgbd_inputs.py,27,message_filters subscriber,RGBDInputs.__init__,self.config['rgb_topic'],Image,application
+mira,src/mira2_vision/mira2_vision/rgbd_inputs.py,28,message_filters subscriber,RGBDInputs.__init__,self.config['depth_topic'],Image,application
+mira_sim,misc/tools/diagnose_gate.py,58,create_subscription,main,/mira/odometry/flow_velocity,TwistWithCovarianceStamped,application
 mira_sim,misc/tools/diagnose_gate.py,61,create_subscription,main,/mira/perception/front/obstacles,LaserScan,application
 mira_sim,misc/tools/diagnose_gate.py,66,create_subscription,main,topic,cls,application; expression resolved by config/launch
 mira_sim,misc/tools/diagnose_gate.py,67,create_subscription,main,/mira/perception/front/objects,Detection2DArray,application
-mira_sim,misc/tools/ekf_settle.py,25,create_subscription,,/vision/ekf_attitude,PoseStamped,application
-mira_sim,misc/tools/ekf_settle.py,26,create_subscription,,/vision/gt_odom,Odometry,application
-mira_sim,misc/tools/ekf_settle.py,27,create_subscription,,/vision/ekf_pose,PoseStamped,application
-mira_sim,misc/tools/ekf_settle.py,29,create_subscription,,/vision/gt_odom,Odometry,application
-mira_sim,misc/tools/grab_bottom.py,32,create_subscription,,/vision/bottom/camera_info,CameraInfo,application
-mira_sim,misc/tools/grab_bottom.py,33,create_subscription,,/vision/bottom/image,Image,application
-mira_sim,misc/tools/probe_cuvslam.py,39,create_subscription,main,/vision/image,Image,application
-mira_sim,misc/tools/probe_cuvslam.py,40,create_subscription,main,/vision/depth,Image,application
-mira_sim,misc/tools/probe_cuvslam.py,41,create_subscription,main,/vision/camera_info,CameraInfo,application
-mira_sim,misc/tools/record_gate_slam.py,254,create_subscription,main,/vision/image,Image,application
-mira_sim,misc/tools/record_gate_slam.py,255,create_subscription,main,/vision/depth,Image,application
-mira_sim,misc/tools/record_gate_slam.py,256,create_subscription,main,/vision/camera_info,CameraInfo,application
-mira_sim,misc/tools/record_gate_slam.py,257,create_subscription,main,/demo/third_person,Image,application
-mira_sim,misc/tools/record_gate_slam.py,258,create_subscription,main,/vision/vo_odom,Odometry,application
-mira_sim,misc/tools/record_gate_slam.py,268,create_subscription,main,/vision/gt_odom,Odometry,application
-mira_sim,misc/tools/record_gate_slam.py,269,create_subscription,main,/vision/bottom/image,Image,application
-mira_sim,misc/tools/record_gate_slam.py,270,create_subscription,main,/vision/flow_velocity,TwistWithCovarianceStamped,application
-mira_sim,misc/tools/record_gate_slam.py,273,create_subscription,main,/vision/imu,Imu,application
+mira_sim,misc/tools/ekf_settle.py,25,create_subscription,,/mira/state/attitude,PoseStamped,application
+mira_sim,misc/tools/ekf_settle.py,26,create_subscription,,/mira/sim/ground_truth/odom,Odometry,application
+mira_sim,misc/tools/ekf_settle.py,27,create_subscription,,/mira/state/pose,PoseStamped,application
+mira_sim,misc/tools/ekf_settle.py,29,create_subscription,,/mira/sim/ground_truth/odom,Odometry,application
+mira_sim,misc/tools/grab_bottom.py,32,create_subscription,,/mira/sensors/camera/bottom/camera_info,CameraInfo,application
+mira_sim,misc/tools/grab_bottom.py,33,create_subscription,,/mira/sensors/camera/bottom/image_raw,Image,application
+mira_sim,misc/tools/probe_cuvslam.py,39,create_subscription,main,/mira/sensors/camera/front/image_raw,Image,application
+mira_sim,misc/tools/probe_cuvslam.py,40,create_subscription,main,/mira/sensors/camera/front/depth/image_raw,Image,application
+mira_sim,misc/tools/probe_cuvslam.py,41,create_subscription,main,/mira/sensors/camera/front/camera_info,CameraInfo,application
+mira_sim,misc/tools/record_gate_slam.py,254,create_subscription,main,/mira/sensors/camera/front/image_raw,Image,application
+mira_sim,misc/tools/record_gate_slam.py,255,create_subscription,main,/mira/sensors/camera/front/depth/image_raw,Image,application
+mira_sim,misc/tools/record_gate_slam.py,256,create_subscription,main,/mira/sensors/camera/front/camera_info,CameraInfo,application
+mira_sim,misc/tools/record_gate_slam.py,257,create_subscription,main,/mira/sim/demo/third_person,Image,application
+mira_sim,misc/tools/record_gate_slam.py,258,create_subscription,main,/mira/odometry/visual,Odometry,application
+mira_sim,misc/tools/record_gate_slam.py,268,create_subscription,main,/mira/sim/ground_truth/odom,Odometry,application
+mira_sim,misc/tools/record_gate_slam.py,269,create_subscription,main,/mira/sensors/camera/bottom/image_raw,Image,application
+mira_sim,misc/tools/record_gate_slam.py,270,create_subscription,main,/mira/odometry/flow_velocity,TwistWithCovarianceStamped,application
+mira_sim,misc/tools/record_gate_slam.py,273,create_subscription,main,/mira/sensors/imu,Imu,application
 mira_sim,misc/tools/record_gate_slam.py,276,create_subscription,main,/mira/perception/front/objects,Detection2DArray,application
-mira_sim,misc/tools/record_gate_slam.py,277,create_subscription,main,/demo/cuvslam,Odometry,application
-mira_sim,misc/tools/record_gate_slam.py,292,bridge CLI specification,,/demo/third_person@sensor_msgs/msg/Image[gz.msgs.Image,,application
-mira_sim,misc/tools/record_gate_slam.py,479,create_subscription,main,/demo/cuvslam_rgbd,Odometry,application
-mira_sim,misc/tools/record_navigation.py,58,create_subscription,main,/vision/image,Image,application
+mira_sim,misc/tools/record_gate_slam.py,277,create_subscription,main,/mira/replay/cuvslam,Odometry,application
+mira_sim,misc/tools/record_gate_slam.py,292,bridge CLI specification,,/mira/sim/demo/third_person@sensor_msgs/msg/Image[gz.msgs.Image,,application
+mira_sim,misc/tools/record_gate_slam.py,479,create_subscription,main,/mira/replay/cuvslam_rgbd,Odometry,application
+mira_sim,misc/tools/record_navigation.py,58,create_subscription,main,/mira/sensors/camera/front/image_raw,Image,application
 mira_sim,misc/tools/record_navigation.py,59,create_subscription,main,/mira/perception/front/objects,Detection2DArray,application
-mira_sim,misc/tools/record_navigation.py,61,create_subscription,main,/vision/ekf_pose,PoseStamped,application
-mira_sim,misc/tools/record_navigation.py,62,create_subscription,main,/vision/gt_odom,Odometry,application
-mira_sim,misc/tools/record_navigation.py,63,create_subscription,main,/vision/vo_odom,Odometry,application
-mira_sim,misc/tools/record_navigation.py,64,create_subscription,main,/goal_pose,PoseStamped,application
+mira_sim,misc/tools/record_navigation.py,61,create_subscription,main,/mira/state/pose,PoseStamped,application
+mira_sim,misc/tools/record_navigation.py,62,create_subscription,main,/mira/sim/ground_truth/odom,Odometry,application
+mira_sim,misc/tools/record_navigation.py,63,create_subscription,main,/mira/odometry/visual,Odometry,application
+mira_sim,misc/tools/record_navigation.py,64,create_subscription,main,/mira/guidance/goal,PoseStamped,application
 mira_sim,misc/tools/record_navigation.py,68,create_subscription,main,/mira/perception/front/obstacles,LaserScan,application
 mira_sim,misc/tools/test_actions.py,41,create_publisher,ActionsTest.exercise,/mira/perception/front/objects,Detection2DArray,test/example
-mira_sim,misc/tools/test_actions.py,42,create_publisher,ActionsTest.exercise,/vision/ekf_pose,PoseStamped,test/example
-mira_sim,misc/tools/test_actions.py,46,create_subscription,ActionsTest.exercise,/goal_pose,PoseStamped,test/example
-mira_sim,misc/tools/test_actions.py,48,create_subscription,ActionsTest.exercise,/goal_pose_direct,PoseStamped,test/example
+mira_sim,misc/tools/test_actions.py,42,create_publisher,ActionsTest.exercise,/mira/state/pose,PoseStamped,test/example
+mira_sim,misc/tools/test_actions.py,46,create_subscription,ActionsTest.exercise,/mira/guidance/goal,PoseStamped,test/example
+mira_sim,misc/tools/test_actions.py,48,create_subscription,ActionsTest.exercise,/mira/guidance/goal_direct,PoseStamped,test/example
 mira_sim,misc/tools/test_actions.py,55,create_service,ActionsTest.exercise,/mira/guidance/hold,Trigger,test/example
 mira_sim,misc/tools/wait_mira_target.py,55,create_subscription,main,/mira/perception/front/objects,Detection2DArray,application
-mira_sim,misc/tools/wait_mira_target.py,56,create_subscription,main,/vision/ekf_pose,PoseStamped,application
-mira_sim,misc/tools/yaw_drift.py,24,create_subscription,,/vision/ekf_attitude,PoseStamped,application
-mira_sim,misc/tools/yaw_drift.py,25,create_subscription,,/vision/gt_odom,Odometry,application
-mira_sim,misc/tools/yaw_drift.py,26,create_subscription,,/mira/perception/bottom/floor_heading,PoseWithCovarianceStamped,application
+mira_sim,misc/tools/wait_mira_target.py,56,create_subscription,main,/mira/state/pose,PoseStamped,application
+mira_sim,misc/tools/yaw_drift.py,24,create_subscription,,/mira/state/attitude,PoseStamped,application
+mira_sim,misc/tools/yaw_drift.py,25,create_subscription,,/mira/sim/ground_truth/odom,Odometry,application
+mira_sim,misc/tools/yaw_drift.py,26,create_subscription,,/mira/odometry/floor_heading,PoseWithCovarianceStamped,application
 mira_sim,src/ardupilot_gazebo/models/iris_with_ardupilot/model.sdf,799,Gazebo/XML imuName,,iris_with_standoffs::imu_link::imu_sensor,,"vendored Gazebo plugin; configured name, may be scoped or expanded by plugin"
 mira_sim,src/ardupilot_gazebo/models/iris_with_gimbal/model.sdf,203,Gazebo/XML imuName,,iris_with_standoffs::imu_link::imu_sensor,,"vendored Gazebo plugin; configured name, may be scoped or expanded by plugin"
 mira_sim,src/ardupilot_gazebo/models/iris_with_gimbal/model.sdf,292,Gazebo/XML cmd_topic,,/gimbal/cmd_roll,,"vendored Gazebo plugin; configured name, may be scoped or expanded by plugin"
@@ -188,12 +188,12 @@ mira_sim,src/ardupilot_gazebo/worlds/gimbal.sdf,177,Gazebo/XML topic,,/gimbal/cm
 mira_sim,src/ardupilot_gazebo/worlds/zephyr_parachute.sdf,17,Gazebo/XML cmd_topic,,/parachute/cmd_release,,"vendored Gazebo plugin; configured name, may be scoped or expanded by plugin"
 mira_sim,src/ardupilot_gazebo/worlds/zephyr_parachute.sdf,33,Gazebo/XML cmd_topic,,/parachute/cmd_release,,"vendored Gazebo plugin; configured name, may be scoped or expanded by plugin"
 mira_sim,src/ardupilot_gazebo/worlds/zephyr_parachute.sdf,214,Gazebo/XML cmd_topic,,/parachute/cmd_release,,"vendored Gazebo plugin; configured name, may be scoped or expanded by plugin"
-mira_sim,src/bluerov2_control/bluerov2_control/depth_hold_node.py,21,create_publisher,DepthYawVisionController.__init__,/bluerov2/thrusters,Float64MultiArray,application
-mira_sim,src/bluerov2_control/bluerov2_control/depth_hold_node.py,28,create_subscription,DepthYawVisionController.__init__,/bluerov2/odometry,Odometry,application
-mira_sim,src/bluerov2_control/bluerov2_control/depth_hold_node.py,35,create_subscription,DepthYawVisionController.__init__,/bluerov2/left/image_color,Image,application
-mira_sim,src/bluerov2_control/bluerov2_control/mission_script.py,17,create_publisher,MissionScript.__init__,/motion_command,Float64MultiArray,application
-mira_sim,src/bluerov2_control/bluerov2_control/motion_controller.py,9,create_publisher,MotionController.__init__,/bluerov2/thrusters,Float64MultiArray,application
-mira_sim,src/bluerov2_control/bluerov2_control/motion_controller.py,15,create_subscription,MotionController.__init__,/motion_command,Float64MultiArray,application
+mira_sim,src/bluerov2_control/bluerov2_control/depth_hold_node.py,21,create_publisher,DepthYawVisionController.__init__,/mira/sim/thrusters,Float64MultiArray,application
+mira_sim,src/bluerov2_control/bluerov2_control/depth_hold_node.py,28,create_subscription,DepthYawVisionController.__init__,/mira/sim/ground_truth/odom,Odometry,application
+mira_sim,src/bluerov2_control/bluerov2_control/depth_hold_node.py,35,create_subscription,DepthYawVisionController.__init__,/mira/sensors/camera/front/image_raw,Image,application
+mira_sim,src/bluerov2_control/bluerov2_control/mission_script.py,17,create_publisher,MissionScript.__init__,/mira/sim/motion_command,Float64MultiArray,application
+mira_sim,src/bluerov2_control/bluerov2_control/motion_controller.py,9,create_publisher,MotionController.__init__,/mira/sim/thrusters,Float64MultiArray,application
+mira_sim,src/bluerov2_control/bluerov2_control/motion_controller.py,15,create_subscription,MotionController.__init__,/mira/sim/motion_command,Float64MultiArray,application
 mira_sim,src/bluerov2_gz/models/bluerov2/model.sdf,358,Gazebo/XML imuName,,imu_sensor,,"application; configured name, may be scoped or expanded by plugin"
 mira_sim,src/bluerov2_gz/models/bluerov2/model.sdf,366,Gazebo/XML cmd_topic,,/model/bluerov2/joint/thruster1_joint/cmd_thrust,,"application; configured name, may be scoped or expanded by plugin"
 mira_sim,src/bluerov2_gz/models/bluerov2/model.sdf,375,Gazebo/XML cmd_topic,,/model/bluerov2/joint/thruster2_joint/cmd_thrust,,"application; configured name, may be scoped or expanded by plugin"
@@ -205,7 +205,7 @@ mira_sim,src/bluerov2_gz/models/bluerov2_heavy/model.sdf,96,Gazebo/XML topic,,fr
 mira_sim,src/bluerov2_gz/models/bluerov2_heavy/model.sdf,116,Gazebo/XML topic,,front_camera/right/image_raw,,"application; configured name, may be scoped or expanded by plugin"
 mira_sim,src/bluerov2_gz/models/bluerov2_heavy/model.sdf,150,Gazebo/XML topic,,sim/front_camera,,"application; configured name, may be scoped or expanded by plugin"
 mira_sim,src/bluerov2_gz/models/bluerov2_heavy/model.sdf,174,Gazebo/XML topic,,sim/front_camera/boxes,,"application; configured name, may be scoped or expanded by plugin"
-mira_sim,src/bluerov2_gz/models/bluerov2_heavy/model.sdf,197,Gazebo/XML topic,,bottom_camera,,"application; configured name, may be scoped or expanded by plugin"
+mira_sim,src/bluerov2_gz/models/bluerov2_heavy/model.sdf,197,Gazebo/XML topic,,sim/bottom_camera/image,,"application; configured name, may be scoped or expanded by plugin"
 mira_sim,src/bluerov2_gz/models/bluerov2_heavy/model.sdf,613,Gazebo/XML imuName,,imu_sensor,,"application; configured name, may be scoped or expanded by plugin"
 mira_sim,src/bluerov2_gz/models/bluerov2_heavy/model.sdf,621,Gazebo/XML cmd_topic,,/model/bluerov2_heavy/joint/thruster1_joint/cmd_thrust,,"application; configured name, may be scoped or expanded by plugin"
 mira_sim,src/bluerov2_gz/models/bluerov2_heavy/model.sdf,630,Gazebo/XML cmd_topic,,/model/bluerov2_heavy/joint/thruster2_joint/cmd_thrust,,"application; configured name, may be scoped or expanded by plugin"
@@ -224,27 +224,27 @@ mira_sim,src/bluerov2_gz/models/bluerov2_ping/model.sdf,463,Gazebo/XML cmd_topic
 mira_sim,src/bluerov2_gz/models/bluerov2_ping/model.sdf,472,Gazebo/XML cmd_topic,,/model/bluerov2_ping/joint/thruster5_joint/cmd_thrust,,"application; configured name, may be scoped or expanded by plugin"
 mira_sim,src/bluerov2_gz/models/bluerov2_ping/model.sdf,481,Gazebo/XML cmd_topic,,/model/bluerov2_ping/joint/thruster6_joint/cmd_thrust,,"application; configured name, may be scoped or expanded by plugin"
 mira_sim,src/bluerov2_gz/models/bluerov2_ping/model.sdf,500,Gazebo/XML topic,,ping_link/sensor/sonar,,"application; configured name, may be scoped or expanded by plugin"
-mira_sim,src/dnt_simulator/config/bridge.yaml,1,bridge GZ_TO_ROS,,/clock,rosgraph_msgs/msg/Clock,Gazebo: /clock
-mira_sim,src/dnt_simulator/config/bridge.yaml,1,bridge GZ_TO_ROS,,/vision/image,sensor_msgs/msg/Image,Gazebo: /sim/front_camera/image
-mira_sim,src/dnt_simulator/config/bridge.yaml,1,bridge GZ_TO_ROS,,/vision/depth,sensor_msgs/msg/Image,Gazebo: /sim/front_camera/depth_image
-mira_sim,src/dnt_simulator/config/bridge.yaml,1,bridge GZ_TO_ROS,,/vision/camera_info,sensor_msgs/msg/CameraInfo,Gazebo: /sim/front_camera/camera_info
-mira_sim,src/dnt_simulator/config/bridge.yaml,1,bridge GZ_TO_ROS,,/vision/gt_odom,nav_msgs/msg/Odometry,Gazebo: /model/bluerov2_heavy/odometry
-mira_sim,src/dnt_simulator/config/bridge.yaml,1,bridge GZ_TO_ROS,,/vision/boxes,vision_msgs/msg/Detection2DArray,Gazebo: /sim/front_camera/boxes
-mira_sim,src/dnt_simulator/config/bridge.yaml,1,bridge GZ_TO_ROS,,/vision/imu,sensor_msgs/msg/Imu,Gazebo: /world/pool_world/model/bluerov2_heavy/link/base_link/sensor/imu_sensor/imu
-mira_sim,src/dnt_simulator/config/bridge.yaml,1,bridge GZ_TO_ROS,,/vision/bottom/image,sensor_msgs/msg/Image,Gazebo: /bottom_camera
-mira_sim,src/dnt_simulator/config/bridge.yaml,1,bridge GZ_TO_ROS,,/vision/bottom/camera_info,sensor_msgs/msg/CameraInfo,Gazebo: /camera_info
-mira_sim,src/dnt_simulator/config/bridge.yaml,11,configured topic reference,gz_topic_name,/sim/front_camera/image,,application
-mira_sim,src/dnt_simulator/config/bridge.yaml,19,configured topic reference,gz_topic_name,/sim/front_camera/depth_image,,application
-mira_sim,src/dnt_simulator/config/bridge.yaml,27,configured topic reference,gz_topic_name,/sim/front_camera/camera_info,,application
-mira_sim,src/dnt_simulator/config/bridge.yaml,35,configured topic reference,gz_topic_name,/model/bluerov2_heavy/odometry,,application
-mira_sim,src/dnt_simulator/config/bridge.yaml,43,configured topic reference,gz_topic_name,/sim/front_camera/boxes,,application
-mira_sim,src/dnt_simulator/config/bridge.yaml,53,configured topic reference,gz_topic_name,/world/pool_world/model/bluerov2_heavy/link/base_link/sensor/imu_sensor/imu,,application
-mira_sim,src/dnt_simulator/config/bridge.yaml,63,configured topic reference,gz_topic_name,/bottom_camera,,application
-mira_sim,src/dnt_simulator/config/bridge.yaml,71,configured topic reference,gz_topic_name,/camera_info,,application
+mira_sim,src/dnt_simulator/config/bridge.yaml,4,bridge GZ_TO_ROS,,/clock,rosgraph_msgs/msg/Clock,Gazebo: /clock
+mira_sim,src/dnt_simulator/config/bridge.yaml,4,bridge GZ_TO_ROS,,/mira/sensors/camera/front/image_raw,sensor_msgs/msg/Image,Gazebo: /sim/front_camera/image
+mira_sim,src/dnt_simulator/config/bridge.yaml,4,bridge GZ_TO_ROS,,/mira/sensors/camera/front/depth/image_raw,sensor_msgs/msg/Image,Gazebo: /sim/front_camera/depth_image
+mira_sim,src/dnt_simulator/config/bridge.yaml,4,bridge GZ_TO_ROS,,/mira/sensors/camera/front/camera_info,sensor_msgs/msg/CameraInfo,Gazebo: /sim/front_camera/camera_info
+mira_sim,src/dnt_simulator/config/bridge.yaml,4,bridge GZ_TO_ROS,,/mira/sim/ground_truth/odom,nav_msgs/msg/Odometry,Gazebo: /model/bluerov2_heavy/odometry
+mira_sim,src/dnt_simulator/config/bridge.yaml,4,bridge GZ_TO_ROS,,/mira/sim/camera/front/boxes,vision_msgs/msg/Detection2DArray,Gazebo: /sim/front_camera/boxes
+mira_sim,src/dnt_simulator/config/bridge.yaml,4,bridge GZ_TO_ROS,,/mira/sensors/imu,sensor_msgs/msg/Imu,Gazebo: /world/pool_world/model/bluerov2_heavy/link/base_link/sensor/imu_sensor/imu
+mira_sim,src/dnt_simulator/config/bridge.yaml,4,bridge GZ_TO_ROS,,/mira/sensors/camera/bottom/image_raw,sensor_msgs/msg/Image,Gazebo: /sim/bottom_camera/image
+mira_sim,src/dnt_simulator/config/bridge.yaml,4,bridge GZ_TO_ROS,,/mira/sensors/camera/bottom/camera_info,sensor_msgs/msg/CameraInfo,Gazebo: /sim/bottom_camera/camera_info
+mira_sim,src/dnt_simulator/config/bridge.yaml,14,configured topic reference,gz_topic_name,/sim/front_camera/image,,application
+mira_sim,src/dnt_simulator/config/bridge.yaml,22,configured topic reference,gz_topic_name,/sim/front_camera/depth_image,,application
+mira_sim,src/dnt_simulator/config/bridge.yaml,30,configured topic reference,gz_topic_name,/sim/front_camera/camera_info,,application
+mira_sim,src/dnt_simulator/config/bridge.yaml,38,configured topic reference,gz_topic_name,/model/bluerov2_heavy/odometry,,application
+mira_sim,src/dnt_simulator/config/bridge.yaml,46,configured topic reference,gz_topic_name,/sim/front_camera/boxes,,application
+mira_sim,src/dnt_simulator/config/bridge.yaml,56,configured topic reference,gz_topic_name,/world/pool_world/model/bluerov2_heavy/link/base_link/sensor/imu_sensor/imu,,application
+mira_sim,src/dnt_simulator/config/bridge.yaml,66,configured topic reference,gz_topic_name,/sim/bottom_camera/image,,application
+mira_sim,src/dnt_simulator/config/bridge.yaml,74,configured topic reference,gz_topic_name,/sim/bottom_camera/camera_info,,application
 mira_sim,src/dnt_simulator/config/competition_bridge.yaml,1,bridge GZ_TO_ROS,,/front_camera/left/image_raw,sensor_msgs/msg/Image,Gazebo: /front_camera/left/image_raw
 mira_sim,src/dnt_simulator/config/competition_bridge.yaml,1,bridge GZ_TO_ROS,,/front_camera/right/image_raw,sensor_msgs/msg/Image,Gazebo: /front_camera/right/image_raw
 mira_sim,src/dnt_simulator/config/competition_bridge.yaml,1,bridge GZ_TO_ROS,,/sim/front_camera/points,sensor_msgs/msg/PointCloud2,Gazebo: /sim/front_camera/points
-mira_sim,src/dnt_simulator/config/competition_bridge.yaml,1,bridge GZ_TO_ROS,,/bottom_camera,sensor_msgs/msg/Image,Gazebo: /bottom_camera
+mira_sim,src/dnt_simulator/config/competition_bridge.yaml,1,bridge GZ_TO_ROS,,/bottom_camera,sensor_msgs/msg/Image,Gazebo: /sim/bottom_camera/image
 mira_sim,src/dnt_simulator/config/sauvc_bridge.yaml,1,bridge GZ_TO_ROS,,/side_cam,sensor_msgs/msg/Image,Gazebo: /side_cam
 mira_sim,src/dnt_simulator/launch/competition_bridge.launch.py,29,bridge CLI specification,,/cmd_vel@geometry_msgs/msg/Twist]gz.msgs.Twist,,application
 mira_sim,src/dnt_simulator/launch/competition_bridge.launch.py,30,bridge CLI specification,,/world/pool_world/create@ros_gz_interfaces/srv/SpawnEntity,,application

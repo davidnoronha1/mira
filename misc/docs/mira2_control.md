@@ -5,7 +5,7 @@ This package contains the joystick teleoperation node.
 ## Teleoperation
 
 `joystick_exe` consumes `/joy` and publishes normalized commands to
-`/mira/command`.
+`/mira/control/command`.
 
 ```bash
 ros2 launch mira2_control teleop.launch

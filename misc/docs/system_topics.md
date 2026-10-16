@@ -6,6 +6,24 @@ Names below use the supplied launch defaults as of 2026-10-16. Configurable name
 
 [Endpoint source inventory](topic_endpoints.csv) contains 276 records covering publisher/subscriber/service calls, message-filter subscriptions, bridge specifications, topic configuration and Gazebo model declarations in both repositories. [Node source inventory](node_inventory.csv) contains 72 class, constructor and launch records, including alternate launch sites, helpers and examples; these are not counts of unique running nodes. Expressions in these CSVs remain expressions where the name depends on configuration. Vendored Gazebo examples are marked separately.
 
+## Naming schema
+
+Every Mira-owned topic and service is `/mira/<domain>/<subject>[/<name>]` in lower_snake_case. The names are defined once in [`utils/topics.py`](../../src/dependencies/utils/utils/topics.py) and [`utils/topics.hpp`](../../src/dependencies/utils/include/utils/topics.hpp); nodes use those constants rather than string literals.
+
+| Domain | Contents | Producer |
+| --- | --- | --- |
+| `sensors` | Raw camera and IMU streams | Hardware drivers, or the simulator bridge under the same names |
+| `perception` | Per-camera worker outputs, `/mira/perception/<camera>/...` | `mira2_vision` workers |
+| `odometry` | Visual odometry, flow velocity and floor heading for the autopilot EKF | Vision odometry and optical flow |
+| `state` | Telemetry, EKF pose, attitude, depth, IMU and path | Hardware plugins (MAVLink) |
+| `guidance` | GUIDED goals, the active goal and hold | Actions → hardware guided plugin |
+| `control` | Normalized effort commands, arm/mode and controller services | Joystick and task controllers → hardware RC plugin |
+| `safety` | Emergency stop | Hardware controller |
+| `sim` | Ground truth, Gazebo boxes and direct-thruster interfaces; never present on the vehicle | `mira_sim` |
+| `replay` | Offline estimators run by diagnostic tools | `mira_sim/misc/tools` |
+
+ROS-standard interfaces (`/clock`, `/tf`, `/tf_static`, `/diagnostics`, `/joy`) and the competition bridge contract topics keep their conventional names. `make check-topics` scans both repositories for names outside the schema and checks the Python and C++ registries agree. Gazebo transport names (`/sim/...`, `/model/...`, `/world/...`) are internal to the simulator and only reach ROS through the bridge.
+
 ## Guided data flow
 
 ```mermaid
@@ -52,19 +70,19 @@ flowchart LR
 
 ## Simulator sensor bridge
 
-All entries in the main [bridge configuration](../../../mira_sim/src/dnt_simulator/config/bridge.yaml) flow from Gazebo to ROS. Image and sensor bridges are lazy; `/clock` is not.
+All entries in the main [bridge configuration](../../../mira_sim/src/dnt_simulator/config/bridge.yaml) flow from Gazebo to ROS. Sensor streams use the same `/mira/sensors/...` names as the hardware drivers, so perception and odometry need no simulator remapping. Image and sensor bridges are lazy; `/clock` is not.
 
 | ROS topic | ROS message type | Gazebo source | Consumers |
 | --- | --- | --- | --- |
 | `/clock` | `rosgraph_msgs/Clock` | `/clock` | Nodes with `use_sim_time` |
-| `/vision/image` | `sensor_msgs/Image` | `/sim/front_camera/image` | Front perception, selected odometry, recording/probe tools |
-| `/vision/depth` | `sensor_msgs/Image` | `/sim/front_camera/depth_image` | Front perception, selected odometry, recording/probe tools |
-| `/vision/camera_info` | `sensor_msgs/CameraInfo` | `/sim/front_camera/camera_info` | Front perception, selected odometry, recording/probe tools |
-| `/vision/boxes` | `vision_msgs/Detection2DArray` | `/sim/front_camera/boxes` | `gazebo_boxes` detector plugin |
-| `/vision/gt_odom` | `nav_msgs/Odometry` | `/model/bluerov2_heavy/odometry` | Hardware navigation in simulation; external navigation in GT mode; diagnostic tools |
-| `/vision/imu` | `sensor_msgs/Imu` | `/world/pool_world/model/bluerov2_heavy/link/base_link/sensor/imu_sensor/imu` | cuVSLAM when IMU fusion is enabled; tools |
-| `/vision/bottom/image` | `sensor_msgs/Image` | `/bottom_camera` | Bottom optical-flow worker; tools |
-| `/vision/bottom/camera_info` | `sensor_msgs/CameraInfo` | `/camera_info` | Bottom optical-flow worker; tools |
+| `/mira/sensors/camera/front/image_raw` | `sensor_msgs/Image` | `/sim/front_camera/image` | Front perception, selected odometry, recording/probe tools |
+| `/mira/sensors/camera/front/depth/image_raw` | `sensor_msgs/Image` | `/sim/front_camera/depth_image` | Front perception, selected odometry, recording/probe tools |
+| `/mira/sensors/camera/front/camera_info` | `sensor_msgs/CameraInfo` | `/sim/front_camera/camera_info` | Front perception, selected odometry, recording/probe tools |
+| `/mira/sim/camera/front/boxes` | `vision_msgs/Detection2DArray` | `/sim/front_camera/boxes` | `gazebo_boxes` detector plugin |
+| `/mira/sim/ground_truth/odom` | `nav_msgs/Odometry` | `/model/bluerov2_heavy/odometry` | Hardware navigation in simulation; external navigation in GT mode; diagnostic tools |
+| `/mira/sensors/imu` | `sensor_msgs/Imu` | `/world/pool_world/model/bluerov2_heavy/link/base_link/sensor/imu_sensor/imu` | cuVSLAM when IMU fusion is enabled; tools |
+| `/mira/sensors/camera/bottom/image_raw` | `sensor_msgs/Image` | `/sim/bottom_camera/image` | Bottom optical-flow worker; tools |
+| `/mira/sensors/camera/bottom/camera_info` | `sensor_msgs/CameraInfo` | `/sim/bottom_camera/camera_info` | Bottom optical-flow worker; tools |
 
 ## Hardware camera topics
 
@@ -83,29 +101,29 @@ Perception can publish the configured raw-image topic itself when its input is a
 
 ## Hardware control and navigation topics
 
-These interfaces belong to [hardware plugins](../../src/mira2_hardware/mira2_hardware/plugins), even when their names start with `/vision`.
+These interfaces belong to [hardware plugins](../../src/mira2_hardware/mira2_hardware/plugins) and the vision estimators that feed them.
 
 | Topic | Type | Publisher → subscriber |
 | --- | --- | --- |
-| `/mira/command` | `custom_msgs/CommandsNormalized` | Joystick or task controller → hardware RC plugin |
-| `/mira/telemetry` | `custom_msgs/Telemetry` | Hardware telemetry → gate/docking/bucket/pipeline controllers |
-| `/goal_pose` | `geometry_msgs/PoseStamped` | Action nodes or external client → hardware guided plugin |
-| `/goal_pose_direct` | `geometry_msgs/PoseStamped` | Gate action or external client → hardware guided direct-line control |
-| `/vision/goal` | `geometry_msgs/PoseStamped` | Hardware guided plugin → goal visualization/tools |
-| `/vision/ekf_pose` | `geometry_msgs/PoseStamped` | Hardware navigation → action nodes and diagnostic tools |
-| `/vision/ekf_attitude` | `geometry_msgs/PoseStamped` | Hardware navigation → optical flow and diagnostic tools |
-| `/vision/pressure_depth` | `geometry_msgs/PointStamped` | Hardware navigation → optical flow |
+| `/mira/control/command` | `custom_msgs/CommandsNormalized` | Joystick or task controller → hardware RC plugin |
+| `/mira/state/telemetry` | `custom_msgs/Telemetry` | Hardware telemetry → gate/docking/bucket/pipeline controllers |
+| `/mira/guidance/goal` | `geometry_msgs/PoseStamped` | Action nodes or external client → hardware guided plugin |
+| `/mira/guidance/goal_direct` | `geometry_msgs/PoseStamped` | Gate action or external client → hardware guided direct-line control |
+| `/mira/guidance/active_goal` | `geometry_msgs/PoseStamped` | Hardware guided plugin → goal visualization/tools |
+| `/mira/state/pose` | `geometry_msgs/PoseStamped` | Hardware navigation → action nodes and diagnostic tools |
+| `/mira/state/attitude` | `geometry_msgs/PoseStamped` | Hardware navigation → optical flow and diagnostic tools |
+| `/mira/state/depth` | `geometry_msgs/PointStamped` | Hardware navigation → optical flow |
 | `/mira/state/imu` | `sensor_msgs/Imu` | Hardware navigation → optical-flow derotation |
-| `/vision/ekf_path` | `nav_msgs/Path` | Hardware navigation → visualization |
-| `/vision/gt_path` | `nav_msgs/Path` | Hardware navigation in simulation → visualization |
-| `/vision/vo_odom` | `nav_msgs/Odometry` | Selected odometry backend → hardware external-navigation plugin in SLAM mode |
-| `/vision/vo_odom/slam_pose` | `geometry_msgs/PoseStamped` | cuVSLAM with native SLAM enabled → optional observers |
-| `/vision/flow_velocity` | `geometry_msgs/TwistWithCovarianceStamped` | Optical-flow plugin → hardware external-navigation plugin |
-| `/mira/perception/bottom/floor_heading` | `geometry_msgs/PoseWithCovarianceStamped` | Optical-flow plugin with floor heading enabled → hardware external-navigation plugin in optical-flow mode |
+| `/mira/state/path` | `nav_msgs/Path` | Hardware navigation → visualization |
+| `/mira/sim/ground_truth/path` | `nav_msgs/Path` | Hardware navigation in simulation → visualization |
+| `/mira/odometry/visual` | `nav_msgs/Odometry` | Selected odometry backend → hardware external-navigation plugin in SLAM mode |
+| `/mira/odometry/visual/slam_pose` | `geometry_msgs/PoseStamped` | cuVSLAM with native SLAM enabled → optional observers |
+| `/mira/odometry/flow_velocity` | `geometry_msgs/TwistWithCovarianceStamped` | Optical-flow plugin → hardware external-navigation plugin |
+| `/mira/odometry/floor_heading` | `geometry_msgs/PoseWithCovarianceStamped` | Optical-flow plugin with floor heading enabled → hardware external-navigation plugin in optical-flow mode |
 | `/mira/perception/front/obstacles` | `sensor_msgs/LaserScan` | Vision obstacle-distance plugin → hardware obstacle-distance plugin |
 | `/joy` | `sensor_msgs/Joy` | `joy_node` → joystick controller |
 
-The external-navigation odometry, ground-truth, flow and heading inputs are configurable. `/vision/imu` is bridged simulator IMU; `/mira/state/imu` is autopilot IMU forwarded over MAVLink. They have different producers and frame conventions.
+The external-navigation odometry, ground-truth, flow and heading inputs are configurable. `/mira/sensors/imu` is bridged simulator IMU; `/mira/state/imu` is autopilot IMU forwarded over MAVLink. They have different producers and frame conventions.
 
 ## Perception plugin topics
 
@@ -131,7 +149,7 @@ Relative outputs below resolve under the worker namespace. `F` means `/mira/perc
 
 Attaching a plugin to a different worker moves its relative outputs. The supplied bucket controller subscribes to `B/target_pose` and `B/target_color`, while `bucket_front.yaml` produces them under `F` when used with the front worker. Those profiles require a matching namespace/remapping to connect.
 
-The gate task controller also subscribes to `/gate_pose` (`geometry_msgs/PoseStamped`). No matching publisher was found in the application source; the current object-driven behavior-tree path consumes `F/objects` instead.
+The gate task controller also subscribes to `/mira/perception/front/gate_pose` (`geometry_msgs/PoseStamped`). No matching publisher was found in the application source; the current object-driven behavior-tree path consumes `F/objects` instead.
 
 ## Competition and alternate simulator topics
 
@@ -142,7 +160,7 @@ These belong to [competition bridge profiles](../../../mira_sim/src/dnt_simulato
 | `/front_camera/left/image_raw` | `sensor_msgs/Image` | Gazebo → competition bridge |
 | `/front_camera/right/image_raw` | `sensor_msgs/Image` | Gazebo → competition bridge |
 | `/sim/front_camera/points` | `sensor_msgs/PointCloud2` | Gazebo → competition bridge |
-| `/bottom_camera` | `sensor_msgs/Image` | Gazebo → competition bridge |
+| `/bottom_camera` | `sensor_msgs/Image` | Gazebo `/sim/bottom_camera/image` → competition bridge |
 | `/side_cam` | `sensor_msgs/Image` | Gazebo → SAUVC bridge/teleop recorder |
 | `/realsense/image` | `sensor_msgs/Image` | Gazebo → SAUVC25 bridge/teleop recorder |
 | `/realsense/depth_image` | `sensor_msgs/Image` | Gazebo → SAUVC25 bridge |
@@ -150,12 +168,12 @@ These belong to [competition bridge profiles](../../../mira_sim/src/dnt_simulato
 | `/realsense/camera_info` | `sensor_msgs/CameraInfo` | Gazebo → SAUVC25 bridge |
 | `/bottom_cam` | `sensor_msgs/Image` | Gazebo → SAUVC25 bridge/teleop recorder |
 | `/cmd_vel` | `geometry_msgs/Twist` | SAUVC keyboard → command bridge → Gazebo velocity controller |
-| `/motion_command` | `std_msgs/Float64MultiArray` | Mission script → motion controller |
-| `/bluerov2/thrusters` | `std_msgs/Float64MultiArray` | Motion controller or depth/yaw controller → external/alternate thruster integration |
-| `/bluerov2/odometry` | `nav_msgs/Odometry` | Input expected by depth/yaw controller |
-| `/bluerov2/left/image_color` | `sensor_msgs/Image` | Input expected by depth/yaw controller |
+| `/mira/sim/motion_command` | `std_msgs/Float64MultiArray` | Mission script → motion controller |
+| `/mira/sim/thrusters` | `std_msgs/Float64MultiArray` | Motion controller or depth/yaw controller → external/alternate thruster integration |
+| `/mira/sim/ground_truth/odom` | `nav_msgs/Odometry` | Input expected by depth/yaw controller |
+| `/mira/sensors/camera/front/image_raw` | `sensor_msgs/Image` | Input expected by depth/yaw controller |
 
-The current guided bridge does not provide the three `/bluerov2/*` interfaces above. These scripts are not the guided SITL control path.
+The BlueROV control scripts now read the guided bridge's ground truth and front camera; nothing in the guided stack consumes `/mira/sim/thrusters`. These scripts are not the guided SITL control path.
 
 ## Gazebo transport topics
 
@@ -168,7 +186,7 @@ Gazebo transport is separate from ROS. Bridge tables above identify which sensor
 | `/sim/front_camera/image`, `/sim/front_camera/depth_image`, `/sim/front_camera/camera_info`, `/sim/front_camera/points` | RGB-D sensor streams |
 | `/sim/front_camera/boxes` | Annotated camera boxes |
 | `/front_camera/left/image_raw`, `/front_camera/right/image_raw` | Stereo image sensors |
-| `/bottom_camera`, `/camera_info` | Downward camera image and calibration |
+| `/sim/bottom_camera/image`, `/sim/bottom_camera/camera_info` | Downward camera image and calibration |
 | `/world/pool_world/model/bluerov2_heavy/link/base_link/sensor/imu_sensor/imu` | IMU sensor → ArduPilot plugin and ROS bridge |
 | `/clock` | Simulation clock |
 | `thruster_{0..7}/set_output_force_N` | Alternate demo-AUV model thruster command names |
@@ -182,11 +200,11 @@ Diagnostic tools mostly subscribe to the guided topics already listed. `record_g
 
 | Topic | Type | Purpose |
 | --- | --- | --- |
-| `/demo/third_person` | `sensor_msgs/Image` | Spawned observer camera → temporary bridge → recorder |
-| `/demo/cuvslam` | `nav_msgs/Odometry` | Replay estimator → recorder |
-| `/demo/cuvslam/slam_pose` | `geometry_msgs/PoseStamped` | Replay estimator native SLAM output when enabled |
-| `/demo/cuvslam_rgbd` | `nav_msgs/Odometry` | Optional RGB-D-only comparison estimator → recorder |
-| `/demo/replay_imu` | `sensor_msgs/Imu` | Estimator subscription name during replay; tool registers recorded IMU directly rather than publishing a ROS stream |
+| `/mira/sim/demo/third_person` | `sensor_msgs/Image` | Spawned observer camera → temporary bridge → recorder |
+| `/mira/replay/cuvslam` | `nav_msgs/Odometry` | Replay estimator → recorder |
+| `/mira/replay/cuvslam/slam_pose` | `geometry_msgs/PoseStamped` | Replay estimator native SLAM output when enabled |
+| `/mira/replay/cuvslam_rgbd` | `nav_msgs/Odometry` | Optional RGB-D-only comparison estimator → recorder |
+| `/mira/replay/imu` | `sensor_msgs/Imu` | Estimator subscription name during replay; tool registers recorded IMU directly rather than publishing a ROS stream |
 
 The actions test tool can publish synthetic objects and EKF poses on the normal stack names. Its endpoints are marked as test/example in the source CSV.
 
@@ -196,9 +214,9 @@ Services are listed separately because they are not topics.
 
 | Service | Type | Server and client |
 | --- | --- | --- |
-| `/mira/arm` | `std_srvs/SetBool` | Hardware RC plugin; operator client |
-| `/mira/change_mode` | `custom_msgs/ChangeMode` | Hardware RC plugin; operator client |
-| `/mira/emergency_stop` | `std_srvs/SetBool` | Hardware controller; killswitch client |
+| `/mira/control/arm` | `std_srvs/SetBool` | Hardware RC plugin; operator client |
+| `/mira/control/change_mode` | `custom_msgs/ChangeMode` | Hardware RC plugin; operator client |
+| `/mira/safety/emergency_stop` | `std_srvs/SetBool` | Hardware controller; killswitch client |
 | `/mira/guidance/hold` | `std_srvs/Trigger` | Hardware guided plugin; action nodes |
 | `/mira/control/pipeline/enable` | `std_srvs/SetBool` | Pipeline controller |
 | `/world/pool_world/create` | `ros_gz_interfaces/SpawnEntity` | Gazebo bridge; entity-spawner client |

@@ -7,43 +7,47 @@ Autonomous navigation nodes for the Mira2 AUV. Provides task-specific navigation
 ```mermaid
 graph TD
     subgraph Perception
-        DET["/detectnet/detections<br/>(vision_msgs/Detection2DArray)"]
-        GP["gate_pose<br/>(geometry_msgs/PoseStamped)"]
-        DP["dock_pose<br/>(geometry_msgs/PoseStamped)"]
-        EP["ellipsoid_pose<br/>(geometry_msgs/PoseStamped)"]
-        BKT["bucket_clr<br/>(std_msgs/String)"]
+        OBJ["/mira/perception/front/objects<br/>(vision_msgs/Detection2DArray)"]
+        GP["/mira/perception/front/gate_pose<br/>(geometry_msgs/PoseStamped)"]
+        DP["/mira/perception/bottom/dock_pose<br/>(geometry_msgs/PoseStamped)"]
+        TP["/mira/perception/bottom/target_pose<br/>(geometry_msgs/PoseStamped)"]
+        TC["/mira/perception/bottom/target_color<br/>(std_msgs/String)"]
+        PO["/mira/perception/bottom/pipeline/{offset,angle}"]
     end
 
     subgraph Vehicle State
-        TEL["/master/telemetry<br/>(custom_msgs/Telemetry)"]
-        HDG["/master/heading<br/>(std_msgs/Float32)"]
+        TEL["/mira/state/telemetry<br/>(custom_msgs/Telemetry)"]
     end
 
     subgraph mira2_path_planning
         GN["gate_navigator_exe<br/>(C++)"]
-        DC["dock_controller<br/>(dock_controller.py)"]
-        P2["phase2<br/>(phase2.py — bucket task)"]
+        DC["phase2_dock_controls.py"]
+        P2["phase2.py (bucket task)"]
+        PC["pipeline_controls.py"]
     end
 
     subgraph Output
-        CMD["/master/commands<br/>(custom_msgs/Commands)"]
+        CMD["/mira/control/command<br/>(custom_msgs/CommandsNormalized)"]
     end
 
-    DET --> GN
+    OBJ --> GN
     GP  --> GN
     TEL --> GN
-    HDG --> GN
 
     DP  --> DC
     TEL --> DC
 
-    EP  --> P2
+    TP  --> P2
+    TC  --> P2
     TEL --> P2
-    BKT --> P2
+
+    PO  --> PC
+    TEL --> PC
 
     GN --> CMD
     DC --> CMD
     P2 --> CMD
+    PC --> CMD
 ```
 
 ## Nodes
@@ -90,17 +94,20 @@ Vision-based bucket approach for Phase 2 of the competition task. Aligns with a 
 
 ## Topics
 
+Names come from `utils.topics` / `utils/topics.hpp` (see `misc/docs/system_topics.md`).
+
 | Topic | Type | Direction | Node |
 |---|---|---|---|
-| `/master/telemetry` | `custom_msgs/Telemetry` | Subscribed | all |
-| `/master/heading` | `std_msgs/Float32` | Subscribed | gate_navigator |
-| `detectnet/detections` | `vision_msgs/Detection2DArray` | Subscribed | gate_navigator |
-| `gate_pose` | `geometry_msgs/PoseStamped` | Subscribed | gate_navigator |
-| `dock_pose` | `geometry_msgs/PoseStamped` | Subscribed | dock_controller |
-| `ellipsoid_pose` | `geometry_msgs/PoseStamped` | Subscribed | phase2 |
-| `bucket_clr` | `std_msgs/String` | Subscribed | phase2 |
-| `/master/commands` | `custom_msgs/Commands` | Published | all |
-| `<name>_pid_error/output` | `std_msgs/Float32` | Published | all (debug) |
+| `/mira/state/telemetry` | `custom_msgs/Telemetry` | Subscribed | all |
+| `/mira/perception/front/objects` | `vision_msgs/Detection2DArray` | Subscribed | gate_navigator |
+| `/mira/perception/front/gate_pose` | `geometry_msgs/PoseStamped` | Subscribed | gate_navigator (no publisher yet) |
+| `/mira/perception/bottom/dock_pose` | `geometry_msgs/PoseStamped` | Subscribed | phase2_dock_controls |
+| `/mira/perception/bottom/target_pose` | `geometry_msgs/PoseStamped` | Subscribed | phase2 |
+| `/mira/perception/bottom/target_color` | `std_msgs/String` | Subscribed | phase2 |
+| `/mira/perception/bottom/pipeline/offset` | `geometry_msgs/Point` | Subscribed | pipeline_controls |
+| `/mira/perception/bottom/pipeline/angle` | `std_msgs/Float32` | Subscribed | pipeline_controls |
+| `/mira/control/command` | `custom_msgs/CommandsNormalized` | Published | all |
+| `/mira/control/pipeline/enable` | `std_srvs/SetBool` | Service | pipeline_controls |
 
 ## Usage
 

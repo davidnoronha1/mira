@@ -47,12 +47,15 @@ watchdog failures. A vehicle found armed on connection is disarmed. Cached stale
 pressure/battery fields and heading are NaN. Internal pressure is taken
 from `SCALED_PRESSURE`.
 
-## Interfaces (launch namespace `/mira`)
+## Interfaces
+
+Names are absolute and come from `utils.topics`; the full schema is in
+`system_topics.md`.
 
 | Topic | Type | Direction |
 |---|---|---|
-| `command` | `CommandsNormalized` | Command input |
-| `telemetry` | `Telemetry` | Pixhawk telemetry, including IMU and heading |
+| `/mira/control/command` | `CommandsNormalized` | Command input (`rc`) |
+| `/mira/state/telemetry` | `Telemetry` | Pixhawk telemetry, including IMU and heading (`telemetry`) |
 
 Telemetry uses Pixhawk's native conventions: IMU and magnetic-field vectors use
 the `base_link_frd` body frame (forward-right-down), while attitude and heading
@@ -62,9 +65,9 @@ Normalized commands contain six body-FLU efforts and require a fresh stamp and
 `base_link` frame. The vehicle boundary encodes these into a single eight-channel
 PWM override.
 
-The `emergency_stop` (`SetBool`) service engages or clears the emergency stop.
-The `arm` (`SetBool`) service requests arm (`true`) or disarm (`false`).
-The `change_mode` (`custom_msgs/srv/ChangeMode`) service changes the flight mode
+The `/mira/safety/emergency_stop` (`SetBool`) service engages or clears the emergency stop.
+The `/mira/control/arm` (`SetBool`) service requests arm (`true`) or disarm (`false`).
+The `/mira/control/change_mode` (`custom_msgs/srv/ChangeMode`) service changes the flight mode
 only while disarmed and the emergency state is clear.
 
 ## Controller plugins
@@ -130,12 +133,12 @@ Gazebo marker commands and ground-truth subscriptions/publications. ROS EKF
 path visualization remains available with `visualize:=true`. Direct invocation uses ROS parameters: set `pixhawk_address`,
 `plugins`, and (for SITL) `simulation` and `use_sim_time` explicitly.
 
-`/goal_pose` is a metric PoseStamped, transformed at its acquisition stamp into
+`/mira/guidance/goal` is a metric PoseStamped, transformed at its acquisition stamp into
 ENU `odom`, then converted to MAVLink NED/FRD. Height is literal, including
 z=0 (surface). Targets are sent three times to avoid restarting the autopilot's
 avoidance path continuously; final heading follows arrival. The bridge publishes
-`/vision/ekf_pose` and `odom -> base_link` TF. It exposes `/mira/guidance/hold`
-(Trigger) and `/mira/emergency_stop` (SetBool). A hold never arms a disarmed
+`/mira/state/pose` and `odom -> base_link` TF. It exposes `/mira/guidance/hold`
+(Trigger) and `/mira/safety/emergency_stop` (SetBool). A hold never arms a disarmed
 vehicle. Feedback loss clears goals and requests disarming.
 
 All tasks use the autopilot's shared GUIDED controllers. Configure firmware

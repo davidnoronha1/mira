@@ -25,7 +25,7 @@ Updated: 2026-10-15. GPU simulator image and Docker repair are complete; end-to-
 
 - mira2_actions has one config/demo.xml: SelectObject -> NavigateToPose.
 - SelectObject selects a fresh, localized Detection2D matching target_class from mira/perception/front/objects. Default class is dock. User asked what this helper was; it was explained but remains present.
-- NavigateToPose accepts the actual Detection2D, transforms its depth-derived pose into odom, applies stand-off and sends /goal_pose. It monitors /vision/ekf_pose and requests /mira/guidance/hold on cancellation/failure. Old task XMLs and custom motion code were removed.
+- NavigateToPose accepts the actual Detection2D, transforms its depth-derived pose into odom, applies stand-off and sends /mira/guidance/goal. It monitors /mira/state/pose and requests /mira/guidance/hold on cancellation/failure. Old task XMLs and custom motion code were removed.
 - mira2_vision owns registered depth decoding/matching and plugin depth events. depth_targets enriches YOLO detections with metric poses; vision_bridge feeds RTAB-Map and MAVLink; obstacle_distance independently consumes depth.
 - Hardware goal bridge remains in mira2_hardware. Simulation flags gate ground truth, spawn offsets, auto-arm and other simulator behavior. Hardware MAVLink transports require explicit configuration.
 - Shared navigation math is in src/dependencies/utils/utils/navigation.py.
