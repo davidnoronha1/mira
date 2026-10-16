@@ -20,6 +20,8 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
     gstreamer1.0-plugins-base-apps \
     libgstreamer-plugins-good1.0-dev \
     ros-jazzy-rmw-cyclonedds-cpp \
+    ros-jazzy-rtabmap-odom \
+    ffmpeg \
     ros-jazzy-rmw-zenoh-cpp \
     vim
 
@@ -42,6 +44,10 @@ COPY . /workspace
 # Installs uv dependencies
 # Installs a few build dependencies
 RUN /bin/bash -c "source /opt/ros/jazzy/setup.bash && make install-deps"
+
+# Optional native NVIDIA wheel. Supply an official URL matching Python/CUDA/arch.
+ARG CUVSLAM_WHEEL_URL=""
+RUN if [ -n "$CUVSLAM_WHEEL_URL" ]; then uv pip install --python /workspace/.venv/bin/python "$CUVSLAM_WHEEL_URL"; fi
 
 # Clean previous build artifacts
 RUN rm -rf ./build ./log ./install /var/lib/apt/lists/*

@@ -56,11 +56,15 @@ def main():
     runtime = ros_parameters(master_config / 'master.yaml')
     if calibration.keys() & runtime.keys():
         raise ValueError('Runtime and command calibration parameters overlap')
-    for name in ('command_timeout', 'heartbeat_timeout', 'telemetry_timeout',
-                 'guidance_timeout', 'control_rate', 'telemetry_rate', 'imu_rate',
-                 'message_rate', 'heartbeat_rate', 'receive_timeout'):
-        if not math.isfinite(runtime[name]) or runtime[name] <= 0:
-            raise ValueError(f'{name}: must be finite and positive')
+    if type(runtime['baudrate']) is not int or runtime['baudrate'] <= 0:
+        raise ValueError('baudrate must be a positive integer')
+    if not isinstance(runtime['initial_mode'], str) or not runtime['initial_mode'].strip():
+        raise ValueError('initial_mode must be a nonempty string')
+    plugins = runtime['plugins']
+    if not isinstance(plugins, list) or not all(isinstance(name, str) and name for name in plugins):
+        raise ValueError('plugins must be a list of nonempty strings')
+    if len(plugins) != len(set(plugins)):
+        raise ValueError('Duplicate controller plugins')
     for path in (ROOT / 'src/mira2_actions/config').glob('*.xml'):
         for element in ET.parse(path).iter():
             for key, value in element.attrib.items():

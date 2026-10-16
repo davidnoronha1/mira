@@ -90,7 +90,7 @@ graph LR
     ARUCO --> MARKERS[Marker / board consumers]
 ```
 
-See [mira2_vision](../mira2_vision/README.md) for plugin selection
+See [mira2_vision](mira2_vision.md) for plugin selection
 and extension examples. Consumers in that process share frame/result references;
 ROS publication to other processes still requires serialization.
 

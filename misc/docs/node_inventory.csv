@@ -1,0 +1,73 @@
+repository,source,line,kind,name_or_class,package_executable,notes
+mira,src/dependencies/camera_driver/launch/pipeline.launch.py,11,launch Node,,camera_driver:camera_driver_ros2_node,application; namespace=/
+mira,src/dependencies/camera_driver/launch/test_video_file.launch.py,12,launch Node,camera_driver,camera_driver:camera_driver_exe,test/example; namespace=/
+mira,src/dependencies/camera_driver/src/ros2_node.cpp,18,C++ node name,camera_driver,,application
+mira,src/dependencies/camera_driver/test/ros2_smoke.py,25,create_node,camera_driver_smoke,:,test/example; namespace=/
+mira,src/mira2_actions/launch/gate.launch.py,18,launch Node,,mira2_actions:mira2_actions_exe,application; namespace=/
+mira,src/mira2_actions/launch/mira2_actions_launch.py,19,launch Node,,mira2_actions:mira2_actions_exe,application; namespace=/
+mira,src/mira2_actions/src/main.cpp,21,C++ node name,mira2_actions,,application
+mira,src/mira2_control/launch/teleop.launch,6,XML launch node,joy_node,joy:joy_node,application; namespace=/
+mira,src/mira2_control/launch/teleop.launch,11,XML launch node,joystick_control_node,mira2_control:joystick_exe,application; namespace=/
+mira,src/mira2_control/src/joystick_main.cpp,35,C++ node name,joystick_controller,,application
+mira,src/mira2_hardware/launch/async_master.launch,4,XML launch node,pixhawk_controller,mira2_hardware:pixhawk_controller,application; namespace=mira
+mira,src/mira2_hardware/launch/guided.launch.py,31,launch Node,,mira2_hardware:pixhawk_controller,application; namespace=mira
+mira,src/mira2_hardware/launch/killswitch.launch,3,XML launch node,pymavlink_killswitch,mira2_hardware:killswitch,application; namespace=/
+mira,src/mira2_hardware/launch/pixhawk_controller.launch.py,13,launch Node,,mira2_hardware:pixhawk_controller,application; namespace=mira
+mira,src/mira2_hardware/mira2_hardware/killswitch.py,12,node class,KillSwitchPublisher,,application
+mira,src/mira2_hardware/mira2_hardware/killswitch.py,18,constructor name,kill_switch_pub_node,KillSwitchPublisher.__init__,application
+mira,src/mira2_hardware/mira2_hardware/pixhawk_controller.py,21,node class,PixhawkController,,application
+mira,src/mira2_hardware/mira2_hardware/pixhawk_controller.py,26,constructor name,pixhawk_controller,PixhawkController.__init__,application
+mira,src/mira2_path_planning/launch/mission.launch.py,16,launch Node,,mira2_path_planning:executables[mission],application; namespace=/
+mira,src/mira2_path_planning/launch/qualification.launch,2,XML launch node,gate_balls,mira2_path_planning:gate_navigator_exe,application; namespace=/
+mira,src/mira2_path_planning/src/bucket/phase2.py,42,node class,BucketControls,,application
+mira,src/mira2_path_planning/src/bucket/phase2.py,45,constructor name,bucket_control2,BucketControls.__init__,application
+mira,src/mira2_path_planning/src/docking/phase2_dock_controls.py,39,node class,Phase2Controller,,application
+mira,src/mira2_path_planning/src/docking/phase2_dock_controls.py,41,constructor name,phase2_controls,Phase2Controller.__init__,application
+mira,src/mira2_path_planning/src/gate/gate_navigator.cpp,164,C++ node name,gate_navigator,,application
+mira,src/mira2_path_planning/src/pipeline/pipeline_controls.py,16,node class,PipelineControlsNode,,application
+mira,src/mira2_path_planning/src/pipeline/pipeline_controls.py,18,constructor name,pipeline_controls,PipelineControlsNode.__init__,application
+mira,src/mira2_perception/launch/camera_auto.launch,4,XML launch node,camera_auto,camera_driver:camera_driver_exe,application; namespace=/
+mira,src/mira2_perception/launch/camera_bottom.launch.py,13,launch Node,camera_bottom_driver,camera_driver:camera_driver_exe,application; namespace=/
+mira,src/mira2_perception/launch/camera_front.launch.py,13,launch Node,camera_front_driver,camera_driver:camera_driver_exe,application; namespace=/
+mira,src/mira2_perception/launch/camera_imx335.launch,16,XML launch node,$(var camera_name)_driver,camera_driver:camera_driver_exe,application; namespace=/
+mira,src/mira2_perception/launch/camera_zed.launch,17,XML launch node,camera_front_driver,camera_driver:camera_driver_exe,application; namespace=/
+mira,src/mira2_perception/scripts/zed_3d_bbox.py,197,create_node,valve_3d_bbox_node,:,application; namespace=/
+mira,src/mira2_vision/launch/detection.launch.py,19,launch Node,perception,mira2_vision:mira2_vision,application; namespace='mira/perception/' + LaunchConfiguration('camera').perform(context)
+mira,src/mira2_vision/launch/docking_bb.launch.py,58,launch Node,mira2_vision_node,mira2_vision:mira2_vision,application; namespace=mira/perception/front
+mira,src/mira2_vision/launch/docking_bb_test.launch.py,52,launch Node,mira2_vision_node,mira2_vision:mira2_vision,test/example; namespace=mira/perception/front
+mira,src/mira2_vision/launch/navigation.launch.py,31,launch Node,perception,mira2_vision:mira2_vision,application; namespace=value('namespace')
+mira,src/mira2_vision/launch/navigation.launch.py,45,launch Node,optical_flow,mira2_vision:mira2_vision,application; namespace=mira/perception/bottom_flow
+mira,src/mira2_vision/launch/navigation.launch.py,62,launch Node,cuvslam_odometry,mira2_vision:cuvslam_odometry,application; namespace=mira/visual_slam
+mira,src/mira2_vision/launch/navigation.launch.py,74,launch Node,,rtabmap_odom:rgbd_odometry,application; namespace=/
+mira,src/mira2_vision/mira2_vision/cuvslam_node.py,16,constructor name,cuvslam_odometry,CuVslamNode.__init__,application
+mira,src/mira2_vision/mira2_vision/node.py,26,node class,MiraVisionNode,,application
+mira,src/mira2_vision/mira2_vision/node.py,28,constructor name,perception,MiraVisionNode.__init__,application
+mira,src/mira2_vision/mira2_vision/rgbd_inputs.py,12,node class,RGBDInputs,,application
+mira_sim,misc/tools/diagnose_gate.py,25,create_node,gate_telemetry,:,application; namespace=/
+mira_sim,misc/tools/ekf_settle.py,16,create_node,ekf_settle,:,application; namespace=/
+mira_sim,misc/tools/grab_bottom.py,13,create_node,grab_bottom,:,application; namespace=/
+mira_sim,misc/tools/probe_cuvslam.py,22,create_node,probe_cuvslam,:,application; namespace=/
+mira_sim,misc/tools/record_gate_slam.py,207,create_node,gate_demo_recorder,:,application; namespace=/
+mira_sim,misc/tools/record_navigation.py,32,create_node,record_mira_navigation,:,application; namespace=/
+mira_sim,misc/tools/test_actions.py,40,create_node,actions_test,:,test/example; namespace=/
+mira_sim,misc/tools/wait_mira_target.py,36,create_node,wait_mira_target,:,application; namespace=/
+mira_sim,misc/tools/yaw_drift.py,16,create_node,yaw_drift,:,application; namespace=/
+mira_sim,src/bluerov2_control/bluerov2_control/depth_hold_node.py,15,node class,DepthYawVisionController,,application
+mira_sim,src/bluerov2_control/bluerov2_control/depth_hold_node.py,18,constructor name,depth_yaw_vision_controller,DepthYawVisionController.__init__,application
+mira_sim,src/bluerov2_control/bluerov2_control/mission_script.py,13,node class,MissionScript,,application
+mira_sim,src/bluerov2_control/bluerov2_control/mission_script.py,15,constructor name,mission_script,MissionScript.__init__,application
+mira_sim,src/bluerov2_control/bluerov2_control/motion_controller.py,5,node class,MotionController,,application
+mira_sim,src/bluerov2_control/bluerov2_control/motion_controller.py,7,constructor name,motion_controller,MotionController.__init__,application
+mira_sim,src/dnt_simulator/launch/bridge.launch.py,37,launch Node,"f""tf_{child.replace('/', '_')}""",tf2_ros:static_transform_publisher,application; namespace=/
+mira_sim,src/dnt_simulator/launch/bridge.launch.py,46,launch Node,sim_bridge,ros_gz_bridge:parameter_bridge,application; namespace=/
+mira_sim,src/dnt_simulator/launch/competition_bridge.launch.py,18,launch Node,competition_bridge,ros_gz_bridge:parameter_bridge,application; namespace=namespace
+mira_sim,src/dnt_simulator/launch/competition_bridge.launch.py,22,launch Node,sauvc_topics_bridge,ros_gz_bridge:parameter_bridge,application; namespace=namespace
+mira_sim,src/dnt_simulator/launch/competition_bridge.launch.py,27,launch Node,commands_bridge,ros_gz_bridge:parameter_bridge,application; namespace=namespace
+mira_sim,src/sauvc_sim/launch/sauvc25_launch.py,30,launch Node,,ros_gz_bridge:parameter_bridge,application; namespace=/
+mira_sim,src/sauvc_sim/launch/sauvc25_launch.py,47,launch Node,,sauvc_sim:entity_spawner.py,application; namespace=/
+mira_sim,src/sauvc_sim/scripts/entity_spawner.py,13,node class,EntitySpawner,,application
+mira_sim,src/sauvc_sim/scripts/entity_spawner.py,15,constructor name,entity_spawner,EntitySpawner.__init__,application
+mira_sim,src/sauvc_sim/scripts/teleop.py,13,node class,KeyboardController,,application
+mira_sim,src/sauvc_sim/scripts/teleop.py,16,constructor name,keyboard_ctrl,KeyboardController.__init__,application
+mira_sim,src/sauvc_sim/scripts/teleop25.py,40,node class,TeleopKeyboard,,application
+mira_sim,src/sauvc_sim/scripts/teleop25.py,42,constructor name,auv_teleop_keyboard,TeleopKeyboard.__init__,application

@@ -60,7 +60,7 @@ def validate_packages():
 	info(f"Found {len(package_xmls)} package(s) to validate")
 	print()
 	
-	validation_script = Path("misc/util/package-utils/validate_package.py")
+	validation_script = Path("misc/tools/validate_package.py")
 	if not validation_script.exists():
 		warn(f"Validation script not found at {validation_script}")
 		warn("Skipping detailed validation")

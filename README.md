@@ -8,6 +8,8 @@ Please refer to the repository Wiki for detailed usage instructions and document
 > [!IMPORTANT]
 > This software package is designed to run on ROS2 Jazzy which supports Ubuntu 24.04 LTS as Tier 1 and Ubuntu 22.04 as Tier 3
 
+Documentation and package guides live in [misc/docs](misc/docs).
+
 ## Packages
 - dependencies/
 	- camera_driver - libUVC based camera node (Git submodule)
@@ -52,13 +54,13 @@ There should be a popup in Vscode to install the same extensions
 ### Package Validator
 To validate that you haven't done any mistakes in a ROS package, you can run the following 
 ```
-uv run util/validator/validate_package.py ./src/<PACKAGE NAME>
+uv run misc/tools/validate_package.py ./src/<PACKAGE NAME>
 ```
 
 ## Usage
 
 Middleware profiles and the ongoing stack cleanup are documented
-in [Stack refactor foundations](misc/doc/STACK_REFACTOR.md).
+in [Stack refactor foundations](misc/docs/STACK_REFACTOR.md).
 
 > [!NOTE]
 > Make sure you aren't in a python virtual env already (conda), if you encounter python packages missing its usually because the uv venv isnt sourced or you are using conda
@@ -83,7 +85,9 @@ source /opt/ros/jazzy/setup.bash
 
 Run the integrated sibling simulator with `make sim-build` then `make sim`.
 `make sim HEADLESS=1 RUN_ACTIONS=0` starts navigation without the demo;
-`make sim-actions TARGET_CLASS=dock` runs it after a localized target is visible.
+`make sim-actions TARGET_CLASS=gate` runs it after a localized target is visible
+with the default Gazebo-box detector. Use `SIM_DETECTOR=yolo TARGET_CLASS=dock`
+to exercise the trained model instead.
 Use `make sim-check` to inspect configuration and `make sim-down` to stop it.
 See [simulator integration](../mira_sim/docs/MIRA_STACK.md).
 

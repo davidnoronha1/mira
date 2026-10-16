@@ -1,4 +1,4 @@
-.PHONY: async-master build source install-deps submodules update install-udev bs fix-vscode dashboard telemetry-viz
+.PHONY: pixhawk-controller async-master build source install-deps submodules update install-udev bs fix-vscode dashboard telemetry-viz
 
 export FORCE_COLOR=1
 export RCUTILS_COLORIZED_OUTPUT=1
@@ -114,8 +114,8 @@ camera_frontcam:
 	@$(PYTHON) mira.py camera frontcam
 
 PIXHAWK_PORT ?= /dev/Pixhawk
-async-master:
-	@$(PYTHON) mira.py async-master $(PIXHAWK_PORT)
+pixhawk-controller async-master:
+	@$(PYTHON) mira.py pixhawk-controller $(PIXHAWK_PORT)
 
 teleop:
 	@$(PYTHON) mira.py teleop
@@ -146,7 +146,7 @@ help:
 	$(info   clean         - Clean build artifacts)
 	$(info )
 	$(info ROS Launch targets:)
-	$(info   async-master  - Launch async control)
+	$(info   pixhawk-controller - Launch Pixhawk control)
 	$(info   teleop        - Launch teleoperation)
 	$(info )
 	$(info Dashboard applications:)
@@ -170,16 +170,15 @@ lint:
 	git diff --check
 	python3 -m ruff check --select E9,F63,F7,F82 misc/infra src/mira2_hardware/mira2_hardware src/dependencies/utils/utils src/mira2_vision/mira2_vision
 
-# Sibling simulator integration; builds use mira_sim/.mira-stack, not this install/.
-MIRA_SIM_ROOT ?= ../mira_sim
-.PHONY: sim-build sim sim-actions sim-down sim-check
-sim-build:
-	$(MAKE) -C "$(MIRA_SIM_ROOT)" mira-stack-build MIRA_ROOT="$(CURDIR)"
-sim:
-	$(MAKE) -C "$(MIRA_SIM_ROOT)" bringup-mira MIRA_ROOT="$(CURDIR)"
-sim-actions:
-	$(MAKE) -C "$(MIRA_SIM_ROOT)" mira-actions MIRA_ROOT="$(CURDIR)"
-sim-down:
-	$(MAKE) -C "$(MIRA_SIM_ROOT)" mira-stack-down MIRA_ROOT="$(CURDIR)"
-sim-check:
-	$(MAKE) -C "$(MIRA_SIM_ROOT)" mira-stack-check MIRA_ROOT="$(CURDIR)"
+# Connect the normal guided stack to an independently running Gazebo/SITL.
+# Run inside the original Mira container (or a configured host ROS workspace).
+# Example: make guided-sim ARGS="pose_source:=optical_flow flow_scene_config:=/path/to/optical_flow.yaml"
+# ARGS applies to both; package-specific overrides go in HARDWARE_ARGS / VISION_ARGS.
+.PHONY: guided guided-sim
+guided guided-sim:
+	@$(WS) || exit $$?; \
+	cleanup() { kill -TERM $$hardware_pid $$vision_pid 2>/dev/null || true; wait $$hardware_pid $$vision_pid 2>/dev/null || true; }; \
+	trap cleanup EXIT; trap 'exit 130' INT; trap 'exit 143' TERM; \
+	ros2 launch mira2_hardware $(if $(filter guided-sim,$@),guided_sim,guided).launch.py $(ARGS) $(HARDWARE_ARGS) & hardware_pid=$$!; \
+	ros2 launch mira2_vision $(if $(filter guided-sim,$@),guided_sim,navigation).launch.py $(ARGS) $(VISION_ARGS) & vision_pid=$$!; \
+	wait -n $$hardware_pid $$vision_pid

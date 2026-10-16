@@ -12,8 +12,8 @@ from misc.infra.middleware import resolve_middleware, profiles
 
 
 def _print_build_issues() -> None:
-	"""Print misc/doc/BUILD_ISSUES.md to the terminal with basic formatting."""
-	guide = Path(__file__).resolve().parent / "misc" / "doc" / "BUILD_ISSUES.md"
+	"""Print misc/docs/BUILD_ISSUES.md to the terminal with basic formatting."""
+	guide = Path(__file__).resolve().parents[1] / "docs" / "BUILD_ISSUES.md"
 	if not guide.exists():
 		return
 	print(f"\n{BOLD}{CYAN}{'─' * 60}{RESET}")
@@ -224,7 +224,7 @@ def target_shell():
 	import tempfile
 
 	ws         = Path(".").resolve()
-	prompt_py  = Path(__file__).resolve().parent / "prompt.py"
+	prompt_py  = Path(__file__).resolve().parents[1] / "tools" / "prompt.py"
 
 	# Write an rc file to a temp path; bash reads it on startup.
 	# We use delete=False because os.execlp() replaces this process — we can't
@@ -285,11 +285,11 @@ def target_camera(name: Optional[str] = None):
 		error(f"Unknown camera: '{name}'. Valid options: {', '.join(CAMERA_OPTIONS)}")
 
 
-@task("Launch the async master (optional device)")
+@task("Launch the Pixhawk controller (optional device)", aliases=["pixhawk-controller"])
 def target_master(pixhawk_port: str = "/dev/Pixhawk"):
 	import shlex
 	check_ros()
-	run(f"{WS_SOURCE} && ros2 launch mira2_hardware async_master.launch "
+	run(f"{WS_SOURCE} && ros2 launch mira2_hardware pixhawk_controller.launch.py "
 	    f"pixhawk_address:={shlex.quote(pixhawk_port)}")
 
 
@@ -607,9 +607,9 @@ def _render_readme(text: str, title: str) -> None:
 		_print_markdown(text[last_end:])
 
 
-@task("Show README.md for a package — TUI picker if no arg given", aliases=["h"])
+@task("Show documentation for a package — TUI picker if no arg given", aliases=["h"])
 def target_help(*args):
-	"""Display README.md for a ROS package in the terminal."""
+	"""Display documentation for a ROS package in the terminal."""
 	src_path = Path("src")
 
 	if not args:
@@ -634,9 +634,11 @@ def target_help(*args):
 		error(f"Package '{pkg_name}' not found in src/")
 		sys.exit(1)
 
-	readme = pkg_dir / "README.md"
+	readme = Path(__file__).resolve().parents[1] / "docs" / f"{pkg_name}.md"
 	if not readme.exists():
-		warn(f"No README.md in {pkg_dir}")
+		readme = pkg_dir / "README.md"
+	if not readme.exists():
+		warn(f"No documentation for {pkg_name}")
 		return
 
 	_render_readme(readme.read_text(), pkg_name)

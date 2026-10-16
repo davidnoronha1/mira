@@ -4,6 +4,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        CUVSLAM_WHEEL_URL: "${CUVSLAM_WHEEL_URL:-}"
     tty: true
     volumes:
       - .:/workspace

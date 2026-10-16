@@ -105,21 +105,22 @@ Uses ArUco marker detection for pose feedback.
 
 ### Command Arbitration
 
-One `master` selects `control_source=autonomy|teleop|tuning`. Only that source is
-accepted; changing sources requires disarming. Normalized input is stamped and
-validated. The default master uses bounded synchronous telemetry reads; async_master offers
-nonblocking receive polling with shared vehicle behavior. Both handle heartbeat loss.
-After a failsafe the source must issue a disarmed request before rearming.
-Missions publish normalized body-effort commands.
-The original /master/commands endpoint and alt_master launch name remain supported
-for the operational alt_master baseline. See the control-master README.
+One `pixhawk_controller` owns the Pixhawk connection and bounded receive loop.
+Select capabilities with its startup `plugins` parameter: `rc`, `guided`,
+`navigation`, `telemetry`, `external_navigation`, and `obstacle_distance`. `rc` and `guided` may run together: RC refuses commands and yields
+its overrides while the autopilot reports GUIDED mode. The core handles emergency stop, heartbeat loss and shutdown; plugins
+handle their command and feedback policies. See `misc/docs/mira2_hardware.md`.
+
+Vision is ROS-only. External-navigation and obstacle MAVLink forwarding belong
+to hardware controller plugins. Vision plugin parameters use `<plugin>.<setting>`.
+Native Python cuVSLAM is the GPU backend; RTAB-Map is the CPU alternative.
 
 ## Code Conventions
 
 - **C++:** clang-format enforced (`.clang-format`); clangd LSP (`.clangd`). Use `make b P=<pkg>` to catch build errors quickly.
 - **Python:** flake8 + pep257 enforced via ament_lint tests. Python 3.12 required.
 - Middleware belongs to deployment profiles, never application nodes. See
-  `config/middleware/profiles.toml` and `misc/doc/STACK_REFACTOR.md`.
+  `config/middleware/profiles.toml` and `misc/docs/STACK_REFACTOR.md`.
 - Keep configuration schemas and YAML with their owning component. Python nodes
   use `utils.parameters.declare_config` for mappings, `dataclass_config` for flat
   dataclasses, and `Setting(default, validator)` for startup constraints. C++ nodes

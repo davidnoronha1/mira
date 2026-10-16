@@ -225,9 +225,9 @@ def main():
 		target_camera(rest[0] if rest else None)
 		return
 
-	if cmd in ("async-master", "async_master"):
+	if cmd in ("pixhawk-controller", "pixhawk_controller", "async-master", "async_master"):
 		if len(rest) > 1:
-			raise SystemExit("Usage: mira.py async-master [device]")
+			raise SystemExit("Usage: mira.py pixhawk-controller [device]")
 		target_master(rest[0] if rest else "/dev/Pixhawk")
 		return
 

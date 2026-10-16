@@ -97,7 +97,7 @@ The mira2_vision package runs explicitly selected detector and consumer plugins
 in one process per camera. YOLO results feed object/depth consumers; ArUco results
 feed marker/board consumers; HSV pipeline detection is independent. Plugins share
 one decoded frame and acquisition header; only optional previews copy the frame. See
-`src/mira2_vision/README.md` for bringup and configuration.
+`misc/docs/mira2_vision.md` for bringup and configuration.
 
 The PID GUI is the only axis-tuning application and consumes that shared output.
 It covers lateral, forward, pressure/depth, and heading. ArUco is optional:
@@ -170,8 +170,8 @@ integration resumes. Simulator integration stays deferred until explicitly reque
 ## Operational master baseline
 
 The user's operational baseline is alt_master. `master` now preserves its arm/mode
-ordering, telemetry field semantics and legacy endpoints. `async_master` shares
-that behavior through master_core and changes receive scheduling to bounded polling.
+ordering, telemetry field semantics and legacy endpoints. `pixhawk_controller` now owns bounded receive polling, with RC and GUIDED
+behavior selected through controller plugins; see `misc/docs/mira2_hardware.md`.
 The synchronous implementation uses bounded waits; neither variant reproduces the
-old indefinite waits. Read `src/mira2_hardware/README.md` before comparing
+old indefinite waits. Read `misc/docs/mira2_hardware.md` before comparing
 variants; it lists retained safety changes and exact telemetry semantics.
