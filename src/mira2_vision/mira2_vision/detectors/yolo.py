@@ -24,7 +24,11 @@ class Yolo(Plugin):
         if self.device == "gpu":
             self.device = "0"
         # ArUco-only deployments do not import torch or load a YOLO model.
-        from ultralytics import YOLO
+        try:
+            from ultralytics import YOLO
+        except ImportError as error:
+            raise RuntimeError('The yolo detector needs the optional vision dependencies: '
+                               '`uv sync --extra vision`, or build the image with MIRA_EXTRAS=vision') from error
         model_path = node.resolve_file(self.config["model_name"], "models")
         if model_path.suffix in {".engine", ".trt"}:
             self.device = "0"

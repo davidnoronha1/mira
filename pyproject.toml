@@ -8,8 +8,11 @@ dependencies = [
   "catkin-pkg>=1.0.0",
   "empy<4",
   "lark-parser>=0.12.0",
-  "numpy>=2.3.2",
-  "opencv-python>=4.11.0.86",
+  # ROS Jazzy's cv_bridge (and other system extensions) is built against
+  # Ubuntu 24.04's NumPy 1.26; NumPy 2 crashes it on import. OpenCV >= 4.12
+  # requires NumPy 2, so it is held back too.
+  "numpy>=1.26,<2",
+  "opencv-python>=4.11.0.86,<4.12",
   "plotext>=5.3.2",
   "pymavlink>=2.4.49",
   "pyserial>=3.5",
@@ -17,15 +20,16 @@ dependencies = [
   "textual>=8.0.0",
   "textual-plotext>=1.0.1",
   "tk>=0.1.0",
-  "opencv-contrib-python",
+  "opencv-contrib-python<4.12",
   "mavproxy>=1.8.74",
-  "ultralytics>=8.4.38",
   "onnxruntime>=1.24.4",
   "future>=1.0.0",
 ]
 
 [project.optional-dependencies]
-vision = ["ultralytics>=8.4.33"]
+# YOLO via ultralytics pulls in PyTorch (~4 GB with CUDA); install with
+# `uv sync --extra vision` or build the image with MIRA_EXTRAS=vision.
+vision = ["ultralytics>=8.4.38"]
 
 # [tool.uv]
 # torch-backend = "auto"
