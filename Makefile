@@ -161,9 +161,13 @@ help:
 %:
 	$(PYTHON) mira.py $@ $(P) $(LAPTOP_IP) $(ARGS)
 
-.PHONY: config-check lint
+.PHONY: config-check check-topics lint
 config-check:
 	python3 misc/tools/check_config.py
+
+# Topic/service names against the schema in utils/topics.py (also scans ../mira_sim).
+check-topics:
+	python3 misc/tools/check_topics.py
 
 # Explicit developer commands; neither target executes tests.
 lint:
