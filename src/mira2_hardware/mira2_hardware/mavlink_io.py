@@ -23,8 +23,9 @@ class MavlinkIO:
             int(armed), 0, 0, 0, 0, 0, 0)
 
     def request_mode(self, custom_mode):
+        # SET_MODE has no target component: (target_system, base_mode, custom_mode).
         self.master.mav.set_mode_send(
-            self.master.target_system, self.master.target_component,
+            self.master.target_system,
             mavutil.mavlink.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED, custom_mode)
 
     def request_message_interval(self, message_id, frequency):
